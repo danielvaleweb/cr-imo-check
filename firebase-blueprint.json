@@ -1,0 +1,159 @@
+{
+  "entities": {
+    "Property": {
+      "title": "Property",
+      "description": "A real estate property listing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "title": { "type": "string" },
+        "location": { "type": "string" },
+        "price": { "type": "string" },
+        "beds": { "type": "number" },
+        "baths": { "type": "number" },
+        "parking": { "type": "number" },
+        "area": { "type": "string" },
+        "image": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "videoUrl": { "type": "string" },
+        "pdfUrl": { "type": "string" },
+        "floorPlanUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "categorySlug": { "type": "string" },
+        "code": { "type": "string" },
+        "status": { "type": "string" },
+        "description": { "type": "string" },
+        "broker": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "ownerAddress": { "type": "string" },
+        "additionalInfo": { "type": "string" },
+        "rooms": { "type": "number" },
+        "motoParking": { "type": "number" },
+        "hasGourmetBalcony": { "type": "boolean" },
+        "elevators": { "type": "number" },
+        "hasLavabo": { "type": "boolean" },
+        "hasHeatedPool": { "type": "boolean" },
+        "hasSauna": { "type": "boolean" },
+        "listingType": { "type": "string", "enum": ["venda", "aluguel"] },
+        "condoId": { "type": "number" },
+        "condoFee": { "type": "string" },
+        "iptu": { "type": "string" },
+        "insurance": { "type": "string" },
+        "customButtons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["title", "location", "price", "image", "category", "categorySlug"]
+    },
+    "Broker": {
+      "title": "Broker",
+      "description": "A real estate broker profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "photo": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "bio": { "type": "string" },
+        "creci": { "type": "string" },
+        "instagram": { "type": "string" }
+      },
+      "required": ["name", "role", "photo", "phone", "email"]
+    },
+    "Condo": {
+      "title": "Condo",
+      "description": "A condominium",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "name": { "type": "string" },
+        "bio": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "string" },
+        "portariaType": { "type": "string", "enum": ["Remota", "24h", "Não possui"] },
+        "gasSupply": { "type": "string", "enum": ["encanado", "botijão"] },
+        "leisure": { "type": "array", "items": { "type": "string" } },
+        "verticalConveniencies": { "type": "array", "items": { "type": "string" } },
+        "horizontalConveniencies": { "type": "array", "items": { "type": "string" } },
+        "image360Url": { "type": "string" },
+        "logoUrl": { "type": "string" }
+      },
+      "required": ["name", "bio"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user profile",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "email": { "type": "string", "format": "email" },
+        "favorites": { "type": "array", "items": { "type": "number" } }
+      },
+      "required": ["role", "email"]
+    },
+    "Proposal": {
+      "title": "Proposal",
+      "description": "A purchase proposal for a property",
+      "type": "object",
+      "properties": {
+        "propertyId": { "type": "string" },
+        "userId": { "type": "string" },
+        "brokerId": { "type": "string" },
+        "value": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "fgts": { "type": "boolean" },
+        "financing": { "type": "boolean" },
+        "permuta": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "userName": { "type": "string" },
+        "userPhone": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" }
+      },
+      "required": ["propertyId", "value", "userName", "userPhone", "userEmail"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Collection of all users"
+    },
+    "properties": {
+      "schema": { "$ref": "#/entities/Property" },
+      "description": "Collection of all properties"
+    },
+    "brokers": {
+      "schema": { "$ref": "#/entities/Broker" },
+      "description": "Collection of all brokers"
+    },
+    "condos": {
+      "schema": { "$ref": "#/entities/Condo" },
+      "description": "Collection of all condos"
+    },
+    "proposals": {
+      "schema": { "$ref": "#/entities/Proposal" },
+      "description": "Collection of all purchase proposals"
+    },
+    "system_config": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "initial_seed_completed": { "type": "boolean" },
+          "initial_seed_brokers_completed": { "type": "boolean" },
+          "initial_seed_condos_completed": { "type": "boolean" }
+        }
+      },
+      "description": "System configuration and flags"
+    }
+  }
+}

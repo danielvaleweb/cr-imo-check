@@ -1,0 +1,3359 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { formatPhone } from '../lib/utils';
+import { useNavigate } from 'react-router-dom';
+import { useProperties } from '../context/PropertyContext';
+import { useBrokers } from '../context/BrokerContext';
+import { useCondos } from '../context/CondoContext';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { 
+  collection, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  updateDoc, 
+  deleteDoc, 
+  doc,
+  addDoc,
+  getDocs,
+  where,
+  serverTimestamp 
+} from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+import { 
+  LayoutDashboard, 
+  TrendingUp, 
+  Users, 
+  Home, 
+  DollarSign, 
+  Calendar, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  Filter,
+  Download,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Bell,
+  Settings,
+  LogOut,
+  ChevronRight,
+  MessageSquare,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Menu,
+  X,
+  Trash2,
+  Edit,
+  ExternalLink,
+  MapPin,
+  Bed,
+  Bath,
+  Car,
+  Maximize,
+  User,
+  Phone,
+  Info,
+  Mail,
+  Save,
+  Image as ImageIcon,
+  Video,
+  Trash,
+  FileText,
+  Play,
+  Rocket,
+  Map as MapIcon,
+  Link,
+  Instagram,
+  ShieldCheck
+} from 'lucide-react';
+import { CATEGORIES } from '../constants/categories';
+import { 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
+
+// Removendo dados simulados para usar dados reais do banco
+const COLORS = ['#8FA603', '#374001', '#B8860B', '#D2B48C'];
+
+const LEISURE_OPTIONS = [
+  'Campo de futebol', 'Churrasqueira', 'Espaço Fitness', 'Espaço Gourmet', 
+  'Espaço Kid’s', 'Piscina fria', 'Piscina infantil', 'Pista de caminhada', 
+  'Playground', 'Praça temática', 'Quadra de Tênis', 'Quadra de beach tênis', 
+  'Quadra poliesportiva', 'Salão de Festas'
+];
+
+const VERTICAL_CONVENIENCES = [
+  'Fácil acesso a transporte público', 'Mercado de conveniências interno', 
+  'Perto de vias de acesso', 'Sistema de câmeras'
+];
+
+const HORIZONTAL_CONVENIENCES = [
+  'Ronda motorizada', 'Transporte interno para moradores'
+];
+
+export default function BrokerDashboard() {
+  const navigate = useNavigate();
+  const { properties, addProperty, removeProperty, updateProperty } = useProperties();
+  const { brokers, addBroker, removeBroker, updateBroker } = useBrokers();
+  const { condos, addCondo, updateCondo, removeCondo } = useCondos();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  const [proposals, setProposals] = useState<any[]>([]);
+
+  // Dynamic Dashboard Data based on real properties and proposals
+  const dashboardStats = useMemo(() => {
+    const totalProperties = properties.length;
+    
+    // Calculate total value (parsing "R$ 1.234.567" format)
+    const totalValue = properties.reduce((acc, prop) => {
+      const numericValue = parseInt(prop.price.replace(/\D/g, '')) || 0;
+      return acc + numericValue;
+    }, 0);
+
+    const formattedValue = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 1,
+      notation: 'compact'
+    }).format(totalValue);
+
+    // Group by category for the Pie Chart
+    const categoryCounts: Record<string, number> = {};
+    properties.forEach(prop => {
+      const cat = prop.category.split(', ')[0] || 'Outros';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    });
+
+    const pieData = Object.entries(categoryCounts).map(([name, count]) => ({
+      name,
+      value: Math.round((count / (totalProperties || 1)) * 100)
+    })).sort((a, b) => b.value - a.value).slice(0, 4);
+
+    // Generate sales data for the chart based on proposals
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentMonth = new Date().getMonth();
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthIdx = (currentMonth - i + 12) % 12;
+      last6Months.push(months[monthIdx]);
+    }
+
+    const chartData = last6Months.map(month => {
+      const monthProposals = proposals.filter(p => {
+        const date = p.createdAt?.toDate ? p.createdAt.toDate() : new Date(p.createdAt);
+        return months[date.getMonth()] === month;
+      });
+      return {
+        name: month,
+        leads: monthProposals.length,
+        sales: monthProposals.filter(p => p.status === 'accepted').length * 1000 // Multiplier for visual effect in chart
+      };
+    });
+
+    return {
+      totalProperties,
+      totalValue: formattedValue,
+      pieData,
+      chartData
+    };
+  }, [properties, proposals]);
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | number | null>(null);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const userDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const [customOptions, setCustomOptions] = useState<{
+    leisure: { id: string; label: string }[];
+    verticalConveniencies: { id: string; label: string }[];
+    horizontalConveniencies: { id: string; label: string }[];
+  }>({
+    leisure: [],
+    verticalConveniencies: [],
+    horizontalConveniencies: [],
+  });
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const q = query(collection(db, 'proposals'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const proposalsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setProposals(proposalsData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'proposals');
+    });
+    return () => unsubscribe();
+  }, [isLoading]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const unsubscribe = onSnapshot(collection(db, 'condo_options'), (snapshot) => {
+      const options = {
+        leisure: [] as { id: string; label: string }[],
+        verticalConveniencies: [] as { id: string; label: string }[],
+        horizontalConveniencies: [] as { id: string; label: string }[],
+      };
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const option = { id: doc.id, label: data.label };
+        if (data.type === 'leisure') options.leisure.push(option);
+        if (data.type === 'verticalConveniencies') options.verticalConveniencies.push(option);
+        if (data.type === 'horizontalConveniencies') options.horizontalConveniencies.push(option);
+      });
+      setCustomOptions(options);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'condo_options');
+    });
+    return () => unsubscribe();
+  }, [isLoading]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      if (!user) {
+        navigate('/');
+      } else {
+        // Check if admin
+        const userDocRef = doc(db, 'users', user.uid);
+        getDocs(query(collection(db, 'users'), where('__name__', '==', user.uid))).then((snapshot) => {
+          if (!snapshot.empty && snapshot.docs[0].data().role === 'admin') {
+            setIsAdmin(true);
+          } else if (user.email === 'danielvaleweb@gmail.com') {
+            setIsAdmin(true);
+          }
+          setIsLoading(false);
+        }).catch(() => {
+          // Fallback to email check if users collection read fails
+          if (user.email === 'danielvaleweb@gmail.com') {
+            setIsAdmin(true);
+          }
+          setIsLoading(false);
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
+
+  // Broker Management
+  const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
+  const [isEditingBroker, setIsEditingBroker] = useState(false);
+  const [editingBrokerId, setEditingBrokerId] = useState<string | number | null>(null);
+
+  const [newBrokerData, setNewBrokerData] = useState({
+    name: '',
+    role: '',
+    photo: '',
+    phone: '',
+    email: '',
+    bio: '',
+    creci: '',
+    instagram: ''
+  });
+
+  const handleEditBroker = (broker: any) => {
+    setNewBrokerData(broker);
+    setEditingBrokerId(broker.id);
+    setIsEditingBroker(true);
+    setIsBrokerModalOpen(true);
+  };
+
+  const handleSaveBroker = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isEditingBroker && editingBrokerId !== null) {
+      updateBroker(editingBrokerId, newBrokerData);
+    } else {
+      addBroker(newBrokerData);
+    }
+    setIsBrokerModalOpen(false);
+    setIsEditingBroker(false);
+    setEditingBrokerId(null);
+    setNewBrokerData({ name: '', role: '', photo: '', phone: '', email: '', bio: '', creci: '', instagram: '' });
+  };
+
+  const handleDeleteBroker = (id: string | number) => {
+    if (window.confirm('Tem certeza que deseja remover este corretor?')) {
+      removeBroker(id);
+    }
+  };
+  const [propertyToDelete, setPropertyToDelete] = useState<string | number | null>(null);
+  const [condoToDelete, setCondoToDelete] = useState<string | number | null>(null);
+  const [newPropertyData, setNewPropertyData] = useState({
+    title: '',
+    location: '',
+    price: '',
+    beds: 0,
+    baths: 0,
+    parking: 0,
+    area: '',
+    description: '',
+    broker: 'Daniel CEO',
+    category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
+    categorySlug: CATEGORIES[0].slug,
+    ownerName: '',
+    ownerPhone: '',
+    ownerAddress: '',
+    additionalInfo: '',
+    image: 'https://i.imgur.com/pe07Ikg.png',
+    images: [''],
+    videoUrl: '',
+    pdfUrl: '',
+    floorPlanUrl: '',
+    status: 'Ativo',
+    rooms: 0,
+    motoParking: 0,
+    hasGourmetBalcony: false,
+    elevators: 0,
+    hasLavabo: false,
+    hasHeatedPool: false,
+    hasSauna: false,
+    code: '',
+    listingType: 'venda' as 'venda' | 'aluguel' | 'permuta' | 'lançamento',
+    condoId: 0 as string | number,
+    condoFee: '',
+    iptu: '',
+    insurance: '',
+    floors: 0,
+    units: 0,
+    lateralUnits: 0,
+    frontUnits: 0,
+    backUnits: 0,
+    penthouseUnits: 0,
+    projectLogoUrl: '',
+    customButtons: [] as { label: string; url: string }[]
+  });
+
+  const [isCondoModalOpen, setIsCondoModalOpen] = useState(false);
+  const [isEditingCondo, setIsEditingCondo] = useState(false);
+  const [editingCondoId, setEditingCondoId] = useState<string | number | null>(null);
+  const [newCondoData, setNewCondoData] = useState({
+    name: '',
+    location: '',
+    portariaType: 'Não possui' as 'Remota' | '24h' | 'Não possui',
+    gasSupply: 'botijão' as 'encanado' | 'botijão',
+    leisure: [] as string[],
+    verticalConveniencies: [] as string[],
+    horizontalConveniencies: [] as string[],
+    bio: '',
+    image360Url: '',
+    logoUrl: '',
+    images: ['']
+  });
+
+  const generateUniqueCode = () => {
+    let code = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let isUnique = false;
+    
+    while (!isUnique) {
+      code = '';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      // Check if code already exists
+      const exists = properties.some(p => p.code === code);
+      if (!exists) isUnique = true;
+    }
+    return code;
+  };
+
+  const formatCurrency = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '');
+    if (!cleanValue) return '';
+    const amount = parseInt(cleanValue) / 100;
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const handlePriceChange = (value: string, type?: 'venda' | 'aluguel' | 'permuta' | 'lançamento') => {
+    const currentType = type || newPropertyData.listingType;
+    const cleanValue = value.replace(/\D/g, '');
+    if (!cleanValue) {
+      setNewPropertyData({ ...newPropertyData, price: '', listingType: currentType });
+      return;
+    }
+    const amount = parseInt(cleanValue) / 100;
+    const formatted = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+    const suffix = currentType === 'aluguel' ? ' / mês' : (currentType === 'permuta' ? ' (Permuta)' : '');
+    setNewPropertyData({ 
+      ...newPropertyData, 
+      price: `${formatted}${suffix}`,
+      listingType: currentType
+    });
+  };
+
+  const handleAreaChange = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '');
+    setNewPropertyData({
+      ...newPropertyData,
+      area: cleanValue ? `${cleanValue}m²` : ''
+    });
+  };
+
+  const handleAddImageField = () => {
+    if (newPropertyData.images.length < 20) {
+      setNewPropertyData({
+        ...newPropertyData,
+        images: [...newPropertyData.images, '']
+      });
+    }
+  };
+
+  const handleRemoveImageField = (index: number) => {
+    const updatedImages = newPropertyData.images.filter((_, i) => i !== index);
+    setNewPropertyData({
+      ...newPropertyData,
+      images: updatedImages.length > 0 ? updatedImages : ['']
+    });
+  };
+
+  const handleImageChange = (index: number, value: string) => {
+    const updatedImages = [...newPropertyData.images];
+    updatedImages[index] = value;
+    setNewPropertyData({
+      ...newPropertyData,
+      images: updatedImages
+    });
+  };
+
+  // Custom Buttons for Property
+  const [customButtonLabel, setCustomButtonLabel] = useState('');
+  const [customButtonUrl, setCustomButtonUrl] = useState('');
+
+  const handleAddCustomButton = () => {
+    if (customButtonLabel && customButtonUrl) {
+      setNewPropertyData({
+        ...newPropertyData,
+        customButtons: [...(newPropertyData.customButtons || []), { label: customButtonLabel, url: customButtonUrl }]
+      });
+      setCustomButtonLabel('');
+      setCustomButtonUrl('');
+    }
+  };
+
+  const handleRemoveCustomButton = (index: number) => {
+    const updated = (newPropertyData.customButtons || []).filter((_, i) => i !== index);
+    setNewPropertyData({ ...newPropertyData, customButtons: updated });
+  };
+
+  // Custom Items for Condo
+  const [customLeisure, setCustomLeisure] = useState('');
+  const [customVertical, setCustomVertical] = useState('');
+  const [customHorizontal, setCustomHorizontal] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      console.log('BrokerDashboard: Auth State', {
+        uid: user.uid,
+        email: user.email,
+        isAdmin: isAdmin,
+        isLoading: isLoading
+      });
+    }
+  }, [user, isAdmin, isLoading]);
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Carregando...</div>;
+  }
+
+  const handleAddCustomCondoItem = async (type: 'leisure' | 'verticalConveniencies' | 'horizontalConveniencies', value: string) => {
+    if (value) {
+      const trimmedValue = value.trim();
+      if (!trimmedValue) return;
+
+      // Check if it already exists in defaults or custom
+      const isDefault = (type === 'leisure' ? LEISURE_OPTIONS : 
+                        type === 'verticalConveniencies' ? VERTICAL_CONVENIENCES : 
+                        HORIZONTAL_CONVENIENCES).includes(trimmedValue);
+      const isCustom = customOptions[type].some(opt => opt.label === trimmedValue);
+
+      if (!isDefault && !isCustom) {
+        try {
+          await addDoc(collection(db, 'condo_options'), {
+            type,
+            label: trimmedValue,
+            createdAt: serverTimestamp()
+          });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, 'condo_options');
+        }
+      }
+
+      // Still add to current condo data if not already there
+      if (!newCondoData[type].includes(trimmedValue)) {
+        setNewCondoData({
+          ...newCondoData,
+          [type]: [...newCondoData[type], trimmedValue]
+        });
+      }
+      
+      if (type === 'leisure') setCustomLeisure('');
+      if (type === 'verticalConveniencies') setCustomVertical('');
+      if (type === 'horizontalConveniencies') setCustomHorizontal('');
+    }
+  };
+
+  const handleDeleteCustomOption = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'condo_options', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `condo_options/${id}`);
+    }
+  };
+
+  const handleDeleteProperty = (id: string | number) => {
+    setPropertyToDelete(id);
+  };
+
+  const confirmDelete = () => {
+    if (propertyToDelete !== null) {
+      removeProperty(propertyToDelete);
+      setPropertyToDelete(null);
+    }
+  };
+
+  const handleAddProperty = () => {
+    setIsEditing(false);
+    setEditingPropertyId(null);
+    setCurrentStep(1);
+    setNewPropertyData({
+      title: '',
+      location: '',
+      price: '',
+      beds: 0,
+      baths: 0,
+      parking: 0,
+      area: '',
+      description: '',
+      broker: 'Daniel Vale',
+      category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
+      categorySlug: CATEGORIES[0].slug,
+      ownerName: '',
+      ownerPhone: '',
+      ownerAddress: '',
+      additionalInfo: '',
+      image: 'https://i.imgur.com/pe07Ikg.png',
+      images: [''],
+      videoUrl: '',
+      pdfUrl: '',
+      floorPlanUrl: '',
+      status: 'Ativo',
+      rooms: 0,
+      motoParking: 0,
+      hasGourmetBalcony: false,
+      elevators: 0,
+      hasLavabo: false,
+      hasHeatedPool: false,
+      hasSauna: false,
+      code: generateUniqueCode(),
+      listingType: 'venda',
+      condoId: 0,
+      condoFee: '',
+      iptu: '',
+      insurance: '',
+      floors: 0,
+      units: 0,
+      lateralUnits: 0,
+      frontUnits: 0,
+      backUnits: 0,
+      penthouseUnits: 0,
+      projectLogoUrl: '',
+      customButtons: []
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleEditProperty = (property: any) => {
+    setIsEditing(true);
+    setEditingPropertyId(property.id);
+    setCurrentStep(1);
+    setNewPropertyData({
+      title: property.title,
+      location: property.location,
+      price: property.price,
+      beds: property.beds,
+      baths: property.baths,
+      parking: property.parking,
+      area: property.area,
+      description: property.description || '',
+      broker: property.broker || 'Daniel Vale',
+      category: property.category,
+      categorySlug: property.categorySlug,
+      ownerName: property.ownerName || '',
+      ownerPhone: property.ownerPhone || '',
+      ownerAddress: property.ownerAddress || '',
+      additionalInfo: property.additionalInfo || '',
+      image: property.image,
+      images: property.images || [property.image],
+      videoUrl: property.videoUrl || '',
+      pdfUrl: property.pdfUrl || '',
+      floorPlanUrl: property.floorPlanUrl || '',
+      status: property.status || 'Ativo',
+      rooms: property.rooms || 0,
+      motoParking: property.motoParking || 0,
+      hasGourmetBalcony: property.hasGourmetBalcony || false,
+      elevators: property.elevators || 0,
+      hasLavabo: property.hasLavabo || false,
+      hasHeatedPool: property.hasHeatedPool || false,
+      hasSauna: property.hasSauna || false,
+      code: property.code || generateUniqueCode(),
+      listingType: property.listingType || 'venda',
+      condoId: property.condoId || 0,
+      condoFee: property.condoFee || '',
+      iptu: property.iptu || '',
+      insurance: property.insurance || '',
+      floors: property.floors || 0,
+      units: property.units || 0,
+      lateralUnits: property.lateralUnits || 0,
+      frontUnits: property.frontUnits || 0,
+      backUnits: property.backUnits || 0,
+      penthouseUnits: property.penthouseUnits || 0,
+      projectLogoUrl: property.projectLogoUrl || '',
+      customButtons: property.customButtons || []
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveProperty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Only allow submission on the final step
+    if (currentStep < 5) {
+      setCurrentStep(prev => prev + 1);
+      return;
+    }
+
+    try {
+      let finalCondoId = newPropertyData.condoId;
+
+      // Ensure the main 'image' field matches the first image in the 'images' array if provided
+      const propertyToSave = {
+        ...newPropertyData,
+        condoId: finalCondoId,
+        image: newPropertyData.images.length > 0 && newPropertyData.images[0] !== '' 
+          ? newPropertyData.images[0] 
+          : (newPropertyData.image && !newPropertyData.image.includes('pe07Ikg.png') ? newPropertyData.image : (newPropertyData.images[0] || 'https://i.imgur.com/pe07Ikg.png'))
+      };
+
+      // Final fallback for image
+      if (!propertyToSave.image || propertyToSave.image.includes('pe07Ikg.png')) {
+        if (newPropertyData.images.length > 0 && newPropertyData.images[0] !== '') {
+          propertyToSave.image = newPropertyData.images[0];
+        }
+      }
+
+      if (isEditing && editingPropertyId !== null) {
+        await updateProperty(editingPropertyId, propertyToSave);
+      } else {
+        await addProperty(propertyToSave);
+      }
+
+      setIsAddModalOpen(false);
+      setIsEditing(false);
+      setEditingPropertyId(null);
+      setCurrentStep(1);
+      // Reset form
+      setNewPropertyData({
+        title: '',
+        location: '',
+        price: '',
+        beds: 0,
+        baths: 0,
+        parking: 0,
+        area: '',
+        description: '',
+        broker: 'Daniel Vale',
+        category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
+        categorySlug: CATEGORIES[0].slug,
+        ownerName: '',
+        ownerPhone: '',
+        ownerAddress: '',
+        additionalInfo: '',
+        image: 'https://i.imgur.com/pe07Ikg.png',
+        images: [''],
+        videoUrl: '',
+        pdfUrl: '',
+        floorPlanUrl: '',
+        status: 'Ativo',
+        rooms: 0,
+        motoParking: 0,
+        hasGourmetBalcony: false,
+        elevators: 0,
+        hasLavabo: false,
+        hasHeatedPool: false,
+        hasSauna: false,
+        code: generateUniqueCode(),
+        listingType: 'venda' as 'venda' | 'aluguel' | 'permuta' | 'lançamento',
+        condoId: 0,
+        condoFee: '',
+        iptu: '',
+        insurance: '',
+        floors: 0,
+        units: 0,
+        lateralUnits: 0,
+        frontUnits: 0,
+        backUnits: 0,
+        penthouseUnits: 0,
+        projectLogoUrl: '',
+        customButtons: []
+      });
+    } catch (error) {
+      console.error("Erro ao salvar imóvel:", error);
+      alert("Erro ao salvar o imóvel. Verifique suas permissões.");
+    }
+  };
+
+  const handleSaveCondo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const condoData = {
+        ...newCondoData,
+        images: newCondoData.images.filter(img => img !== '')
+      };
+
+      if (isEditingCondo && editingCondoId !== null) {
+        await updateCondo(editingCondoId, condoData);
+      } else {
+        await addCondo(condoData);
+      }
+
+      setIsCondoModalOpen(false);
+      setIsEditingCondo(false);
+      setEditingCondoId(null);
+      setNewCondoData({
+        name: '',
+        location: '',
+        portariaType: 'Não possui',
+        gasSupply: 'botijão',
+        leisure: [],
+        verticalConveniencies: [],
+        horizontalConveniencies: [],
+        bio: '',
+        image360Url: '',
+        logoUrl: '',
+        images: ['']
+      });
+    } catch (error) {
+      console.error("Erro ao salvar condomínio:", error);
+      alert("Erro ao salvar o condomínio.");
+    }
+  };
+
+  const handleEditCondo = (condo: any) => {
+    setIsEditingCondo(true);
+    setEditingCondoId(condo.id);
+    setNewCondoData({
+      name: condo.name,
+      location: condo.location || '',
+      portariaType: condo.portariaType || 'Não possui',
+      gasSupply: condo.gasSupply || 'botijão',
+      leisure: condo.leisure || [],
+      verticalConveniencies: condo.verticalConveniencies || [],
+      horizontalConveniencies: condo.horizontalConveniencies || [],
+      bio: condo.bio || '',
+      image360Url: condo.image360Url || '',
+      logoUrl: condo.logoUrl || '',
+      images: condo.images && condo.images.length > 0 ? condo.images : ['']
+    });
+    setIsCondoModalOpen(true);
+  };
+
+  const handleDeleteCondo = (id: string | number) => {
+    setCondoToDelete(id);
+  };
+
+  const confirmDeleteCondo = async () => {
+    if (condoToDelete !== null) {
+      try {
+        await removeCondo(condoToDelete);
+        setCondoToDelete(null);
+      } catch (error) {
+        console.error("Erro ao excluir condomínio:", error);
+        alert("Erro ao excluir o condomínio. Verifique suas permissões.");
+      }
+    }
+  };
+
+  const handleCondoImageChange = (index: number, value: string) => {
+    const updatedImages = [...newCondoData.images];
+    updatedImages[index] = value;
+    setNewCondoData({
+      ...newCondoData,
+      images: updatedImages
+    });
+  };
+
+  const handleAddCondoImage = () => {
+    setNewCondoData({
+      ...newCondoData,
+      images: [...newCondoData.images, '']
+    });
+  };
+
+  const handleRemoveCondoImage = (index: number) => {
+    const updatedImages = newCondoData.images.filter((_, i) => i !== index);
+    setNewCondoData({
+      ...newCondoData,
+      images: updatedImages.length > 0 ? updatedImages : ['']
+    });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/');
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
+
+  return (
+    <div className="h-screen bg-white flex flex-col lg:flex-row overflow-hidden">
+      
+      {/* Sidebar - Desktop & Mobile */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-100 flex flex-col transition-transform duration-300 ease-in-out
+        lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="p-8">
+          <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#8FA603] rounded-xl flex items-center justify-center shadow-lg shadow-[#8FA603]/20">
+                <Home className="text-white w-6 h-6" />
+              </div>
+              <span className="text-xl font-black tracking-tighter text-[#1A1A1A]">CR <span className="text-[#8FA603]">DASH</span></span>
+            </div>
+            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+
+          <nav className="space-y-2">
+            {[
+              { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
+              { id: 'properties', label: 'Todos Imóveis', icon: Home },
+              { id: 'proposals', label: 'Propostas', icon: FileText },
+              { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
+              { id: 'brokers', label: 'Corretores', icon: Users },
+              { id: 'leads', label: 'Leads & Clientes', icon: Users },
+              { id: 'calendar', label: 'Agenda', icon: Calendar },
+              { id: 'reports', label: 'Relatórios', icon: TrendingUp },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                  activeTab === item.id 
+                    ? 'bg-[#8FA603]/10 text-[#8FA603]' 
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <item.icon className="w-5 h-5" />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </aside>
+
+      {/* Add Property Modal */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-6 bg-[#8FA603] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    {isEditing ? <Edit className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                  </div>
+                  <h3 className="text-xl font-black">{isEditing ? 'Editar Imóvel' : 'Incluir Novo Imóvel'}</h3>
+                </div>
+                <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveProperty} className="flex-1 overflow-y-auto p-8 space-y-8">
+                {/* Step Indicator */}
+                <div className="flex items-center justify-between mb-8 px-4">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <React.Fragment key={s}>
+                      <div 
+                        className={`flex flex-col items-center gap-2 ${isEditing ? 'cursor-pointer' : ''}`}
+                        onClick={() => isEditing && setCurrentStep(s)}
+                      >
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+                                currentStep === s 
+                                  ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/30 scale-110' 
+                                  : currentStep > s 
+                                    ? 'bg-[#8FA603]/20 text-[#8FA603]' 
+                                    : 'bg-white border border-gray-200 text-gray-400'
+                              }`}>
+                          {currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}
+                        </div>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter ${
+                          currentStep === s ? 'text-[#8FA603]' : 'text-gray-400'
+                        }`}>
+                          {s === 1 ? 'Básico' : s === 2 ? 'Características' : s === 3 ? 'Mídia' : s === 4 ? 'Categoria' : 'Interno'}
+                        </span>
+                      </div>
+                      {s < 5 && (
+                        <div className={`flex-1 h-1 mx-4 rounded-full transition-all ${
+                          currentStep > s ? 'bg-[#8FA603]' : 'bg-white border border-gray-200'
+                        }`} />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {currentStep === 1 && (
+                    <motion.div
+                      key="step1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest flex items-center gap-2">
+                        <Info className="w-4 h-4" /> Informações Básicas
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Tipo de Negócio</label>
+                          <div className="flex gap-4">
+                            <button
+                              type="button"
+                              onClick={() => handlePriceChange(newPropertyData.price, 'venda')}
+                              className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
+                                newPropertyData.listingType === 'venda'
+                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
+                              }`}
+                            >
+                              Venda
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePriceChange(newPropertyData.price, 'aluguel')}
+                              className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
+                                newPropertyData.listingType === 'aluguel'
+                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
+                              }`}
+                            >
+                              Aluguel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePriceChange(newPropertyData.price, 'permuta')}
+                              className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
+                                newPropertyData.listingType === 'permuta'
+                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
+                              }`}
+                            >
+                              Permuta
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePriceChange(newPropertyData.price, 'lançamento')}
+                              className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
+                                newPropertyData.listingType === 'lançamento'
+                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
+                              }`}
+                            >
+                              Lançamento
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome do Imóvel</label>
+                          <input 
+                            required
+                            type="text" 
+                            value={newPropertyData.title}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, title: e.target.value})}
+                            placeholder="Ex: Mansão Luxury"
+                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+
+                        {newPropertyData.listingType === 'lançamento' && (
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Logo do Empreendimento (URL)</label>
+                            <input 
+                              type="text" 
+                              value={newPropertyData.projectLogoUrl}
+                              onChange={(e) => setNewPropertyData({...newPropertyData, projectLogoUrl: e.target.value})}
+                              placeholder="https://exemplo.com/logo.png"
+                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">
+                            {newPropertyData.listingType === 'aluguel' ? 'Valor do Aluguel' : 'Valor de Venda'}
+                          </label>
+                          <input 
+                            required
+                            type="text" 
+                            value={newPropertyData.price}
+                            onChange={(e) => handlePriceChange(e.target.value)}
+                            placeholder={newPropertyData.listingType === 'aluguel' ? "Ex: R$ 4.500,00 / mês" : "Ex: R$ 3.500.000,00"}
+                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+
+                        {/* New Pricing Fields based on Listing Type */}
+                        {newPropertyData.listingType === 'venda' ? (
+                          <>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Condomínio</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.condoFee}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, condoFee: formatCurrency(e.target.value)})}
+                                placeholder="Ex: R$ 1.200,00"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Valor Anual (IPTU)</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.iptu}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, iptu: formatCurrency(e.target.value)})}
+                                placeholder="Ex: R$ 5.000,00"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                          </>
+                        ) : newPropertyData.listingType === 'aluguel' ? (
+                          <>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">IPTU (Mensal)</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.iptu}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, iptu: formatCurrency(e.target.value)})}
+                                placeholder="Ex: R$ 450,00"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Seguro Incêndio (Mensal)</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.insurance}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, insurance: formatCurrency(e.target.value)})}
+                                placeholder="Ex: R$ 80,00"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Condomínio</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.condoFee}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, condoFee: formatCurrency(e.target.value)})}
+                                placeholder="Ex: R$ 1.200,00"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Qtd. de Andares</label>
+                              <input 
+                                type="number" 
+                                value={newPropertyData.floors}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, floors: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Qtd. de Unidades</label>
+                              <input 
+                                type="number" 
+                                value={newPropertyData.units}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, units: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Aptos. Frente</label>
+                              <input 
+                                type="number" 
+                                value={newPropertyData.frontUnits}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, frontUnits: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Aptos. Fundos</label>
+                              <input 
+                                type="number" 
+                                value={newPropertyData.backUnits}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, backUnits: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Aptos. Lateral</label>
+                              <input 
+                                type="number" 
+                                value={newPropertyData.lateralUnits}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, lateralUnits: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Aptos. Cobertura</label>
+                              <input 
+                                type="number" 
+                                value={newPropertyData.penthouseUnits}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, penthouseUnits: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                          </>
+                        )}
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Código do Imóvel (Automático)</label>
+                          <div className="relative">
+                            <input 
+                              readOnly
+                              type="text" 
+                              value={newPropertyData.code}
+                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm font-bold text-[#8FA603] outline-none cursor-not-allowed"
+                            />
+                            <button 
+                              type="button"
+                              onClick={() => setNewPropertyData({...newPropertyData, code: generateUniqueCode()})}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white rounded-lg transition-all text-gray-400 hover:text-[#8FA603]"
+                              title="Gerar novo código"
+                            >
+                              <TrendingUp className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Condomínio</label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <select 
+                              value={newPropertyData.condoId}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const numericVal = Number(val);
+                                const finalVal = isNaN(numericVal) || val === "" ? val : numericVal;
+                                setNewPropertyData({...newPropertyData, condoId: finalVal});
+                              }}
+                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all appearance-none"
+                            >
+                              <option value={0}>Nenhum Condomínio</option>
+                              {condos.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                              ))}
+                            </select>
+                            
+
+
+
+
+
+
+
+                          </div>
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Endereço (Bairro, Cidade, Estado)</label>
+                          <div className="relative">
+                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input 
+                              required
+                              type="text" 
+                              value={newPropertyData.location}
+                              onChange={(e) => setNewPropertyData({...newPropertyData, location: e.target.value})}
+                              placeholder="Ex: AlphaVille, Juiz de Fora - MG"
+                              className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {currentStep === 2 && (
+                    <motion.div
+                      key="step2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest flex items-center gap-2">
+                        <Maximize className="w-4 h-4" /> Características
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Bed className="w-3 h-3" /> Suítes</label>
+                          <input 
+                            type="number" 
+                            value={newPropertyData.beds}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, beds: parseInt(e.target.value) || 0})}
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Car className="w-3 h-3" /> Vagas</label>
+                          <input 
+                            type="number" 
+                            value={newPropertyData.parking}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, parking: parseInt(e.target.value) || 0})}
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Bath className="w-3 h-3" /> Banheiros</label>
+                          <input 
+                            type="number" 
+                            value={newPropertyData.baths}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, baths: parseInt(e.target.value) || 0})}
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Maximize className="w-3 h-3" /> m²</label>
+                          <input 
+                            type="text" 
+                            value={newPropertyData.area}
+                            onChange={(e) => handleAreaChange(e.target.value)}
+                            placeholder="Ex: 850m²"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Bed className="w-3 h-3" /> Quartos</label>
+                          <input 
+                            type="number" 
+                            value={newPropertyData.rooms}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, rooms: parseInt(e.target.value) || 0})}
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Car className="w-3 h-3" /> Vaga p/ Moto</label>
+                          <input 
+                            type="number" 
+                            value={newPropertyData.motoParking}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, motoParking: parseInt(e.target.value) || 0})}
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" /> Elevadores</label>
+                          <input 
+                            type="number" 
+                            value={newPropertyData.elevators}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, elevators: parseInt(e.target.value) || 0})}
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Feature Toggles */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {[
+                          { label: 'Varanda Gourmet', key: 'hasGourmetBalcony' },
+                          { label: 'Lavabo', key: 'hasLavabo' },
+                          { label: 'Piscina Aquecida', key: 'hasHeatedPool' },
+                          { label: 'Sauna', key: 'hasSauna' },
+                        ].map((feature) => (
+                          <button
+                            key={feature.key}
+                            type="button"
+                            onClick={() => setNewPropertyData({
+                              ...newPropertyData, 
+                              [feature.key]: !newPropertyData[feature.key as keyof typeof newPropertyData]
+                            })}
+                            className={`flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-bold transition-all border-2 ${
+                              newPropertyData[feature.key as keyof typeof newPropertyData]
+                                ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                : 'bg-gray-50 border-transparent text-gray-400 hover:bg-gray-100'
+                            }`}
+                          >
+                            {feature.label}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {currentStep === 3 && (
+                    <motion.div
+                      key="step3"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4" /> Mídia (Fotos, Vídeo e PDF)
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Photos Section */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Fotos (Máx. 20)</label>
+                            {newPropertyData.images.length < 20 && (
+                              <button
+                                type="button"
+                                onClick={handleAddImageField}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#8FA603]/10 text-[#8FA603] rounded-xl hover:bg-[#8FA603]/20 transition-all text-[10px] font-black uppercase tracking-wider"
+                              >
+                                <Plus className="w-3 h-3" />
+                                Adicionar Foto
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar">
+                            {newPropertyData.images.map((img, index) => (
+                              <div key={index} className="space-y-2 group">
+                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm transition-all group-hover:shadow-md group-hover:border-[#8FA603]/20">
+                                  {img ? (
+                                    <img 
+                                      src={img} 
+                                      alt={`Preview ${index}`} 
+                                      className="w-full h-full object-cover" 
+                                      referrerPolicy="no-referrer"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src = 'https://i.imgur.com/pe07Ikg.png';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 gap-1">
+                                      <ImageIcon className="w-6 h-6" />
+                                      <span className="text-[8px] font-black uppercase tracking-tighter">Sem Imagem</span>
+                                    </div>
+                                  )}
+                                  
+                                  {newPropertyData.images.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveImageField(index)}
+                                      className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 shadow-sm z-10"
+                                    >
+                                      <Trash className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  
+                                  <div className="absolute bottom-2 left-2 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-md text-[8px] text-white font-black uppercase tracking-widest">
+                                    #{index + 1}
+                                  </div>
+                                </div>
+                                <div className="relative">
+                                  <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                                  <input 
+                                    type="text" 
+                                    value={img}
+                                    onChange={(e) => handleImageChange(index, e.target.value)}
+                                    placeholder="Link da imagem..."
+                                    className="w-full bg-gray-50 border-none rounded-xl py-2 pl-8 pr-3 text-[10px] font-medium focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all placeholder:text-gray-300"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Video & Floor Plan Section */}
+                        <div className="space-y-6">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link do Vídeo (YouTube/Vimeo)</label>
+                            <div className="relative">
+                              <Video className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input 
+                                type="text" 
+                                value={newPropertyData.videoUrl}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, videoUrl: e.target.value})}
+                                placeholder="https://youtube.com/watch?v=..."
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link da Planta (Imagem)</label>
+                            <div className="relative">
+                              <MapIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input 
+                                type="text" 
+                                value={newPropertyData.floorPlanUrl}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, floorPlanUrl: e.target.value})}
+                                placeholder="Link da imagem da planta"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="p-6 bg-[#1A1A1A]/5 rounded-[32px] border border-[#1A1A1A]/5">
+                            <div className="flex items-start gap-4">
+                              <div className="p-3 bg-[#8FA603]/10 rounded-2xl">
+                                <ImageIcon className="w-6 h-6 text-[#8FA603]" />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-widest">Dica de Mídia</p>
+                                <p className="text-[11px] text-gray-500 leading-relaxed font-medium">
+                                  Utilize links diretos de imagens (terminados em .jpg, .png). A primeira foto da galeria será usada como capa do imóvel.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Custom Buttons Section */}
+                          <div className="space-y-4 pt-4 border-t border-gray-100">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
+                              <Link className="w-3 h-3" /> Botões Personalizados (Links Externos)
+                            </label>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <input 
+                                  type="text"
+                                  value={customButtonLabel}
+                                  onChange={(e) => setCustomButtonLabel(e.target.value)}
+                                  placeholder="Nome do Botão (Ex: Tour Virtual)"
+                                  className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <input 
+                                  type="text"
+                                  value={customButtonUrl}
+                                  onChange={(e) => setCustomButtonUrl(e.target.value)}
+                                  placeholder="URL do Link"
+                                  className="flex-1 bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={handleAddCustomButton}
+                                  className="p-3 bg-[#8FA603] text-white rounded-2xl hover:bg-[#8FA603]/80 transition-all shadow-lg shadow-[#8FA603]/20"
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {newPropertyData.customButtons && newPropertyData.customButtons.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {newPropertyData.customButtons.map((btn, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 bg-[#8FA603]/10 text-[#8FA603] px-4 py-2 rounded-full text-xs font-bold border border-[#8FA603]/20">
+                                    <span>{btn.label}</span>
+                                    <button 
+                                      type="button"
+                                      onClick={() => handleRemoveCustomButton(idx)}
+                                      className="hover:text-red-500 transition-colors"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {currentStep === 4 && (
+                    <motion.div
+                      key="step4"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-8"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-6">
+                          <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest">Categoria</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            {CATEGORIES.map((cat) => (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => {
+                                  const currentSlugs = newPropertyData.categorySlug ? newPropertyData.categorySlug.split(',') : [];
+                                  const currentCategories = newPropertyData.category ? newPropertyData.category.split(', ') : [];
+                                  
+                                  if (currentSlugs.includes(cat.slug)) {
+                                    setNewPropertyData({
+                                      ...newPropertyData, 
+                                      category: currentCategories.filter(c => c !== `${cat.label1} ${cat.label2}`).join(', '), 
+                                      categorySlug: currentSlugs.filter(s => s !== cat.slug).join(',') 
+                                    });
+                                  } else {
+                                    setNewPropertyData({
+                                      ...newPropertyData, 
+                                      category: [...currentCategories, `${cat.label1} ${cat.label2}`].join(', '), 
+                                      categorySlug: [...currentSlugs, cat.slug].join(',') 
+                                    });
+                                  }
+                                }}
+                                className={`flex items-center gap-2 p-3 rounded-2xl text-xs font-bold border-2 transition-all ${
+                                  newPropertyData.categorySlug?.split(',').includes(cat.slug)
+                                    ? 'border-[#8FA603] bg-[#8FA603]/5 text-[#8FA603]' 
+                                    : 'border-gray-50 bg-gray-50 text-gray-500 hover:border-gray-200'
+                                }`}
+                              >
+                                <cat.icon className="w-4 h-4 shrink-0" />
+                                <span className="truncate">{cat.label1} {cat.label2}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-6">
+                          <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest">Corretor Responsável</h4>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Selecionar Corretor</label>
+                            <select 
+                              value={newPropertyData.broker}
+                              onChange={(e) => setNewPropertyData({...newPropertyData, broker: e.target.value})}
+                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all appearance-none cursor-pointer"
+                            >
+                              <option value="">Selecione um corretor...</option>
+                              {brokers.map((broker) => (
+                                <option key={broker.id} value={broker.name}>
+                                  {broker.name} - {broker.role}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Sobre o Imóvel (Descrição)</label>
+                            <textarea 
+                              rows={4}
+                              value={newPropertyData.description}
+                              onChange={(e) => setNewPropertyData({...newPropertyData, description: e.target.value})}
+                              placeholder="Descreva os detalhes do imóvel..."
+                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {currentStep === 5 && (
+                    <motion.div
+                      key="step5"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <div className="p-8 bg-gray-50 rounded-[32px] space-y-6 border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                            <Users className="w-4 h-4" /> Informações Internas (Não aparecem no site)
+                          </h4>
+                          <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black rounded-full uppercase">Privado</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><User className="w-3 h-3" /> Nome do Proprietário</label>
+                            <input 
+                              type="text" 
+                              value={newPropertyData.ownerName}
+                              onChange={(e) => setNewPropertyData({...newPropertyData, ownerName: e.target.value})}
+                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all shadow-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Phone className="w-3 h-3" /> Telefone</label>
+                            <input 
+                              type="text" 
+                              value={newPropertyData.ownerPhone}
+                              onChange={(e) => setNewPropertyData({...newPropertyData, ownerPhone: formatPhone(e.target.value)})}
+                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all shadow-sm"
+                              placeholder="(32) 99999-9999"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><MapPin className="w-3 h-3" /> Endereço Atual</label>
+                            <input 
+                              type="text" 
+                              value={newPropertyData.ownerAddress}
+                              onChange={(e) => setNewPropertyData({...newPropertyData, ownerAddress: e.target.value})}
+                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all shadow-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Informações Adicionais</label>
+                          <textarea 
+                            rows={3}
+                            value={newPropertyData.additionalInfo}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, additionalInfo: e.target.value})}
+                            placeholder="Notas internas sobre o proprietário ou negociação..."
+                            className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all resize-none shadow-sm"
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="flex items-center justify-between pt-8 border-t border-gray-100">
+                  <div className="flex gap-3">
+                    {currentStep > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep(prev => prev - 1)}
+                        className="px-8 py-4 bg-gray-100 text-gray-600 rounded-2xl text-sm font-bold hover:bg-gray-200 transition-all"
+                      >
+                        Voltar
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsAddModalOpen(false)}
+                      className="px-8 py-4 text-gray-400 text-sm font-bold hover:text-gray-600 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    {currentStep < 5 ? (
+                      <>
+                        {isEditing && (
+                          <button
+                            type="submit"
+                            className="px-8 py-4 bg-[#8FA603]/10 text-[#8FA603] rounded-2xl text-sm font-black hover:bg-[#8FA603]/20 transition-all flex items-center gap-2"
+                          >
+                            <Save className="w-5 h-5" /> Atualizar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentStep(prev => prev + 1);
+                          }}
+                          className="px-10 py-4 bg-[#8FA603] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#8FA603]/20 hover:scale-105 transition-all flex items-center gap-2"
+                        >
+                          Próximo Passo <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="px-10 py-4 bg-[#8FA603] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#8FA603]/20 hover:scale-105 transition-all flex items-center gap-2"
+                      >
+                        <Save className="w-5 h-5" /> {isEditing ? 'Atualizar' : 'Finalizar Cadastro'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {propertyToDelete !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPropertyToDelete(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 text-center mb-2">Excluir Imóvel?</h3>
+              <p className="text-gray-500 text-center font-medium mb-8">
+                Esta ação não pode ser desfeita. O imóvel será removido permanentemente do dashboard e do site.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setPropertyToDelete(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Condo Delete Confirmation Modal */}
+      <AnimatePresence>
+        {condoToDelete !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCondoToDelete(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 text-center mb-2">Excluir Condomínio?</h3>
+              <p className="text-gray-500 text-center font-medium mb-8">
+                Esta ação não pode ser desfeita. O condomínio será removido permanentemente.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCondoToDelete(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDeleteCondo}
+                  className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {isLogoutModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLogoutModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <LogOut className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 mb-2">Deseja realmente sair?</h3>
+              <p className="text-gray-500 text-sm font-medium mb-8">
+                Sua sessão será encerrada e você voltará para a tela inicial.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleLogout}
+                  className="w-full bg-red-500 text-white py-4 rounded-2xl font-black text-sm hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Sim, Sair agora
+                </button>
+                <button
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="w-full bg-gray-50 text-gray-500 py-4 rounded-2xl font-black text-sm hover:bg-gray-100 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Condo Registration Modal */}
+      <AnimatePresence>
+        {isCondoModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCondoModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                    {isEditingCondo ? 'Editar Condomínio' : 'Cadastrar Condomínio'}
+                  </h2>
+                  <p className="text-sm text-gray-500 font-medium">
+                    {isEditingCondo ? 'Atualize as informações do condomínio' : 'Preencha as informações do novo condomínio'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setIsCondoModalOpen(false)}
+                  className="p-3 hover:bg-gray-100 rounded-2xl transition-all group"
+                >
+                  <X className="w-6 h-6 text-gray-400 group-hover:text-gray-900" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveCondo} className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Basic Info */}
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome do Condomínio</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newCondoData.name}
+                        onChange={(e) => setNewCondoData({...newCondoData, name: e.target.value})}
+                        placeholder="Ex: Alphaville"
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Localização</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={newCondoData.location}
+                        onChange={(e) => setNewCondoData({...newCondoData, location: e.target.value})}
+                        placeholder="Ex: Itaipava, Petrópolis"
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Portaria & Gas */}
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Tipo de Portaria</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {['Remota', '24h', 'Não possui'].map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setNewCondoData({...newCondoData, portariaType: type as any})}
+                            className={`py-3 rounded-xl text-xs font-bold transition-all ${
+                              newCondoData.portariaType === type 
+                                ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/20' 
+                                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Abastecimento de Gás</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        {['encanado', 'botijão'].map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setNewCondoData({...newCondoData, gasSupply: type as any})}
+                            className={`py-3 rounded-xl text-xs font-bold transition-all capitalize ${
+                              newCondoData.gasSupply === type 
+                                ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/20' 
+                                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leisure */}
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Lazer</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {[
+                      ...LEISURE_OPTIONS.map(l => ({ label: l, isDefault: true })),
+                      ...customOptions.leisure.map(o => ({ label: o.label, id: o.id, isDefault: false }))
+                    ].map((option: { label: string; isDefault: boolean; id?: string }) => (
+                      <div key={option.isDefault ? option.label : option.id} className="relative group">
+                        <label 
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer h-full ${
+                            newCondoData.leisure.includes(option.label)
+                              ? 'border-[#8FA603] bg-[#8FA603]/5'
+                              : 'border-gray-50 bg-gray-50 hover:border-gray-100'
+                          }`}
+                        >
+                          <input 
+                            type="checkbox"
+                            className="hidden"
+                            checked={newCondoData.leisure.includes(option.label)}
+                            onChange={() => {
+                              const updated = newCondoData.leisure.includes(option.label)
+                                ? newCondoData.leisure.filter(i => i !== option.label)
+                                : [...newCondoData.leisure, option.label];
+                              setNewCondoData({...newCondoData, leisure: updated});
+                            }}
+                          />
+                          <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${
+                            newCondoData.leisure.includes(option.label)
+                              ? 'bg-[#8FA603] border-[#8FA603]'
+                              : 'border-gray-300 bg-white'
+                          }`}>
+                            {newCondoData.leisure.includes(option.label) && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                          <span className={`text-xs font-bold ${newCondoData.leisure.includes(option.label) ? 'text-[#8FA603]' : 'text-gray-500'}`}>
+                            {option.label}
+                          </span>
+                        </label>
+                        {!option.isDefault && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleDeleteCustomOption(option.id!);
+                            }}
+                            className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {/* Custom Leisure Input */}
+                    <div className="flex gap-2 p-2 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                      <input 
+                        type="text"
+                        value={customLeisure}
+                        onChange={(e) => setCustomLeisure(e.target.value)}
+                        placeholder="Novo item..."
+                        className="flex-1 bg-transparent border-none text-xs font-bold outline-none px-2"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomCondoItem('leisure', customLeisure);
+                          }
+                        }}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => handleAddCustomCondoItem('leisure', customLeisure)}
+                        className="p-2 bg-[#8FA603] text-white rounded-xl hover:bg-[#8FA603]/80 transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conveniences */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Conveniências (Verticais)</label>
+                    <div className="space-y-2">
+                      {[
+                        ...VERTICAL_CONVENIENCES.map(l => ({ label: l, isDefault: true })),
+                        ...customOptions.verticalConveniencies.map(o => ({ label: o.label, id: o.id, isDefault: false }))
+                      ].map((option: { label: string; isDefault: boolean; id?: string }) => (
+                        <div key={option.isDefault ? option.label : option.id} className="relative group">
+                          <label 
+                            className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                              newCondoData.verticalConveniencies.includes(option.label)
+                                ? 'border-[#8FA603] bg-[#8FA603]/5'
+                                : 'border-gray-50 bg-gray-50 hover:border-gray-100'
+                            }`}
+                          >
+                            <input 
+                              type="checkbox"
+                              className="hidden"
+                              checked={newCondoData.verticalConveniencies.includes(option.label)}
+                              onChange={() => {
+                                const updated = newCondoData.verticalConveniencies.includes(option.label)
+                                  ? newCondoData.verticalConveniencies.filter(i => i !== option.label)
+                                  : [...newCondoData.verticalConveniencies, option.label];
+                                setNewCondoData({...newCondoData, verticalConveniencies: updated});
+                              }}
+                            />
+                            <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                              newCondoData.verticalConveniencies.includes(option.label)
+                                ? 'bg-[#8FA603] border-[#8FA603]'
+                                : 'border-gray-300 bg-white'
+                            }`}>
+                              {newCondoData.verticalConveniencies.includes(option.label) && <CheckCircle2 className="w-3 h-3 text-white" />}
+                            </div>
+                            <span className={`text-[11px] font-bold ${newCondoData.verticalConveniencies.includes(option.label) ? 'text-[#8FA603]' : 'text-gray-500'}`}>
+                              {option.label}
+                            </span>
+                          </label>
+                          {!option.isDefault && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleDeleteCustomOption(option.id!);
+                              }}
+                              className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {/* Custom Vertical Input */}
+                      <div className="flex gap-2 p-2 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                        <input 
+                          type="text"
+                          value={customVertical}
+                          onChange={(e) => setCustomVertical(e.target.value)}
+                          placeholder="Novo item..."
+                          className="flex-1 bg-transparent border-none text-xs font-bold outline-none px-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCustomCondoItem('verticalConveniencies', customVertical);
+                            }
+                          }}
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => handleAddCustomCondoItem('verticalConveniencies', customVertical)}
+                          className="p-1.5 bg-[#8FA603] text-white rounded-lg hover:bg-[#8FA603]/80 transition-all"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Conveniências (Horizontais)</label>
+                    <div className="space-y-2">
+                      {[
+                        ...HORIZONTAL_CONVENIENCES.map(l => ({ label: l, isDefault: true })),
+                        ...customOptions.horizontalConveniencies.map(o => ({ label: o.label, id: o.id, isDefault: false }))
+                      ].map((option: { label: string; isDefault: boolean; id?: string }) => (
+                        <div key={option.isDefault ? option.label : option.id} className="relative group">
+                          <label 
+                            className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                              newCondoData.horizontalConveniencies.includes(option.label)
+                                ? 'border-[#8FA603] bg-[#8FA603]/5'
+                                : 'border-gray-50 bg-gray-50 hover:border-gray-100'
+                            }`}
+                          >
+                            <input 
+                              type="checkbox"
+                              className="hidden"
+                              checked={newCondoData.horizontalConveniencies.includes(option.label)}
+                              onChange={() => {
+                                const updated = newCondoData.horizontalConveniencies.includes(option.label)
+                                  ? newCondoData.horizontalConveniencies.filter(i => i !== option.label)
+                                  : [...newCondoData.horizontalConveniencies, option.label];
+                                setNewCondoData({...newCondoData, horizontalConveniencies: updated});
+                              }}
+                            />
+                            <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                              newCondoData.horizontalConveniencies.includes(option.label)
+                                ? 'bg-[#8FA603] border-[#8FA603]'
+                                : 'border-gray-300 bg-white'
+                            }`}>
+                              {newCondoData.horizontalConveniencies.includes(option.label) && <CheckCircle2 className="w-3 h-3 text-white" />}
+                            </div>
+                            <span className={`text-[11px] font-bold ${newCondoData.horizontalConveniencies.includes(option.label) ? 'text-[#8FA603]' : 'text-gray-500'}`}>
+                              {option.label}
+                            </span>
+                          </label>
+                          {!option.isDefault && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleDeleteCustomOption(option.id!);
+                              }}
+                              className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {/* Custom Horizontal Input */}
+                      <div className="flex gap-2 p-2 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                        <input 
+                          type="text"
+                          value={customHorizontal}
+                          onChange={(e) => setCustomHorizontal(e.target.value)}
+                          placeholder="Novo item..."
+                          className="flex-1 bg-transparent border-none text-xs font-bold outline-none px-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCustomCondoItem('horizontalConveniencies', customHorizontal);
+                            }
+                          }}
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => handleAddCustomCondoItem('horizontalConveniencies', customHorizontal)}
+                          className="p-1.5 bg-[#8FA603] text-white rounded-lg hover:bg-[#8FA603]/80 transition-all"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Biography */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Mais detalhes (Biografia)</label>
+                  <textarea 
+                    value={newCondoData.bio}
+                    onChange={(e) => setNewCondoData({...newCondoData, bio: e.target.value})}
+                    placeholder="Descreva o condomínio..."
+                    rows={4}
+                    className="w-full bg-gray-50 border-none rounded-[32px] py-6 px-8 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all resize-none"
+                  />
+                </div>
+
+                {/* Media Links */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link da Imagem 360º</label>
+                    <div className="relative">
+                      <ExternalLink className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input 
+                        type="text" 
+                        value={newCondoData.image360Url}
+                        onChange={(e) => setNewCondoData({...newCondoData, image360Url: e.target.value})}
+                        placeholder="https://..."
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link da Logo</label>
+                    <div className="relative">
+                      <Link className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input 
+                        type="text" 
+                        value={newCondoData.logoUrl}
+                        onChange={(e) => setNewCondoData({...newCondoData, logoUrl: e.target.value})}
+                        placeholder="https://..."
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                      />
+                    </div>
+                    <p className="text-[10px] font-bold text-[#8FA603] uppercase tracking-wider ml-1">
+                      Aviso: Resolução recomendada de 1290px x 280px
+                    </p>
+                  </div>
+                </div>
+
+                {/* Gallery Images */}
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Imagens</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {newCondoData.images.map((img, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="relative aspect-video bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 group">
+                          {img ? (
+                            <img 
+                              src={img} 
+                              alt={`Condo ${index + 1}`} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://i.imgur.com/pe07Ikg.png';
+                              }}
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 gap-1">
+                              <ImageIcon className="w-6 h-6" />
+                              <span className="text-[8px] font-black uppercase tracking-tighter">Sem Imagem</span>
+                            </div>
+                          )}
+                          {newCondoData.images.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = newCondoData.images.filter((_, i) => i !== index);
+                                setNewCondoData({...newCondoData, images: updated});
+                              }}
+                              className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 shadow-sm z-10"
+                            >
+                              <Trash className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <input 
+                          type="text" 
+                          value={img}
+                          onChange={(e) => {
+                            const updated = [...newCondoData.images];
+                            updated[index] = e.target.value;
+                            setNewCondoData({...newCondoData, images: updated});
+                          }}
+                          placeholder="Link da imagem..."
+                          className="w-full bg-gray-50 border-none rounded-xl py-2 px-4 text-[10px] font-medium focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                        />
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setNewCondoData({...newCondoData, images: [...newCondoData.images, '']})}
+                      className="aspect-video rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#8FA603] hover:text-[#8FA603] transition-all group bg-gray-50/50"
+                    >
+                      <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Foto</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-gray-100 flex justify-end gap-4 sticky bottom-0 bg-white pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCondoModalOpen(false)}
+                    className="px-8 py-4 rounded-2xl text-sm font-black text-gray-500 hover:bg-gray-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-10 py-4 bg-[#8FA603] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#8FA603]/20 hover:scale-105 transition-all flex items-center gap-2"
+                  >
+                    <Save className="w-5 h-5" /> Finalizar Cadastro
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Overlay for mobile sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden cursor-pointer"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main Content */}
+      <main className="flex-1 min-w-0 overflow-auto">
+        
+        {/* Top Bar */}
+        <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30 px-4 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4 flex-1 max-w-xl">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="relative w-full hidden sm:block">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Buscar leads, imóveis ou documentos..."
+                className="w-full bg-gray-50 border-none rounded-2xl py-2.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-4 ml-4">
+            <button className="p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all relative">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+            </button>
+            <button className="hidden sm:flex p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all">
+              <Settings className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-3 pl-4 border-l border-gray-100 relative" ref={userDropdownRef}>
+              <button 
+                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                className="flex items-center gap-3 hover:bg-gray-50 p-1 rounded-2xl transition-all cursor-pointer"
+              >
+                <div className="text-right hidden md:block">
+                  <p className="text-sm font-black text-gray-900">{auth.currentUser?.displayName || 'Daniel Vale'}</p>
+                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
+                    {auth.currentUser?.email === 'danielvaleweb@gmail.com' ? 'CEO & DIRETOR CRIATIVO' : 'CORRETOR PARCEIRO'}
+                  </p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#8FA603]/20 border-2 border-white">
+                  <img 
+                    src={auth.currentUser?.photoURL || "https://i.imgur.com/5l1CO1t.png"} 
+                    alt={auth.currentUser?.displayName || "Daniel Vale"} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isUserDropdownOpen ? 'rotate-90' : ''}`} />
+              </button>
+
+              {/* User Dropdown Menu */}
+              <AnimatePresence>
+                {isUserDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full right-0 mt-2 w-64 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden py-2 z-50"
+                  >
+                    <div className="px-4 py-3 border-b border-gray-50 mb-1">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Sessão atual</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">{auth.currentUser?.email}</p>
+                    </div>
+
+                    <button 
+                      onClick={() => navigate('/')}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-[#8FA603] transition-all text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#8FA603]/10 group-hover:text-[#8FA603] transition-all">
+                        <ExternalLink className="w-4 h-4" />
+                      </div>
+                      Voltar para o site
+                    </button>
+
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-all text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-400 group-hover:bg-red-500 group-hover:text-white transition-all">
+                        <LogOut className="w-4 h-4" />
+                      </div>
+                      Sair do sistema
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-4 lg:p-8 max-w-[1600px] mx-auto">
+          
+          {activeTab === 'overview' ? (
+            <>
+              {/* Welcome Section */}
+              <div className="mb-8 lg:mb-10">
+                <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Olá, Daniel Vale! 👋</h1>
+                <p className="text-sm lg:text-base text-gray-500 font-medium">Aqui está o que está acontecendo com seus imóveis hoje.</p>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8 lg:mb-10">
+                {[
+                  { label: 'Volume em Carteira', value: dashboardStats.totalValue, icon: DollarSign, trend: '+12%', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                  { label: 'Propostas Recebidas', value: proposals.length.toString(), icon: FileText, trend: '+8%', color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'Imóveis em Pauta', value: dashboardStats.totalProperties.toString(), icon: Home, trend: '+5%', color: 'text-amber-600', bg: 'bg-amber-50' },
+                  { label: 'Taxa de Conversão', value: '4.2%', icon: TrendingUp, trend: '+2%', color: 'text-purple-600', bg: 'bg-purple-50' },
+                ].map((stat, i) => (
+                  <div 
+                    key={i}
+                    className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 hover:shadow-md transition-all group"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color} transition-transform group-hover:scale-110`}>
+                        <stat.icon className="w-6 h-6" />
+                      </div>
+                      <div className={`flex items-center gap-1 text-xs font-black ${stat.trend.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {stat.trend}
+                        {stat.trend.startsWith('+') ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                      </div>
+                    </div>
+                    <p className="text-gray-500 text-xs font-bold mb-1 uppercase tracking-wider">{stat.label}</p>
+                    <p className="text-2xl lg:text-3xl font-black text-gray-900">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Main Content Grid */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
+                
+                {/* Chart Section */}
+                <div className="xl:col-span-2 space-y-6 lg:space-y-8">
+                  <div 
+                    className="bg-white p-6 lg:p-8 rounded-[32px] lg:rounded-[40px] shadow-sm border border-gray-100"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                      <div>
+                        <h3 className="text-xl font-black text-gray-900">Desempenho Comercial</h3>
+                        <p className="text-sm text-gray-500 font-medium">Visualização de crescimento mensal</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="px-4 py-2 bg-gray-50 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100">7 Dias</button>
+                        <button className="px-4 py-2 bg-[#8FA603] rounded-xl text-xs font-bold text-white shadow-lg shadow-[#8FA603]/20">30 Dias</button>
+                      </div>
+                    </div>
+                    
+                    <div className="h-[300px] lg:h-[400px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={dashboardStats.chartData}>
+                          <defs>
+                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#8FA603" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#8FA603" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fill: '#9CA3AF', fontSize: 12, fontWeight: 600}}
+                            dy={10}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fill: '#9CA3AF', fontSize: 12, fontWeight: 600}}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              borderRadius: '24px', 
+                              border: 'none', 
+                              boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+                              padding: '16px'
+                            }}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="sales" 
+                            stroke="#8FA603" 
+                            strokeWidth={4}
+                            fillOpacity={1} 
+                            fill="url(#colorSales)" 
+                            animationDuration={2000}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Recent Leads Table */}
+                  <div 
+                    className="bg-white rounded-[32px] lg:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden"
+                  >
+                    <div className="p-6 lg:p-8 flex items-center justify-between border-b border-gray-50">
+                      <div>
+                        <h3 className="text-xl font-black text-gray-900">Leads Recentes</h3>
+                        <p className="text-sm text-gray-500 font-medium">Interações em tempo real</p>
+                      </div>
+                      <button className="flex items-center gap-2 text-[#8FA603] font-black text-sm hover:gap-3 transition-all">
+                        Ver Todos <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-gray-50/50">
+                            <th className="px-6 lg:px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Lead</th>
+                            <th className="px-6 lg:px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] hidden md:table-cell">Imóvel</th>
+                            <th className="px-6 lg:px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status</th>
+                            <th className="px-6 lg:px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {proposals.slice(0, 5).map((proposal) => (
+                            <tr key={proposal.id} className="hover:bg-gray-50/30 transition-colors group">
+                              <td className="px-6 lg:px-8 py-5">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-700 font-black text-xs group-hover:bg-[#8FA603] group-hover:text-white transition-all">
+                                    {proposal.userName?.charAt(0) || 'U'}
+                                  </div>
+                                  <div>
+                                    <p className="font-black text-gray-900 text-sm">{proposal.userName}</p>
+                                    <p className="text-xs text-gray-500 font-medium hidden sm:block">{proposal.userEmail}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 lg:px-8 py-5 hidden md:table-cell">
+                                <p className="text-sm font-bold text-gray-700">{proposal.propertyName}</p>
+                                <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
+                                  <Clock className="w-3 h-3" /> Recebido em {proposal.createdAt?.toDate ? proposal.createdAt.toDate().toLocaleDateString() : new Date(proposal.createdAt).toLocaleDateString()}
+                                </p>
+                              </td>
+                              <td className="px-6 lg:px-8 py-5">
+                                <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 w-fit ${
+                                  proposal.status === 'pending' ? 'bg-blue-50 text-blue-600' :
+                                  proposal.status === 'accepted' ? 'bg-emerald-50 text-emerald-600' :
+                                  'bg-red-50 text-red-600'
+                                }`}>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${
+                                    proposal.status === 'pending' ? 'bg-blue-600' :
+                                    proposal.status === 'accepted' ? 'bg-emerald-600' :
+                                    'bg-red-600'
+                                  }`}></div>
+                                  {proposal.status === 'pending' ? 'Novo' : proposal.status === 'accepted' ? 'Aceito' : 'Recusado'}
+                                </div>
+                              </td>
+                              <td className="px-6 lg:px-8 py-5 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all">
+                                    <MessageSquare className="w-4 h-4" />
+                                  </button>
+                                  <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sidebar Widgets */}
+                <div className="space-y-6 lg:space-y-8">
+                  
+                  {/* Portfolio Distribution */}
+                  <div 
+                    className="bg-white p-6 lg:p-8 rounded-[32px] lg:rounded-[40px] shadow-sm border border-gray-100"
+                  >
+                    <h3 className="text-xl font-black text-gray-900 mb-6">Distribuição</h3>
+                    <div className="h-[200px] lg:h-[240px] w-full mb-8">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={dashboardStats.pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={70}
+                            outerRadius={90}
+                            paddingAngle={8}
+                            dataKey="value"
+                          >
+                            {dashboardStats.pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="space-y-4">
+                      {dashboardStats.pieData.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                            <span className="text-sm text-gray-600 font-bold">{item.name}</span>
+                          </div>
+                          <span className="text-sm font-black text-gray-900">{item.value}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Actions / Tasks */}
+                  <div 
+                    className="bg-white p-6 lg:p-8 rounded-[32px] lg:rounded-[40px] shadow-sm border border-gray-100"
+                  >
+                    <h3 className="text-xl font-black text-gray-900 mb-6">Tarefas do Dia</h3>
+                    <div className="space-y-4">
+                      {[
+                        { title: 'Ligar para João Silva', time: '14:00', type: 'call', done: false },
+                        { title: 'Visita: Mansão Joá', time: '16:30', type: 'visit', done: true },
+                        { title: 'Enviar contrato Maria', time: '18:00', type: 'doc', done: false },
+                      ].map((task, i) => (
+                        <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border ${task.done ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100'}`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${task.done ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                            {task.done ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className={`text-sm font-bold ${task.done ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</p>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{task.time}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button className="w-full mt-6 py-4 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 text-sm font-bold hover:border-[#8FA603] hover:text-[#8FA603] transition-all flex items-center justify-center gap-2">
+                      <Plus className="w-4 h-4" /> Adicionar Tarefa
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            </>
+          ) : activeTab === 'brokers' ? (
+            <div
+              className="space-y-8"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Corretores</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie a equipe de corretores da sua imobiliária.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsEditingBroker(false);
+                    setNewBrokerData({ name: '', role: '', photo: '', phone: '', email: '', bio: '', creci: '', instagram: '' });
+                    setIsBrokerModalOpen(true);
+                  }}
+                  className="bg-[#8FA603] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Adicionar Corretor
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pt-12 max-w-6xl mx-auto">
+                {brokers.map((broker) => {
+                  const brokerProperties = properties.filter(p => p.broker === broker.name);
+                  const latestProperty = brokerProperties.length > 0 ? brokerProperties[0] : null;
+                  const propertyImage = latestProperty ? (latestProperty.images?.[0] || latestProperty.image) : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80';
+
+                  return (
+                    <div
+                      key={broker.id}
+                      className="relative bg-white rounded-[40px] shadow-sm border border-gray-100 group pt-20 max-w-[340px] mx-auto w-full"
+                    >
+                      {/* Background Property Image with Blur */}
+                      <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden rounded-t-[40px]">
+                        <img 
+                          src={propertyImage} 
+                          alt="Latest Property"
+                          className="w-full h-full object-cover blur-md scale-110 opacity-30 transition-transform duration-700 group-hover:scale-125"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-white" />
+                      </div>
+
+                      {/* Broker Image in Circle - "Leaving the canvas" */}
+                      <div className="relative flex justify-center -mt-28 mb-4">
+                        <div className="w-36 h-36 rounded-full border-[10px] border-white shadow-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105">
+                          <img 
+                            src={broker.photo} 
+                            alt={broker.name}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-6 relative z-20">
+                        <div className="text-center mb-6">
+                          <h3 className="font-black text-gray-900 text-lg leading-tight">{broker.name}</h3>
+                          <p className="text-[#8FA603] font-bold text-xs uppercase tracking-widest">{broker.role}</p>
+                        </div>
+
+                        <div className="space-y-3 mb-6 bg-gray-50/50 p-4 rounded-2xl">
+                          <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                            <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                              <Phone className="w-3 h-3 text-[#8FA603]" />
+                            </div>
+                            {broker.phone}
+                          </div>
+                          <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                            <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                              <Mail className="w-3 h-3 text-[#8FA603]" />
+                            </div>
+                            {broker.email}
+                          </div>
+                          {broker.creci && (
+                            <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                              <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                <ShieldCheck className="w-3 h-3 text-[#8FA603]" />
+                              </div>
+                              CRECI: {broker.creci}
+                            </div>
+                          )}
+                          {broker.instagram && (
+                            <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                              <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                <Instagram className="w-3 h-3 text-[#8FA603]" />
+                              </div>
+                              @{broker.instagram}
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-gray-600 line-clamp-2 mb-6 font-medium text-center px-2">
+                          {broker.bio}
+                        </p>
+
+                        <button 
+                          onClick={() => navigate(`/corretor/${broker.id}`)}
+                          className="w-full py-3 mb-6 bg-gray-50 text-gray-900 rounded-2xl text-xs font-black hover:bg-[#8FA603] hover:text-white transition-all border border-gray-100 flex items-center justify-center gap-2 group/btn"
+                        >
+                          Ver Perfil Completo
+                          <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                        </button>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                          <button 
+                            onClick={() => handleEditBroker(broker)}
+                            className="px-4 py-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all flex items-center gap-2 text-xs font-black"
+                          >
+                            <Edit className="w-4 h-4" /> Editar
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteBroker(broker.id)}
+                            className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : activeTab === 'condos' ? (
+            <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Condomínios</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie todos os condomínios cadastrados.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsEditingCondo(false);
+                    setEditingCondoId(null);
+                    setNewCondoData({
+                      name: '',
+                      location: '',
+                      portariaType: 'Não possui',
+                      gasSupply: 'botijão',
+                      leisure: [],
+                      verticalConveniencies: [],
+                      horizontalConveniencies: [],
+                      bio: '',
+                      image360Url: '',
+                      logoUrl: '',
+                      images: ['']
+                    });
+                    setIsCondoModalOpen(true);
+                  }}
+                  className="bg-[#8FA603] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Cadastrar Condomínio
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {condos.map((condo) => (
+                  <div
+                    key={condo.id}
+                    className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100 group"
+                  >
+                    <div className="relative h-48 overflow-hidden bg-gray-50">
+                      {condo.images && condo.images.length > 0 ? (
+                        <img 
+                          src={condo.images[0]} 
+                          alt={condo.name}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center">
+                          <ShieldCheck className="w-12 h-12 text-gray-200 mb-2" />
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sem foto</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-black text-gray-900 leading-tight mb-1">{condo.name}</h3>
+                      <p className="text-xs text-gray-500 font-medium mb-4 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {condo.location || 'Localização não informada'}
+                      </p>
+                      
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-lg uppercase tracking-wider">
+                          Portaria: {condo.portariaType}
+                        </span>
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-lg uppercase tracking-wider">
+                          Gás: {condo.gasSupply}
+                        </span>
+                        {(condo.leisure?.length || 0) > 0 && (
+                          <span className="px-2 py-1 bg-[#8FA603]/10 text-[#8FA603] text-[10px] font-bold rounded-lg uppercase tracking-wider">
+                            {condo.leisure?.length} Itens de Lazer
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#8FA603]/10 rounded-xl border border-[#8FA603]/20">
+                            <Home className="w-3.5 h-3.5 text-[#8FA603]" />
+                            <span className="text-xs font-black text-[#8FA603]">
+                              {properties.filter(p => p.condoId === condo.id).length} {properties.filter(p => p.condoId === condo.id).length === 1 ? 'Imóvel' : 'Imóveis'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleEditCondo(condo)}
+                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all"
+                            title="Editar Condomínio"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteCondo(condo.id)}
+                            className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 hover:shadow-md transition-all"
+                            title="Excluir Condomínio"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : activeTab === 'proposals' ? (
+            <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Propostas Recebidas</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Acompanhe e gerencie as propostas de compra dos seus clientes.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                {proposals.length === 0 ? (
+                  <div className="bg-white p-12 rounded-[40px] border border-gray-100 text-center shadow-sm">
+                    <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                      <FileText className="w-10 h-10 text-gray-300" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 mb-2">Nenhuma proposta ainda</h3>
+                    <p className="text-gray-500 font-medium">As propostas enviadas pelos clientes aparecerão aqui.</p>
+                  </div>
+                ) : (
+                  proposals.map((proposal) => (
+                    <div 
+                      key={proposal.id}
+                      className="bg-white p-6 lg:p-8 rounded-[32px] lg:rounded-[40px] shadow-sm border border-gray-100 hover:shadow-md transition-all group"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div className="flex items-start gap-6">
+                          <div className="w-16 h-16 bg-[#8FA603]/10 rounded-2xl flex items-center justify-center text-[#8FA603] shrink-0">
+                            <DollarSign className="w-8 h-8" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <h3 className="text-lg font-black text-gray-900">{proposal.userName}</h3>
+                              <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">
+                                {proposal.paymentMethod}
+                              </span>
+                              <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-wider">
+                                {proposal.proposalValue}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500 font-medium flex items-center gap-2">
+                              <Home className="w-4 h-4" /> {proposal.propertyName}
+                            </p>
+                            <div className="flex items-center gap-4 pt-2">
+                              <span className="text-xs text-gray-400 font-bold flex items-center gap-1">
+                                <Mail className="w-3 h-3" /> {proposal.userEmail}
+                              </span>
+                              <span className="text-xs text-gray-400 font-bold flex items-center gap-1">
+                                <Phone className="w-3 h-3" /> {proposal.userPhone}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                          <div className="text-right sm:mr-4">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Data do Envio</p>
+                            <p className="text-sm font-black text-gray-900">
+                              {proposal.createdAt?.toDate ? proposal.createdAt.toDate().toLocaleDateString('pt-BR') : 'Recentemente'}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              if (window.confirm('Deseja excluir esta proposta?')) {
+                                deleteDoc(doc(db, 'proposals', proposal.id)).catch(err => handleFirestoreError(err, OperationType.DELETE, `proposals/${proposal.id}`));
+                              }
+                            }}
+                            className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all shadow-sm"
+                            title="Excluir Proposta"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {proposal.observations && (
+                        <div className="mt-6 p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <MessageSquare className="w-3 h-3" /> Observações do Cliente
+                          </p>
+                          <p className="text-sm text-gray-600 font-medium leading-relaxed italic">
+                            "{proposal.observations}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : activeTab === 'properties' ? (
+            <div
+              className="space-y-8"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Todos Imóveis</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie todos os imóveis dos seus corretores.</p>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <button 
+                    onClick={handleAddProperty}
+                    className="bg-[#8FA603] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Cadastrar Imóvel
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Tabs */}
+              <div className="bg-white p-4 rounded-[2.5rem] shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-3 min-w-max">
+                  <button
+                    onClick={() => setSelectedCategory('all')}
+                    className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                      selectedCategory === 'all'
+                        ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/20'
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 border border-gray-100'
+                    }`}
+                  >
+                    Todos
+                  </button>
+
+                  {/* Special Tab for Lançamentos as it's a major section */}
+                  <button
+                    onClick={() => setSelectedCategory('lançamento')}
+                    className={`px-6 py-3 rounded-2xl transition-all flex items-center gap-3 border ${
+                      selectedCategory === 'lançamento'
+                        ? 'bg-[#374001] text-white border-[#374001] shadow-lg shadow-[#374001]/20'
+                        : 'bg-white text-gray-400 border-gray-100 hover:border-[#8FA603] hover:text-[#8FA603]'
+                    } group`}
+                  >
+                    <div className={`${selectedCategory === 'lançamento' ? 'text-white' : 'text-[#8FA603]'} group-hover:scale-110 transition-all`}>
+                      <Rocket className="w-5 h-5" />
+                    </div>
+                    <div className="text-left leading-tight">
+                      <p className="text-[8px] uppercase opacity-60 font-bold">Imóveis em</p>
+                      <p className="text-[10px] font-black uppercase tracking-tight">Lançamento</p>
+                    </div>
+                  </button>
+
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.slug)}
+                      className={`px-6 py-3 rounded-2xl transition-all flex items-center gap-3 border ${
+                        selectedCategory === cat.slug
+                          ? 'bg-[#374001] text-white border-[#374001] shadow-lg shadow-[#374001]/20'
+                          : 'bg-white text-gray-400 border-gray-100 hover:border-[#8FA603] hover:text-[#8FA603]'
+                      } group`}
+                    >
+                      <div className={`${selectedCategory === cat.slug ? 'text-white' : 'text-[#8FA603]'} group-hover:scale-110 transition-all`}>
+                        <cat.icon className="w-5 h-5" />
+                      </div>
+                      <div className="text-left leading-tight">
+                        <p className="text-[8px] uppercase opacity-60 font-bold">{cat.label1}</p>
+                        <p className="text-[10px] font-black uppercase tracking-tight">{cat.label2}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {properties
+                  .filter(p => {
+                    if (selectedCategory === 'all') return true;
+                    if (selectedCategory === 'lançamento') return p.listingType === 'lançamento';
+                    
+                    // Robust filtering: check slug OR label match
+                    const categoryMatch = p.categorySlug === selectedCategory;
+                    const labelMatch = p.category?.toLowerCase().includes(selectedCategory.replace(/-/g, ' '));
+                    return categoryMatch || labelMatch;
+                  })
+                  .map((property) => (
+                  <div
+                    key={property.id}
+                    className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100 group"
+                  >
+                    <div className="relative h-48 overflow-hidden bg-gray-50">
+                      {(!property.image || property.image.includes('pe07Ikg.png')) && (!property.images || property.images.length === 0 || property.images[0] === '') ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center relative transition-transform duration-500 group-hover:scale-110">
+                          <img 
+                            src="https://i.imgur.com/egg4k7M.png" 
+                            alt="CR Imóveis" 
+                            className="absolute inset-0 w-full h-full object-contain opacity-5 p-6"
+                            referrerPolicy="no-referrer"
+                          />
+                          <Home className="w-8 h-8 text-gray-300 mb-2 relative z-10" />
+                          <span className="text-[10px] font-bold text-gray-400 relative z-10 uppercase tracking-wider">Imóvel sem foto</span>
+                        </div>
+                      ) : (
+                        <img 
+                          src={property.images && property.images.length > 0 && property.images[0] !== '' ? property.images[0] : property.image} 
+                          alt={property.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      <div className="absolute top-4 right-4">
+                        <span className="px-3 py-1.5 bg-white/20 backdrop-blur-md border border-white/30 rounded-full text-[10px] font-black uppercase tracking-wider text-white shadow-xl">
+                          {property.broker || 'Daniel CEO'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-black text-gray-900 leading-tight">{property.title}</h3>
+                        <p className="text-[#8FA603] font-black text-sm whitespace-nowrap ml-4">{property.price}</p>
+                      </div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-lg uppercase tracking-wider">
+                          {property.category}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 font-medium mb-4 flex items-center gap-1">
+                        <Home className="w-3 h-3" /> {property.location}
+                      </p>
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleEditProperty(property)}
+                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => navigate(`/imovel/${property.id}`)}
+                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteProperty(property.id)}
+                          className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-3xl flex items-center justify-center mb-6">
+                <AlertCircle className="w-10 h-10 text-gray-400" />
+              </div>
+              <h2 className="text-xl font-black text-gray-900 mb-2">Em Desenvolvimento</h2>
+              <p className="text-gray-500 font-medium">Esta seção estará disponível em breve.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Broker Modal */}
+        <AnimatePresence>
+          {isBrokerModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+              >
+                <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                  <div>
+                    <h2 className="text-2xl font-black text-gray-900">{isEditingBroker ? 'Editar Corretor' : 'Adicionar Corretor'}</h2>
+                    <p className="text-sm text-gray-500 font-medium">Preencha as informações do membro da equipe.</p>
+                  </div>
+                  <button 
+                    onClick={() => setIsBrokerModalOpen(false)}
+                    className="p-3 hover:bg-white rounded-2xl text-gray-400 hover:text-gray-900 transition-all shadow-sm"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveBroker} className="p-8 overflow-y-auto flex-1 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                      <input 
+                        type="text"
+                        required
+                        value={newBrokerData.name}
+                        onChange={(e) => setNewBrokerData({...newBrokerData, name: e.target.value})}
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        placeholder="Ex: Simone Silva"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Cargo / Função</label>
+                      <input 
+                        type="text"
+                        required
+                        value={newBrokerData.role}
+                        onChange={(e) => setNewBrokerData({...newBrokerData, role: e.target.value})}
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        placeholder="Ex: Corretora Sênior"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Telefone</label>
+                      <input 
+                        type="text"
+                        required
+                        value={newBrokerData.phone}
+                        onChange={(e) => setNewBrokerData({...newBrokerData, phone: formatPhone(e.target.value)})}
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        placeholder="(32) 99999-9999"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">E-mail</label>
+                      <input 
+                        type="email"
+                        required
+                        value={newBrokerData.email}
+                        onChange={(e) => setNewBrokerData({...newBrokerData, email: e.target.value})}
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        placeholder="simone@email.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Número do CRECI</label>
+                      <input 
+                        type="text"
+                        value={newBrokerData.creci}
+                        onChange={(e) => setNewBrokerData({...newBrokerData, creci: e.target.value})}
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        placeholder="Ex: 12.345-F"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Instagram (Usuário)</label>
+                      <div className="relative">
+                        <Instagram className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                          type="text"
+                          value={newBrokerData.instagram}
+                          onChange={(e) => setNewBrokerData({...newBrokerData, instagram: e.target.value})}
+                          className="w-full pl-12 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                          placeholder="Ex: simone_corretora"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">URL da Foto</label>
+                    <input 
+                      type="url"
+                      required
+                      value={newBrokerData.photo}
+                      onChange={(e) => setNewBrokerData({...newBrokerData, photo: e.target.value})}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                      placeholder="https://exemplo.com/foto.jpg"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Biografia / Descrição</label>
+                    <textarea 
+                      required
+                      rows={4}
+                      value={newBrokerData.bio}
+                      onChange={(e) => setNewBrokerData({...newBrokerData, bio: e.target.value})}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900 resize-none"
+                      placeholder="Conte um pouco sobre a experiência do corretor..."
+                    />
+                  </div>
+
+                  <div className="pt-4 flex gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => setIsBrokerModalOpen(false)}
+                      className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      type="submit"
+                      className="flex-2 py-4 bg-[#8FA603] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                    >
+                      <Save className="w-5 h-5" />
+                      {isEditingBroker ? 'Salvar Alterações' : 'Cadastrar Corretor'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </main>
+    </div>
+  );
+}

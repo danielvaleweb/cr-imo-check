@@ -1,0 +1,215 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: Firebase Auth UID
+    // Fields:
+    //   - role: string (required, ['admin', 'user'])
+    //   - email: string (required, email format)
+    //   - favorites: list (optional, list of property IDs)
+    //
+    // Collection: properties
+    // Document ID: Numeric string (id)
+    // Fields:
+    //   - id: number (required)
+    //   - title: string (required, max 100)
+    //   - location: string (required, max 200)
+    //   - price: string (required, max 50)
+    //   - beds: number (optional)
+    //   - baths: number (optional)
+    //   - parking: number (optional)
+    //   - area: string (optional, max 50)
+    //   - image: string (required, URL)
+    //   - category: string (required, max 50)
+    //   - categorySlug: string (required, max 50)
+    //   - customButtons: list (optional, list of {label, url})
+    //   ... other optional fields
+    //
+    // Collection: brokers
+    // Document ID: Numeric string (id)
+    // Fields:
+    //   - id: number (required)
+    //   - name: string (required, max 100)
+    //   - role: string (required, max 100)
+    //   - photo: string (required, URL)
+    //   - phone: string (required, max 20)
+    //   - email: string (required, email format)
+    //
+    // Collection: condos
+    // Document ID: Numeric string (id)
+    // Fields:
+    //   - id: number (required)
+    //   - name: string (required, max 100)
+    //   - bio: string (required, max 2000)
+    //   - images: list (optional, list of URLs)
+    //
+    // Collection: proposals
+    // Document ID: Auto-generated
+    // Fields:
+    //   - propertyId: string (required)
+    //   - value: string (required, max 50)
+    //   - userName: string (required, max 100)
+    //   - userPhone: string (required, max 20)
+    //   - userEmail: string (required, email format)
+    //   - status: string (optional, ['pending', 'accepted', 'rejected'])
+    //
+    // Collection: condo_options
+    // Document ID: Auto-generated
+    // Fields:
+    //   - type: string (required, ['leisure', 'verticalConveniencies', 'horizontalConveniencies'])
+    //   - label: string (required, max 100)
+    //   - createdAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "danielvaleweb@gmail.com" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function validString(field, maxLen) {
+      return request.resource.data[field] is string && request.resource.data[field].size() <= maxLen;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['role', 'email']) &&
+             data.role in ['admin', 'user'] &&
+             isValidEmail(data.email) &&
+             (!('favorites' in data) || data.favorites is list);
+    }
+
+    function isValidProperty(data) {
+      return hasRequiredFields(['title', 'location', 'price', 'image', 'category', 'categorySlug']) &&
+             data.title is string && data.title.size() <= 100 &&
+             data.location is string && data.location.size() <= 200 &&
+             data.price is string && data.price.size() <= 50 &&
+             isValidUrl(data.image) &&
+             data.category is string && data.category.size() <= 50 &&
+             data.categorySlug is string && data.categorySlug.size() <= 50 &&
+             (!('customButtons' in data) || data.customButtons is list) &&
+             (!('projectLogoUrl' in data) || data.projectLogoUrl is string) &&
+             (!('condoId' in data) || (data.condoId is string || data.condoId is number));
+    }
+
+    function isValidBroker(data) {
+      return hasRequiredFields(['name', 'role', 'photo', 'phone', 'email']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.role is string && data.role.size() <= 100 &&
+             isValidUrl(data.photo) &&
+             data.phone is string && data.phone.size() <= 20 &&
+             isValidEmail(data.email);
+    }
+
+    function isValidCondo(data) {
+      return hasRequiredFields(['name', 'bio']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.bio is string && data.bio.size() <= 2000 &&
+             (!('location' in data) || data.location is string) &&
+             (!('portariaType' in data) || data.portariaType in ['Remota', '24h', 'Não possui']) &&
+             (!('gasSupply' in data) || data.gasSupply in ['encanado', 'botijão']) &&
+             (!('leisure' in data) || data.leisure is list) &&
+             (!('verticalConveniencies' in data) || data.verticalConveniencies is list) &&
+             (!('horizontalConveniencies' in data) || data.horizontalConveniencies is list) &&
+             (!('image360Url' in data) || data.image360Url is string) &&
+             (!('logoUrl' in data) || data.logoUrl is string) &&
+             (!('images' in data) || data.images is list);
+    }
+
+    function isValidProposal(data) {
+      return hasRequiredFields(['propertyId', 'value', 'userName', 'userPhone', 'userEmail']) &&
+             data.propertyId is string &&
+             data.value is string && data.value.size() <= 50 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.userPhone is string && data.userPhone.size() <= 20 &&
+             isValidEmail(data.userEmail);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // PII Protection: Only owner or admin can read
+      allow read: if isOwner(userId) || isAdmin();
+      // Only owner can create/update their non-role fields, only admin can change roles
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == 'user' || isAdmin());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) &&
+                    (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /properties/{propertyId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidProperty(request.resource.data);
+    }
+
+    match /brokers/{brokerId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidBroker(request.resource.data);
+    }
+
+    match /condos/{condoId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidCondo(request.resource.data);
+    }
+
+    match /proposals/{proposalId} {
+      // PII Protection: Only admin can read proposals (leads)
+      allow read: if isAdmin();
+      // Anyone can create a proposal (lead generation)
+      allow create: if isValidProposal(request.resource.data);
+      // Only admin can update/delete
+      allow update, delete: if isAdmin();
+    }
+
+    match /condo_options/{optionId} {
+      allow read: if true;
+      allow write: if isAdmin() || request.auth.token.email == "danielvaleweb@gmail.com";
+    }
+
+    match /system_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
