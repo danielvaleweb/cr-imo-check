@@ -12,8 +12,14 @@ export default function PremiumSlider() {
   if (launchProperties.length === 0) return null;
 
   return (
-    <section className="bg-[#132014] py-20 overflow-hidden">
-      <div className="max-w-[1800px] mx-auto px-6 mb-10 flex items-center justify-between">
+    <section className="bg-[#132014] py-20 overflow-hidden relative">
+      {/* Grain Texture Overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.15] pointer-events-none mix-blend-overlay" 
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
+      ></div>
+
+      <div className="max-w-[1800px] mx-auto px-6 mb-10 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-3 text-white group/title">
           <div className="bg-linear-to-br from-[#132014] to-[#617964] p-2 rounded-lg shadow-sm border border-white/20 transition-all duration-300 group-hover/title:shadow-[0_0_15px_rgba(229,209,158,0.4)] group-hover/title:scale-110">
             <Rocket className="w-5 h-5 text-[#E5D19E] transition-all duration-300 group-hover/title:drop-shadow-[0_0_8px_rgba(229,209,158,0.6)]" />
@@ -32,7 +38,7 @@ export default function PremiumSlider() {
         </button>
       </div>
 
-      <div className="flex gap-8 overflow-x-auto no-scrollbar px-6 pb-12">
+      <div className="flex gap-8 overflow-x-auto no-scrollbar px-6 pb-12 relative z-10">
         {launchProperties.map((prop) => (
           <motion.div
             key={prop.id}

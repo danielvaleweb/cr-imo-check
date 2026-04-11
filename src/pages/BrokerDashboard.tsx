@@ -134,7 +134,7 @@ import {
 } from 'recharts';
 
 // Removendo dados simulados para usar dados reais do banco
-const COLORS = ['#8FA603', '#374001', '#B8860B', '#D2B48C'];
+const COLORS = ['#617964', '#374001', '#B8860B', '#D2B48C'];
 
 const LEISURE_OPTIONS = [
   'Campo de futebol', 'Churrasqueira', 'Espaço Fitness', 'Espaço Gourmet', 
@@ -913,10 +913,10 @@ export default function BrokerDashboard() {
         <div className="p-8">
           <div className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#8FA603] rounded-xl flex items-center justify-center shadow-lg shadow-[#8FA603]/20">
+              <div className="w-10 h-10 bg-[#617964] rounded-xl flex items-center justify-center shadow-lg shadow-[#617964]/20">
                 <Home className="text-white w-6 h-6" />
               </div>
-              <span className="text-xl font-black tracking-tighter text-[#1A1A1A]">CR <span className="text-[#8FA603]">DASH</span></span>
+              <span className="text-xl font-black tracking-tighter text-[#1A1A1A]">CR <span className="text-[#617964]">DASH</span></span>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
               <X className="w-5 h-5 text-gray-400" />
@@ -942,7 +942,7 @@ export default function BrokerDashboard() {
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
                   activeTab === item.id 
-                    ? 'bg-[#8FA603]/10 text-[#8FA603]' 
+                    ? 'bg-[#617964]/10 text-[#617964]' 
                     : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
@@ -971,7 +971,7 @@ export default function BrokerDashboard() {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col"
             >
-              <div className="p-6 bg-[#8FA603] text-white flex items-center justify-between">
+              <div className="p-6 bg-[#617964] text-white flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                     {isEditing ? <Edit className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
@@ -994,22 +994,22 @@ export default function BrokerDashboard() {
                       >
                               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
                                 currentStep === s 
-                                  ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/30 scale-110' 
+                                  ? 'bg-[#617964] text-white shadow-lg shadow-[#617964]/30 scale-110' 
                                   : currentStep > s 
-                                    ? 'bg-[#8FA603]/20 text-[#8FA603]' 
+                                    ? 'bg-[#617964]/20 text-[#617964]' 
                                     : 'bg-white border border-gray-200 text-gray-400'
                               }`}>
                           {currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}
                         </div>
                         <span className={`text-[10px] font-black uppercase tracking-tighter ${
-                          currentStep === s ? 'text-[#8FA603]' : 'text-gray-400'
+                          currentStep === s ? 'text-[#617964]' : 'text-gray-400'
                         }`}>
                           {s === 1 ? 'Básico' : s === 2 ? 'Características' : s === 3 ? 'Mídia' : s === 4 ? 'Categoria' : 'Interno'}
                         </span>
                       </div>
                       {s < 5 && (
                         <div className={`flex-1 h-1 mx-4 rounded-full transition-all ${
-                          currentStep > s ? 'bg-[#8FA603]' : 'bg-white border border-gray-200'
+                          currentStep > s ? 'bg-[#617964]' : 'bg-white border border-gray-200'
                         }`} />
                       )}
                     </React.Fragment>
@@ -1025,7 +1025,7 @@ export default function BrokerDashboard() {
                       exit={{ opacity: 0, x: -20 }}
                       className="space-y-6"
                     >
-                      <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest flex items-center gap-2">
+                      <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
                         <Info className="w-4 h-4" /> Informações Básicas
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1037,7 +1037,7 @@ export default function BrokerDashboard() {
                               onClick={() => handlePriceChange(newPropertyData.price, 'venda')}
                               className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
                                 newPropertyData.listingType === 'venda'
-                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  ? 'bg-[#617964]/10 border-[#617964] text-[#617964]'
                                   : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
                               }`}
                             >
@@ -1048,7 +1048,7 @@ export default function BrokerDashboard() {
                               onClick={() => handlePriceChange(newPropertyData.price, 'aluguel')}
                               className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
                                 newPropertyData.listingType === 'aluguel'
-                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  ? 'bg-[#617964]/10 border-[#617964] text-[#617964]'
                                   : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
                               }`}
                             >
@@ -1059,7 +1059,7 @@ export default function BrokerDashboard() {
                               onClick={() => handlePriceChange(newPropertyData.price, 'permuta')}
                               className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
                                 newPropertyData.listingType === 'permuta'
-                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  ? 'bg-[#617964]/10 border-[#617964] text-[#617964]'
                                   : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
                               }`}
                             >
@@ -1070,7 +1070,7 @@ export default function BrokerDashboard() {
                               onClick={() => handlePriceChange(newPropertyData.price, 'lançamento')}
                               className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all border-2 ${
                                 newPropertyData.listingType === 'lançamento'
-                                  ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                  ? 'bg-[#617964]/10 border-[#617964] text-[#617964]'
                                   : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
                               }`}
                             >
@@ -1086,7 +1086,7 @@ export default function BrokerDashboard() {
                             value={newPropertyData.title}
                             onChange={(e) => setNewPropertyData({...newPropertyData, title: e.target.value})}
                             placeholder="Ex: Mansão Luxury"
-                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
 
@@ -1098,7 +1098,7 @@ export default function BrokerDashboard() {
                               value={newPropertyData.projectLogoUrl}
                               onChange={(e) => setNewPropertyData({...newPropertyData, projectLogoUrl: e.target.value})}
                               placeholder="https://exemplo.com/logo.png"
-                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                             />
                           </div>
                         )}
@@ -1112,7 +1112,7 @@ export default function BrokerDashboard() {
                             value={newPropertyData.price}
                             onChange={(e) => handlePriceChange(e.target.value)}
                             placeholder={newPropertyData.listingType === 'aluguel' ? "Ex: R$ 4.500,00 / mês" : "Ex: R$ 3.500.000,00"}
-                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
 
@@ -1126,7 +1126,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.condoFee}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, condoFee: formatCurrency(e.target.value)})}
                                 placeholder="Ex: R$ 1.200,00"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1136,7 +1136,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.iptu}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, iptu: formatCurrency(e.target.value)})}
                                 placeholder="Ex: R$ 5.000,00"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                           </>
@@ -1149,7 +1149,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.iptu}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, iptu: formatCurrency(e.target.value)})}
                                 placeholder="Ex: R$ 450,00"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1159,7 +1159,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.insurance}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, insurance: formatCurrency(e.target.value)})}
                                 placeholder="Ex: R$ 80,00"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1169,7 +1169,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.condoFee}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, condoFee: formatCurrency(e.target.value)})}
                                 placeholder="Ex: R$ 1.200,00"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                           </>
@@ -1182,7 +1182,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.floors}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, floors: parseInt(e.target.value) || 0})}
                                 placeholder="0"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1192,7 +1192,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.units}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, units: parseInt(e.target.value) || 0})}
                                 placeholder="0"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1202,7 +1202,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.frontUnits}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, frontUnits: parseInt(e.target.value) || 0})}
                                 placeholder="0"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1212,7 +1212,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.backUnits}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, backUnits: parseInt(e.target.value) || 0})}
                                 placeholder="0"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1222,7 +1222,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.lateralUnits}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, lateralUnits: parseInt(e.target.value) || 0})}
                                 placeholder="0"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1232,7 +1232,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.penthouseUnits}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, penthouseUnits: parseInt(e.target.value) || 0})}
                                 placeholder="0"
-                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                           </>
@@ -1244,12 +1244,12 @@ export default function BrokerDashboard() {
                               readOnly
                               type="text" 
                               value={newPropertyData.code}
-                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm font-bold text-[#8FA603] outline-none cursor-not-allowed"
+                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm font-bold text-[#617964] outline-none cursor-not-allowed"
                             />
                             <button 
                               type="button"
                               onClick={() => setNewPropertyData({...newPropertyData, code: generateUniqueCode()})}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white rounded-lg transition-all text-gray-400 hover:text-[#8FA603]"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white rounded-lg transition-all text-gray-400 hover:text-[#617964]"
                               title="Gerar novo código"
                             >
                               <TrendingUp className="w-4 h-4" />
@@ -1267,7 +1267,7 @@ export default function BrokerDashboard() {
                                 const finalVal = isNaN(numericVal) || val === "" ? val : numericVal;
                                 setNewPropertyData({...newPropertyData, condoId: finalVal});
                               }}
-                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all appearance-none"
+                              className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all appearance-none"
                             >
                               <option value={0}>Nenhum Condomínio</option>
                               {condos.map(c => (
@@ -1294,7 +1294,7 @@ export default function BrokerDashboard() {
                               value={newPropertyData.location}
                               onChange={(e) => setNewPropertyData({...newPropertyData, location: e.target.value})}
                               placeholder="Ex: AlphaVille, Juiz de Fora - MG"
-                              className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                              className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                             />
                           </div>
                         </div>
@@ -1310,7 +1310,7 @@ export default function BrokerDashboard() {
                       exit={{ opacity: 0, x: -20 }}
                       className="space-y-6"
                     >
-                      <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest flex items-center gap-2">
+                      <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
                         <Maximize className="w-4 h-4" /> Características
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -1320,7 +1320,7 @@ export default function BrokerDashboard() {
                             type="number" 
                             value={newPropertyData.beds}
                             onChange={(e) => setNewPropertyData({...newPropertyData, beds: parseInt(e.target.value) || 0})}
-                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1329,7 +1329,7 @@ export default function BrokerDashboard() {
                             type="number" 
                             value={newPropertyData.parking}
                             onChange={(e) => setNewPropertyData({...newPropertyData, parking: parseInt(e.target.value) || 0})}
-                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1338,7 +1338,7 @@ export default function BrokerDashboard() {
                             type="number" 
                             value={newPropertyData.baths}
                             onChange={(e) => setNewPropertyData({...newPropertyData, baths: parseInt(e.target.value) || 0})}
-                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1348,7 +1348,7 @@ export default function BrokerDashboard() {
                             value={newPropertyData.area}
                             onChange={(e) => handleAreaChange(e.target.value)}
                             placeholder="Ex: 850m²"
-                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1357,7 +1357,7 @@ export default function BrokerDashboard() {
                             type="number" 
                             value={newPropertyData.rooms}
                             onChange={(e) => setNewPropertyData({...newPropertyData, rooms: parseInt(e.target.value) || 0})}
-                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1366,7 +1366,7 @@ export default function BrokerDashboard() {
                             type="number" 
                             value={newPropertyData.motoParking}
                             onChange={(e) => setNewPropertyData({...newPropertyData, motoParking: parseInt(e.target.value) || 0})}
-                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1375,7 +1375,7 @@ export default function BrokerDashboard() {
                             type="number" 
                             value={newPropertyData.elevators}
                             onChange={(e) => setNewPropertyData({...newPropertyData, elevators: parseInt(e.target.value) || 0})}
-                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
                       </div>
@@ -1397,7 +1397,7 @@ export default function BrokerDashboard() {
                             })}
                             className={`flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-bold transition-all border-2 ${
                               newPropertyData[feature.key as keyof typeof newPropertyData]
-                                ? 'bg-[#8FA603]/10 border-[#8FA603] text-[#8FA603]'
+                                ? 'bg-[#617964]/10 border-[#617964] text-[#617964]'
                                 : 'bg-gray-50 border-transparent text-gray-400 hover:bg-gray-100'
                             }`}
                           >
@@ -1416,7 +1416,7 @@ export default function BrokerDashboard() {
                       exit={{ opacity: 0, x: -20 }}
                       className="space-y-6"
                     >
-                      <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest flex items-center gap-2">
+                      <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
                         <ImageIcon className="w-4 h-4" /> Mídia (Fotos, Vídeo e PDF)
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1428,7 +1428,7 @@ export default function BrokerDashboard() {
                               <button
                                 type="button"
                                 onClick={handleAddImageField}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-[#8FA603]/10 text-[#8FA603] rounded-xl hover:bg-[#8FA603]/20 transition-all text-[10px] font-black uppercase tracking-wider"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#617964]/10 text-[#617964] rounded-xl hover:bg-[#617964]/20 transition-all text-[10px] font-black uppercase tracking-wider"
                               >
                                 <Plus className="w-3 h-3" />
                                 Adicionar Foto
@@ -1438,7 +1438,7 @@ export default function BrokerDashboard() {
                           <div className="grid grid-cols-2 gap-4 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar">
                             {newPropertyData.images.map((img, index) => (
                               <div key={index} className="space-y-2 group">
-                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm transition-all group-hover:shadow-md group-hover:border-[#8FA603]/20">
+                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm transition-all group-hover:shadow-md group-hover:border-[#617964]/20">
                                   {img ? (
                                     <img 
                                       src={img} 
@@ -1477,7 +1477,7 @@ export default function BrokerDashboard() {
                                     value={img}
                                     onChange={(e) => handleImageChange(index, e.target.value)}
                                     placeholder="Link da imagem..."
-                                    className="w-full bg-gray-50 border-none rounded-xl py-2 pl-8 pr-3 text-[10px] font-medium focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all placeholder:text-gray-300"
+                                    className="w-full bg-gray-50 border-none rounded-xl py-2 pl-8 pr-3 text-[10px] font-medium focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all placeholder:text-gray-300"
                                   />
                                 </div>
                               </div>
@@ -1496,7 +1496,7 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.videoUrl}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, videoUrl: e.target.value})}
                                 placeholder="https://youtube.com/watch?v=..."
-                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                           </div>
@@ -1510,15 +1510,15 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.floorPlanUrl}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, floorPlanUrl: e.target.value})}
                                 placeholder="Link da imagem da planta"
-                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
                           </div>
 
                           <div className="p-6 bg-[#1A1A1A]/5 rounded-[32px] border border-[#1A1A1A]/5">
                             <div className="flex items-start gap-4">
-                              <div className="p-3 bg-[#8FA603]/10 rounded-2xl">
-                                <ImageIcon className="w-6 h-6 text-[#8FA603]" />
+                              <div className="p-3 bg-[#617964]/10 rounded-2xl">
+                                <ImageIcon className="w-6 h-6 text-[#617964]" />
                               </div>
                               <div className="space-y-1">
                                 <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-widest">Dica de Mídia</p>
@@ -1542,7 +1542,7 @@ export default function BrokerDashboard() {
                                   value={customButtonLabel}
                                   onChange={(e) => setCustomButtonLabel(e.target.value)}
                                   placeholder="Nome do Botão (Ex: Tour Virtual)"
-                                  className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                  className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                                 />
                               </div>
                               <div className="flex gap-2">
@@ -1551,12 +1551,12 @@ export default function BrokerDashboard() {
                                   value={customButtonUrl}
                                   onChange={(e) => setCustomButtonUrl(e.target.value)}
                                   placeholder="URL do Link"
-                                  className="flex-1 bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                                  className="flex-1 bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                                 />
                                 <button 
                                   type="button"
                                   onClick={handleAddCustomButton}
-                                  className="p-3 bg-[#8FA603] text-white rounded-2xl hover:bg-[#8FA603]/80 transition-all shadow-lg shadow-[#8FA603]/20"
+                                  className="p-3 bg-[#617964] text-white rounded-2xl hover:bg-[#617964]/80 transition-all shadow-lg shadow-[#617964]/20"
                                 >
                                   <Plus className="w-5 h-5" />
                                 </button>
@@ -1566,7 +1566,7 @@ export default function BrokerDashboard() {
                             {newPropertyData.customButtons && newPropertyData.customButtons.length > 0 && (
                               <div className="flex flex-wrap gap-2 mt-2">
                                 {newPropertyData.customButtons.map((btn, idx) => (
-                                  <div key={idx} className="flex items-center gap-2 bg-[#8FA603]/10 text-[#8FA603] px-4 py-2 rounded-full text-xs font-bold border border-[#8FA603]/20">
+                                  <div key={idx} className="flex items-center gap-2 bg-[#617964]/10 text-[#617964] px-4 py-2 rounded-full text-xs font-bold border border-[#617964]/20">
                                     <span>{btn.label}</span>
                                     <button 
                                       type="button"
@@ -1595,7 +1595,7 @@ export default function BrokerDashboard() {
                     >
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-6">
-                          <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest">Categoria</h4>
+                          <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest">Categoria</h4>
                           <div className="grid grid-cols-2 gap-3">
                             {CATEGORIES.map((cat) => (
                               <button
@@ -1621,7 +1621,7 @@ export default function BrokerDashboard() {
                                 }}
                                 className={`flex items-center gap-2 p-3 rounded-2xl text-xs font-bold border-2 transition-all ${
                                   newPropertyData.categorySlug?.split(',').includes(cat.slug)
-                                    ? 'border-[#8FA603] bg-[#8FA603]/5 text-[#8FA603]' 
+                                    ? 'border-[#617964] bg-[#617964]/5 text-[#617964]' 
                                     : 'border-gray-50 bg-gray-50 text-gray-500 hover:border-gray-200'
                                 }`}
                               >
@@ -1632,13 +1632,13 @@ export default function BrokerDashboard() {
                           </div>
                         </div>
                         <div className="space-y-6">
-                          <h4 className="text-sm font-black text-[#8FA603] uppercase tracking-widest">Corretor Responsável</h4>
+                          <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest">Corretor Responsável</h4>
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Selecionar Corretor</label>
                             <select 
                               value={newPropertyData.broker}
                               onChange={(e) => setNewPropertyData({...newPropertyData, broker: e.target.value})}
-                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all appearance-none cursor-pointer"
+                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all appearance-none cursor-pointer"
                             >
                               <option value="">Selecione um corretor...</option>
                               {brokers.map((broker) => (
@@ -1655,7 +1655,7 @@ export default function BrokerDashboard() {
                               value={newPropertyData.description}
                               onChange={(e) => setNewPropertyData({...newPropertyData, description: e.target.value})}
                               placeholder="Descreva os detalhes do imóvel..."
-                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all resize-none"
+                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none"
                             />
                           </div>
                         </div>
@@ -1685,7 +1685,7 @@ export default function BrokerDashboard() {
                               type="text" 
                               value={newPropertyData.ownerName}
                               onChange={(e) => setNewPropertyData({...newPropertyData, ownerName: e.target.value})}
-                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all shadow-sm"
+                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm"
                             />
                           </div>
                           <div className="space-y-2">
@@ -1694,7 +1694,7 @@ export default function BrokerDashboard() {
                               type="text" 
                               value={newPropertyData.ownerPhone}
                               onChange={(e) => setNewPropertyData({...newPropertyData, ownerPhone: formatPhone(e.target.value)})}
-                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all shadow-sm"
+                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm"
                               placeholder="(32) 99999-9999"
                             />
                           </div>
@@ -1704,7 +1704,7 @@ export default function BrokerDashboard() {
                               type="text" 
                               value={newPropertyData.ownerAddress}
                               onChange={(e) => setNewPropertyData({...newPropertyData, ownerAddress: e.target.value})}
-                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all shadow-sm"
+                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm"
                             />
                           </div>
                         </div>
@@ -1715,7 +1715,7 @@ export default function BrokerDashboard() {
                             value={newPropertyData.additionalInfo}
                             onChange={(e) => setNewPropertyData({...newPropertyData, additionalInfo: e.target.value})}
                             placeholder="Notas internas sobre o proprietário ou negociação..."
-                            className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all resize-none shadow-sm"
+                            className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none shadow-sm"
                           />
                         </div>
                       </div>
@@ -1749,7 +1749,7 @@ export default function BrokerDashboard() {
                         {isEditing && (
                           <button
                             type="submit"
-                            className="px-8 py-4 bg-[#8FA603]/10 text-[#8FA603] rounded-2xl text-sm font-black hover:bg-[#8FA603]/20 transition-all flex items-center gap-2"
+                            className="px-8 py-4 bg-[#617964]/10 text-[#617964] rounded-2xl text-sm font-black hover:bg-[#617964]/20 transition-all flex items-center gap-2"
                           >
                             <Save className="w-5 h-5" /> Atualizar
                           </button>
@@ -1760,7 +1760,7 @@ export default function BrokerDashboard() {
                             e.preventDefault();
                             setCurrentStep(prev => prev + 1);
                           }}
-                          className="px-10 py-4 bg-[#8FA603] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#8FA603]/20 hover:scale-105 transition-all flex items-center gap-2"
+                          className="px-10 py-4 bg-[#617964] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#617964]/20 hover:scale-105 transition-all flex items-center gap-2"
                         >
                           Próximo Passo <ChevronRight className="w-5 h-5" />
                         </button>
@@ -1768,7 +1768,7 @@ export default function BrokerDashboard() {
                     ) : (
                       <button
                         type="submit"
-                        className="px-10 py-4 bg-[#8FA603] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#8FA603]/20 hover:scale-105 transition-all flex items-center gap-2"
+                        className="px-10 py-4 bg-[#617964] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#617964]/20 hover:scale-105 transition-all flex items-center gap-2"
                       >
                         <Save className="w-5 h-5" /> {isEditing ? 'Atualizar' : 'Finalizar Cadastro'}
                       </button>
@@ -1956,7 +1956,7 @@ export default function BrokerDashboard() {
                         value={newCondoData.name}
                         onChange={(e) => setNewCondoData({...newCondoData, name: e.target.value})}
                         placeholder="Ex: Alphaville"
-                        className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1967,7 +1967,7 @@ export default function BrokerDashboard() {
                         value={newCondoData.location}
                         onChange={(e) => setNewCondoData({...newCondoData, location: e.target.value})}
                         placeholder="Ex: Itaipava, Petrópolis"
-                        className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -1984,7 +1984,7 @@ export default function BrokerDashboard() {
                             onClick={() => setNewCondoData({...newCondoData, portariaType: type as any})}
                             className={`py-3 rounded-xl text-xs font-bold transition-all ${
                               newCondoData.portariaType === type 
-                                ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/20' 
+                                ? 'bg-[#617964] text-white shadow-lg shadow-[#617964]/20' 
                                 : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                             }`}
                           >
@@ -2003,7 +2003,7 @@ export default function BrokerDashboard() {
                             onClick={() => setNewCondoData({...newCondoData, gasSupply: type as any})}
                             className={`py-3 rounded-xl text-xs font-bold transition-all capitalize ${
                               newCondoData.gasSupply === type 
-                                ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/20' 
+                                ? 'bg-[#617964] text-white shadow-lg shadow-[#617964]/20' 
                                 : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                             }`}
                           >
@@ -2027,7 +2027,7 @@ export default function BrokerDashboard() {
                         <label 
                           className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer h-full ${
                             newCondoData.leisure.includes(option.label)
-                              ? 'border-[#8FA603] bg-[#8FA603]/5'
+                              ? 'border-[#617964] bg-[#617964]/5'
                               : 'border-gray-50 bg-gray-50 hover:border-gray-100'
                           }`}
                         >
@@ -2044,12 +2044,12 @@ export default function BrokerDashboard() {
                           />
                           <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${
                             newCondoData.leisure.includes(option.label)
-                              ? 'bg-[#8FA603] border-[#8FA603]'
+                              ? 'bg-[#617964] border-[#617964]'
                               : 'border-gray-300 bg-white'
                           }`}>
                             {newCondoData.leisure.includes(option.label) && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
                           </div>
-                          <span className={`text-xs font-bold ${newCondoData.leisure.includes(option.label) ? 'text-[#8FA603]' : 'text-gray-500'}`}>
+                          <span className={`text-xs font-bold ${newCondoData.leisure.includes(option.label) ? 'text-[#617964]' : 'text-gray-500'}`}>
                             {option.label}
                           </span>
                         </label>
@@ -2085,7 +2085,7 @@ export default function BrokerDashboard() {
                       <button 
                         type="button"
                         onClick={() => handleAddCustomCondoItem('leisure', customLeisure)}
-                        className="p-2 bg-[#8FA603] text-white rounded-xl hover:bg-[#8FA603]/80 transition-all"
+                        className="p-2 bg-[#617964] text-white rounded-xl hover:bg-[#617964]/80 transition-all"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -2106,7 +2106,7 @@ export default function BrokerDashboard() {
                           <label 
                             className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                               newCondoData.verticalConveniencies.includes(option.label)
-                                ? 'border-[#8FA603] bg-[#8FA603]/5'
+                                ? 'border-[#617964] bg-[#617964]/5'
                                 : 'border-gray-50 bg-gray-50 hover:border-gray-100'
                             }`}
                           >
@@ -2123,12 +2123,12 @@ export default function BrokerDashboard() {
                             />
                             <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
                               newCondoData.verticalConveniencies.includes(option.label)
-                                ? 'bg-[#8FA603] border-[#8FA603]'
+                                ? 'bg-[#617964] border-[#617964]'
                                 : 'border-gray-300 bg-white'
                             }`}>
                               {newCondoData.verticalConveniencies.includes(option.label) && <CheckCircle2 className="w-3 h-3 text-white" />}
                             </div>
-                            <span className={`text-[11px] font-bold ${newCondoData.verticalConveniencies.includes(option.label) ? 'text-[#8FA603]' : 'text-gray-500'}`}>
+                            <span className={`text-[11px] font-bold ${newCondoData.verticalConveniencies.includes(option.label) ? 'text-[#617964]' : 'text-gray-500'}`}>
                               {option.label}
                             </span>
                           </label>
@@ -2164,7 +2164,7 @@ export default function BrokerDashboard() {
                         <button 
                           type="button"
                           onClick={() => handleAddCustomCondoItem('verticalConveniencies', customVertical)}
-                          className="p-1.5 bg-[#8FA603] text-white rounded-lg hover:bg-[#8FA603]/80 transition-all"
+                          className="p-1.5 bg-[#617964] text-white rounded-lg hover:bg-[#617964]/80 transition-all"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -2182,7 +2182,7 @@ export default function BrokerDashboard() {
                           <label 
                             className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                               newCondoData.horizontalConveniencies.includes(option.label)
-                                ? 'border-[#8FA603] bg-[#8FA603]/5'
+                                ? 'border-[#617964] bg-[#617964]/5'
                                 : 'border-gray-50 bg-gray-50 hover:border-gray-100'
                             }`}
                           >
@@ -2199,12 +2199,12 @@ export default function BrokerDashboard() {
                             />
                             <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
                               newCondoData.horizontalConveniencies.includes(option.label)
-                                ? 'bg-[#8FA603] border-[#8FA603]'
+                                ? 'bg-[#617964] border-[#617964]'
                                 : 'border-gray-300 bg-white'
                             }`}>
                               {newCondoData.horizontalConveniencies.includes(option.label) && <CheckCircle2 className="w-3 h-3 text-white" />}
                             </div>
-                            <span className={`text-[11px] font-bold ${newCondoData.horizontalConveniencies.includes(option.label) ? 'text-[#8FA603]' : 'text-gray-500'}`}>
+                            <span className={`text-[11px] font-bold ${newCondoData.horizontalConveniencies.includes(option.label) ? 'text-[#617964]' : 'text-gray-500'}`}>
                               {option.label}
                             </span>
                           </label>
@@ -2240,7 +2240,7 @@ export default function BrokerDashboard() {
                         <button 
                           type="button"
                           onClick={() => handleAddCustomCondoItem('horizontalConveniencies', customHorizontal)}
-                          className="p-1.5 bg-[#8FA603] text-white rounded-lg hover:bg-[#8FA603]/80 transition-all"
+                          className="p-1.5 bg-[#617964] text-white rounded-lg hover:bg-[#617964]/80 transition-all"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -2257,7 +2257,7 @@ export default function BrokerDashboard() {
                     onChange={(e) => setNewCondoData({...newCondoData, bio: e.target.value})}
                     placeholder="Descreva o condomínio..."
                     rows={4}
-                    className="w-full bg-gray-50 border-none rounded-[32px] py-6 px-8 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all resize-none"
+                    className="w-full bg-gray-50 border-none rounded-[32px] py-6 px-8 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none"
                   />
                 </div>
 
@@ -2272,7 +2272,7 @@ export default function BrokerDashboard() {
                         value={newCondoData.image360Url}
                         onChange={(e) => setNewCondoData({...newCondoData, image360Url: e.target.value})}
                         placeholder="https://..."
-                        className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-6 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -2285,10 +2285,10 @@ export default function BrokerDashboard() {
                         value={newCondoData.logoUrl}
                         onChange={(e) => setNewCondoData({...newCondoData, logoUrl: e.target.value})}
                         placeholder="https://..."
-                        className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-6 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                        className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-6 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                       />
                     </div>
-                    <p className="text-[10px] font-bold text-[#8FA603] uppercase tracking-wider ml-1">
+                    <p className="text-[10px] font-bold text-[#617964] uppercase tracking-wider ml-1">
                       Aviso: Resolução recomendada de 1290px x 280px
                     </p>
                   </div>
@@ -2338,14 +2338,14 @@ export default function BrokerDashboard() {
                             setNewCondoData({...newCondoData, images: updated});
                           }}
                           placeholder="Link da imagem..."
-                          className="w-full bg-gray-50 border-none rounded-xl py-2 px-4 text-[10px] font-medium focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                          className="w-full bg-gray-50 border-none rounded-xl py-2 px-4 text-[10px] font-medium focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                         />
                       </div>
                     ))}
                     <button
                       type="button"
                       onClick={() => setNewCondoData({...newCondoData, images: [...newCondoData.images, '']})}
-                      className="aspect-video rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#8FA603] hover:text-[#8FA603] transition-all group bg-gray-50/50"
+                      className="aspect-video rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#617964] hover:text-[#617964] transition-all group bg-gray-50/50"
                     >
                       <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
                       <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Foto</span>
@@ -2363,7 +2363,7 @@ export default function BrokerDashboard() {
                   </button>
                   <button
                     type="submit"
-                    className="px-10 py-4 bg-[#8FA603] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#8FA603]/20 hover:scale-105 transition-all flex items-center gap-2"
+                    className="px-10 py-4 bg-[#617964] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#617964]/20 hover:scale-105 transition-all flex items-center gap-2"
                   >
                     <Save className="w-5 h-5" /> Finalizar Cadastro
                   </button>
@@ -2399,7 +2399,7 @@ export default function BrokerDashboard() {
               <input 
                 type="text" 
                 placeholder="Buscar leads, imóveis ou documentos..."
-                className="w-full bg-gray-50 border-none rounded-2xl py-2.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                className="w-full bg-gray-50 border-none rounded-2xl py-2.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
               />
             </div>
           </div>
@@ -2424,7 +2424,7 @@ export default function BrokerDashboard() {
                     {auth.currentUser?.email === 'danielvaleweb@gmail.com' ? 'CEO & DIRETOR CRIATIVO' : 'CORRETOR PARCEIRO'}
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#8FA603]/20 border-2 border-white">
+                <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white">
                   <img 
                     src={auth.currentUser?.photoURL || "https://i.imgur.com/5l1CO1t.png"} 
                     alt={auth.currentUser?.displayName || "Daniel Vale"} 
@@ -2452,9 +2452,9 @@ export default function BrokerDashboard() {
 
                     <button 
                       onClick={() => navigate('/')}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-[#8FA603] transition-all text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-[#617964] transition-all text-left"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#8FA603]/10 group-hover:text-[#8FA603] transition-all">
+                      <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#617964]/10 group-hover:text-[#617964] transition-all">
                         <ExternalLink className="w-4 h-4" />
                       </div>
                       Voltar para o site
@@ -2528,7 +2528,7 @@ export default function BrokerDashboard() {
                       </div>
                       <div className="flex gap-2">
                         <button className="px-4 py-2 bg-gray-50 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100">7 Dias</button>
-                        <button className="px-4 py-2 bg-[#8FA603] rounded-xl text-xs font-bold text-white shadow-lg shadow-[#8FA603]/20">30 Dias</button>
+                        <button className="px-4 py-2 bg-[#617964] rounded-xl text-xs font-bold text-white shadow-lg shadow-[#617964]/20">30 Dias</button>
                       </div>
                     </div>
                     
@@ -2537,8 +2537,8 @@ export default function BrokerDashboard() {
                         <AreaChart data={dashboardStats.chartData}>
                           <defs>
                             <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#8FA603" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="#8FA603" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="#617964" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#617964" stopOpacity={0}/>
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
@@ -2565,7 +2565,7 @@ export default function BrokerDashboard() {
                           <Area 
                             type="monotone" 
                             dataKey="sales" 
-                            stroke="#8FA603" 
+                            stroke="#617964" 
                             strokeWidth={4}
                             fillOpacity={1} 
                             fill="url(#colorSales)" 
@@ -2585,7 +2585,7 @@ export default function BrokerDashboard() {
                         <h3 className="text-xl font-black text-gray-900">Leads Recentes</h3>
                         <p className="text-sm text-gray-500 font-medium">Interações em tempo real</p>
                       </div>
-                      <button className="flex items-center gap-2 text-[#8FA603] font-black text-sm hover:gap-3 transition-all">
+                      <button className="flex items-center gap-2 text-[#617964] font-black text-sm hover:gap-3 transition-all">
                         Ver Todos <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -2604,7 +2604,7 @@ export default function BrokerDashboard() {
                             <tr key={proposal.id} className="hover:bg-gray-50/30 transition-colors group">
                               <td className="px-6 lg:px-8 py-5">
                                 <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-700 font-black text-xs group-hover:bg-[#8FA603] group-hover:text-white transition-all">
+                                  <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-700 font-black text-xs group-hover:bg-[#617964] group-hover:text-white transition-all">
                                     {proposal.userName?.charAt(0) || 'U'}
                                   </div>
                                   <div>
@@ -2635,7 +2635,7 @@ export default function BrokerDashboard() {
                               </td>
                               <td className="px-6 lg:px-8 py-5 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all">
+                                  <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all">
                                     <MessageSquare className="w-4 h-4" />
                                   </button>
                                   <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all">
@@ -2714,7 +2714,7 @@ export default function BrokerDashboard() {
                         </div>
                       ))}
                     </div>
-                    <button className="w-full mt-6 py-4 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 text-sm font-bold hover:border-[#8FA603] hover:text-[#8FA603] transition-all flex items-center justify-center gap-2">
+                    <button className="w-full mt-6 py-4 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 text-sm font-bold hover:border-[#617964] hover:text-[#617964] transition-all flex items-center justify-center gap-2">
                       <Plus className="w-4 h-4" /> Adicionar Tarefa
                     </button>
                   </div>
@@ -2737,7 +2737,7 @@ export default function BrokerDashboard() {
                     setNewBrokerData({ name: '', role: '', photo: '', phone: '', email: '', bio: '', creci: '', instagram: '' });
                     setIsBrokerModalOpen(true);
                   }}
-                  className="bg-[#8FA603] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                  className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
                   Adicionar Corretor
@@ -2781,26 +2781,26 @@ export default function BrokerDashboard() {
                       <div className="p-6 relative z-20">
                         <div className="text-center mb-6">
                           <h3 className="font-black text-gray-900 text-lg leading-tight">{broker.name}</h3>
-                          <p className="text-[#8FA603] font-bold text-xs uppercase tracking-widest">{broker.role}</p>
+                          <p className="text-[#617964] font-bold text-xs uppercase tracking-widest">{broker.role}</p>
                         </div>
 
                         <div className="space-y-3 mb-6 bg-gray-50/50 p-4 rounded-2xl">
                           <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
                             <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                              <Phone className="w-3 h-3 text-[#8FA603]" />
+                              <Phone className="w-3 h-3 text-[#617964]" />
                             </div>
                             {broker.phone}
                           </div>
                           <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
                             <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                              <Mail className="w-3 h-3 text-[#8FA603]" />
+                              <Mail className="w-3 h-3 text-[#617964]" />
                             </div>
                             {broker.email}
                           </div>
                           {broker.creci && (
                             <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
                               <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                                <ShieldCheck className="w-3 h-3 text-[#8FA603]" />
+                                <ShieldCheck className="w-3 h-3 text-[#617964]" />
                               </div>
                               CRECI: {broker.creci}
                             </div>
@@ -2808,7 +2808,7 @@ export default function BrokerDashboard() {
                           {broker.instagram && (
                             <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
                               <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                                <Instagram className="w-3 h-3 text-[#8FA603]" />
+                                <Instagram className="w-3 h-3 text-[#617964]" />
                               </div>
                               @{broker.instagram}
                             </div>
@@ -2821,7 +2821,7 @@ export default function BrokerDashboard() {
 
                         <button 
                           onClick={() => navigate(`/corretor/${broker.id}`)}
-                          className="w-full py-3 mb-6 bg-gray-50 text-gray-900 rounded-2xl text-xs font-black hover:bg-[#8FA603] hover:text-white transition-all border border-gray-100 flex items-center justify-center gap-2 group/btn"
+                          className="w-full py-3 mb-6 bg-gray-50 text-gray-900 rounded-2xl text-xs font-black hover:bg-[#617964] hover:text-white transition-all border border-gray-100 flex items-center justify-center gap-2 group/btn"
                         >
                           Ver Perfil Completo
                           <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
@@ -2830,7 +2830,7 @@ export default function BrokerDashboard() {
                         <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                           <button 
                             onClick={() => handleEditBroker(broker)}
-                            className="px-4 py-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all flex items-center gap-2 text-xs font-black"
+                            className="px-4 py-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all flex items-center gap-2 text-xs font-black"
                           >
                             <Edit className="w-4 h-4" /> Editar
                           </button>
@@ -2873,7 +2873,7 @@ export default function BrokerDashboard() {
                     });
                     setIsCondoModalOpen(true);
                   }}
-                  className="bg-[#8FA603] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                  className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
                   Cadastrar Condomínio
@@ -2915,7 +2915,7 @@ export default function BrokerDashboard() {
                           Gás: {condo.gasSupply}
                         </span>
                         {(condo.leisure?.length || 0) > 0 && (
-                          <span className="px-2 py-1 bg-[#8FA603]/10 text-[#8FA603] text-[10px] font-bold rounded-lg uppercase tracking-wider">
+                          <span className="px-2 py-1 bg-[#617964]/10 text-[#617964] text-[10px] font-bold rounded-lg uppercase tracking-wider">
                             {condo.leisure?.length} Itens de Lazer
                           </span>
                         )}
@@ -2923,9 +2923,9 @@ export default function BrokerDashboard() {
 
                       <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#8FA603]/10 rounded-xl border border-[#8FA603]/20">
-                            <Home className="w-3.5 h-3.5 text-[#8FA603]" />
-                            <span className="text-xs font-black text-[#8FA603]">
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#617964]/10 rounded-xl border border-[#617964]/20">
+                            <Home className="w-3.5 h-3.5 text-[#617964]" />
+                            <span className="text-xs font-black text-[#617964]">
                               {properties.filter(p => p.condoId === condo.id).length} {properties.filter(p => p.condoId === condo.id).length === 1 ? 'Imóvel' : 'Imóveis'}
                             </span>
                           </div>
@@ -2933,7 +2933,7 @@ export default function BrokerDashboard() {
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => handleEditCondo(condo)}
-                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all"
+                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all"
                             title="Editar Condomínio"
                           >
                             <Edit className="w-4 h-4" />
@@ -2978,7 +2978,7 @@ export default function BrokerDashboard() {
                     >
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="flex items-start gap-6">
-                          <div className="w-16 h-16 bg-[#8FA603]/10 rounded-2xl flex items-center justify-center text-[#8FA603] shrink-0">
+                          <div className="w-16 h-16 bg-[#617964]/10 rounded-2xl flex items-center justify-center text-[#617964] shrink-0">
                             <DollarSign className="w-8 h-8" />
                           </div>
                           <div className="space-y-1">
@@ -3053,7 +3053,7 @@ export default function BrokerDashboard() {
                 <div className="flex flex-wrap gap-4">
                   <button 
                     onClick={handleAddProperty}
-                    className="bg-[#8FA603] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                    className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
                   >
                     <Plus className="w-5 h-5" />
                     Cadastrar Imóvel
@@ -3068,7 +3068,7 @@ export default function BrokerDashboard() {
                     onClick={() => setSelectedCategory('all')}
                     className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
                       selectedCategory === 'all'
-                        ? 'bg-[#8FA603] text-white shadow-lg shadow-[#8FA603]/20'
+                        ? 'bg-[#617964] text-white shadow-lg shadow-[#617964]/20'
                         : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 border border-gray-100'
                     }`}
                   >
@@ -3081,10 +3081,10 @@ export default function BrokerDashboard() {
                     className={`px-6 py-3 rounded-2xl transition-all flex items-center gap-3 border ${
                       selectedCategory === 'lançamento'
                         ? 'bg-[#374001] text-white border-[#374001] shadow-lg shadow-[#374001]/20'
-                        : 'bg-white text-gray-400 border-gray-100 hover:border-[#8FA603] hover:text-[#8FA603]'
+                        : 'bg-white text-gray-400 border-gray-100 hover:border-[#617964] hover:text-[#617964]'
                     } group`}
                   >
-                    <div className={`${selectedCategory === 'lançamento' ? 'text-white' : 'text-[#8FA603]'} group-hover:scale-110 transition-all`}>
+                    <div className={`${selectedCategory === 'lançamento' ? 'text-white' : 'text-[#617964]'} group-hover:scale-110 transition-all`}>
                       <Rocket className="w-5 h-5" />
                     </div>
                     <div className="text-left leading-tight">
@@ -3100,10 +3100,10 @@ export default function BrokerDashboard() {
                       className={`px-6 py-3 rounded-2xl transition-all flex items-center gap-3 border ${
                         selectedCategory === cat.slug
                           ? 'bg-[#374001] text-white border-[#374001] shadow-lg shadow-[#374001]/20'
-                          : 'bg-white text-gray-400 border-gray-100 hover:border-[#8FA603] hover:text-[#8FA603]'
+                          : 'bg-white text-gray-400 border-gray-100 hover:border-[#617964] hover:text-[#617964]'
                       } group`}
                     >
-                      <div className={`${selectedCategory === cat.slug ? 'text-white' : 'text-[#8FA603]'} group-hover:scale-110 transition-all`}>
+                      <div className={`${selectedCategory === cat.slug ? 'text-white' : 'text-[#617964]'} group-hover:scale-110 transition-all`}>
                         <cat.icon className="w-5 h-5" />
                       </div>
                       <div className="text-left leading-tight">
@@ -3160,7 +3160,7 @@ export default function BrokerDashboard() {
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-2">
                         <h3 className="font-black text-gray-900 leading-tight">{property.title}</h3>
-                        <p className="text-[#8FA603] font-black text-sm whitespace-nowrap ml-4">{property.price}</p>
+                        <p className="text-[#617964] font-black text-sm whitespace-nowrap ml-4">{property.price}</p>
                       </div>
                       <div className="flex items-center gap-2 mb-3">
                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-lg uppercase tracking-wider">
@@ -3174,7 +3174,7 @@ export default function BrokerDashboard() {
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => handleEditProperty(property)}
-                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#8FA603] hover:bg-[#8FA603]/10 transition-all"
+                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -3245,7 +3245,7 @@ export default function BrokerDashboard() {
                         required
                         value={newBrokerData.name}
                         onChange={(e) => setNewBrokerData({...newBrokerData, name: e.target.value})}
-                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
                         placeholder="Ex: Simone Silva"
                       />
                     </div>
@@ -3256,7 +3256,7 @@ export default function BrokerDashboard() {
                         required
                         value={newBrokerData.role}
                         onChange={(e) => setNewBrokerData({...newBrokerData, role: e.target.value})}
-                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
                         placeholder="Ex: Corretora Sênior"
                       />
                     </div>
@@ -3267,7 +3267,7 @@ export default function BrokerDashboard() {
                         required
                         value={newBrokerData.phone}
                         onChange={(e) => setNewBrokerData({...newBrokerData, phone: formatPhone(e.target.value)})}
-                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
                         placeholder="(32) 99999-9999"
                       />
                     </div>
@@ -3278,7 +3278,7 @@ export default function BrokerDashboard() {
                         required
                         value={newBrokerData.email}
                         onChange={(e) => setNewBrokerData({...newBrokerData, email: e.target.value})}
-                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
                         placeholder="simone@email.com"
                       />
                     </div>
@@ -3288,7 +3288,7 @@ export default function BrokerDashboard() {
                         type="text"
                         value={newBrokerData.creci}
                         onChange={(e) => setNewBrokerData({...newBrokerData, creci: e.target.value})}
-                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
                         placeholder="Ex: 12.345-F"
                       />
                     </div>
@@ -3300,7 +3300,7 @@ export default function BrokerDashboard() {
                           type="text"
                           value={newBrokerData.instagram}
                           onChange={(e) => setNewBrokerData({...newBrokerData, instagram: e.target.value})}
-                          className="w-full pl-12 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                          className="w-full pl-12 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
                           placeholder="Ex: simone_corretora"
                         />
                       </div>
@@ -3314,7 +3314,7 @@ export default function BrokerDashboard() {
                       required
                       value={newBrokerData.photo}
                       onChange={(e) => setNewBrokerData({...newBrokerData, photo: e.target.value})}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
                       placeholder="https://exemplo.com/foto.jpg"
                     />
                   </div>
@@ -3326,7 +3326,7 @@ export default function BrokerDashboard() {
                       rows={4}
                       value={newBrokerData.bio}
                       onChange={(e) => setNewBrokerData({...newBrokerData, bio: e.target.value})}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#8FA603] transition-all font-bold text-gray-900 resize-none"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900 resize-none"
                       placeholder="Conte um pouco sobre a experiência do corretor..."
                     />
                   </div>
@@ -3341,7 +3341,7 @@ export default function BrokerDashboard() {
                     </button>
                     <button 
                       type="submit"
-                      className="flex-2 py-4 bg-[#8FA603] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#8FA603]/20 flex items-center justify-center gap-2"
+                      className="flex-2 py-4 bg-[#617964] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
                     >
                       <Save className="w-5 h-5" />
                       {isEditingBroker ? 'Salvar Alterações' : 'Cadastrar Corretor'}

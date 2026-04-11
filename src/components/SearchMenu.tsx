@@ -224,10 +224,10 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
               >
                 <button 
                   onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full shadow-lg hover:bg-[#8FA603] hover:text-white transition-all cursor-pointer group relative"
+                  className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full shadow-lg hover:bg-[#617964] hover:text-white transition-all cursor-pointer group relative"
                 >
-                  <X className="w-5 h-5 text-[#374001] group-hover:text-white group-hover:rotate-90 group-hover:scale-125 transition-transform" />
-                  <span className="text-sm font-bold text-[#374001] group-hover:text-white tracking-widest">FECHAR</span>
+                  <X className="w-5 h-5 text-[#617964] group-hover:text-white group-hover:rotate-90 group-hover:scale-125 transition-transform" />
+                  <span className="text-sm font-bold text-[#617964] group-hover:text-white tracking-widest">FECHAR</span>
                 </button>
               </motion.div>
             )}
@@ -248,13 +248,13 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ duration: 0.6, ease: "easeOut" }}
                     >
-                      <Target className="w-6 h-6 text-[#1A5D4A]" />
+                      <Target className="w-6 h-6 text-[#617964]" />
                     </motion.div>
                     <motion.h2 
                       initial={{ x: -20, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-                      className="text-xl font-bold text-[#374001]"
+                      className="text-xl font-bold text-[#617964]"
                     >
                       Busca rápida por código
                     </motion.h2>
@@ -265,9 +265,9 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     <button
                       onMouseEnter={() => setIsInfoHovered(true)}
                       onMouseLeave={() => setIsInfoHovered(false)}
-                      className="p-1 rounded-full hover:bg-[#374001]/10 transition-colors cursor-help"
+                      className="p-1 rounded-full hover:bg-[#617964]/10 transition-colors cursor-help"
                     >
-                      <Info className="w-5 h-5 text-[#374001]" />
+                      <Info className="w-5 h-5 text-[#617964]" />
                     </button>
 
                     <AnimatePresence>
@@ -276,9 +276,9 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                           initial={{ opacity: 0, y: -10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                          className="absolute top-full right-0 mt-3 w-64 bg-[#374001] text-white p-4 rounded-xl shadow-2xl z-50 text-xs leading-relaxed"
+                          className="absolute top-full right-0 mt-3 w-64 bg-[#617964] text-white p-4 rounded-xl shadow-2xl z-50 text-xs leading-relaxed"
                         >
-                          <div className="absolute top-0 right-4 -translate-y-1/2 rotate-45 w-2 h-2 bg-[#374001]" />
+                          <div className="absolute top-0 right-4 -translate-y-1/2 rotate-45 w-2 h-2 bg-[#617964]" />
                           <p className="font-medium mb-1">Dica de Busca:</p>
                           Você pode buscar por um único código ou vários ao mesmo tempo separando-os por vírgula.
                           <div className="mt-2 pt-2 border-t border-white/10 text-white/60 italic">
@@ -296,11 +296,11 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     value={codeSearch}
                     onChange={(e) => setCodeSearch(e.target.value)}
                     placeholder="cod. 1316, 1317, 2418, ..." 
-                    className="w-full bg-white border-none rounded-xl pl-4 pr-16 py-4 focus:ring-2 focus:ring-[#8FA603]/20 outline-none transition-all"
+                    className="w-full bg-white border-none rounded-xl pl-4 pr-16 py-4 focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                   />
                   <button 
                     onClick={handleSearch}
-                    className="absolute right-2 top-6 -translate-y-1/2 bg-[#8FA603] p-2.5 rounded-lg hover:bg-[#8FA603]/90 transition-all flex items-center gap-1.5 overflow-hidden cursor-pointer group/search"
+                    className="absolute right-2 top-6 -translate-y-1/2 bg-[#617964] p-2.5 rounded-lg hover:bg-[#617964]/90 transition-all flex items-center gap-1.5 overflow-hidden cursor-pointer group/search"
                   >
                     <motion.div 
                       className="flex flex-col gap-0.5 opacity-60"
@@ -332,13 +332,13 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                       rotate: { repeat: Infinity, duration: 4, ease: "linear" }
                     }}
                   >
-                    <Settings className="w-6 h-6 text-[#374001]" />
+                    <Settings className="w-6 h-6 text-[#617964]" />
                   </motion.div>
                   <motion.h2 
                     initial={{ x: -20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-                    className="text-xl font-bold text-[#374001]"
+                    className="text-xl font-bold text-[#617964]"
                   >
                     Busca personalizada
                   </motion.h2>
@@ -354,8 +354,8 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                         onClick={() => setNegotiation(type as any)}
                         className={`relative flex items-center justify-center py-3.5 rounded-lg md:rounded-xl text-[10px] md:text-sm font-bold transition-all overflow-hidden cursor-pointer ${
                           negotiation === type 
-                            ? 'bg-[#8FA603] text-white' 
-                            : 'bg-white text-brand-dark/60 hover:bg-[#8FA603]/10 hover:text-[#8FA603]'
+                            ? 'bg-[#617964] text-white' 
+                            : 'bg-white text-brand-dark/60 hover:bg-[#617964]/10 hover:text-[#617964]'
                         }`}
                       >
                         <span className="relative z-10 uppercase">{type}</span>
@@ -373,7 +373,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                       className="w-full bg-white rounded-lg md:rounded-xl px-4 py-4 flex items-center justify-between text-brand-dark/60 text-xs md:text-sm cursor-pointer hover:bg-gray-100 transition-colors group"
                     >
                       <span>{selectedStyles.length > 0 ? `${selectedStyles.length} selecionado(s)` : 'Escolher'}</span>
-                      <ArrowUpRight className="w-5 h-5 group-hover:text-[#8FA603] transition-colors" />
+                      <ArrowUpRight className="w-5 h-5 group-hover:text-[#617964] transition-colors" />
                     </button>
                   </div>
                   <div className="space-y-2">
@@ -387,7 +387,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                           ? selectedLocations.join(', ') 
                           : 'Escolher'}
                       </span>
-                      <ArrowUpRight className="w-5 h-5 group-hover:text-[#8FA603] transition-colors shrink-0" />
+                      <ArrowUpRight className="w-5 h-5 group-hover:text-[#617964] transition-colors shrink-0" />
                     </button>
                   </div>
                 </div>
@@ -399,7 +399,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     <div ref={sliderRef} className="h-1.5 bg-[#E5E5E0] rounded-full relative">
                       {/* Active track */}
                       <motion.div 
-                        className="absolute h-full bg-[#374001] rounded-full"
+                        className="absolute h-full bg-[#617964] rounded-full"
                         style={{
                           left: leftThumbX,
                           right: rightPos
@@ -419,7 +419,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                         onDragEnd={() => setIsInteractingMin(false)}
                         onDrag={(_, info) => updatePrice('min', leftThumbX.get())}
                         style={{ x: leftThumbX }}
-                        className="absolute top-1/2 -translate-y-1/2 -ml-3 w-6 h-6 bg-[#374001] border-2 border-white rounded-full flex items-center justify-center cursor-pointer z-20"
+                        className="absolute top-1/2 -translate-y-1/2 -ml-3 w-6 h-6 bg-[#617964] border-2 border-white rounded-full flex items-center justify-center cursor-pointer z-20"
                       />
 
                       {/* Right Thumb */}
@@ -435,7 +435,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                         onDragEnd={() => setIsInteractingMax(false)}
                         onDrag={(_, info) => updatePrice('max', rightThumbX.get())}
                         style={{ x: rightThumbX }}
-                        className="absolute top-1/2 -translate-y-1/2 -ml-3 w-6 h-6 bg-[#374001] border-2 border-white rounded-full flex items-center justify-center cursor-pointer z-20"
+                        className="absolute top-1/2 -translate-y-1/2 -ml-3 w-6 h-6 bg-[#617964] border-2 border-white rounded-full flex items-center justify-center cursor-pointer z-20"
                       />
                     </div>
                   </div>
@@ -443,7 +443,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest block text-left">Valor Mínimo</label>
                       <div className="w-full bg-white rounded-2xl px-3 py-4 text-brand-dark font-bold text-center flex items-center justify-center gap-1">
-                        {(isPriceTouched || isMinFocused) && <span className="text-[#8FA603]">R$</span>}
+                        {(isPriceTouched || isMinFocused) && <span className="text-[#617964]">R$</span>}
                         <input 
                           type="text"
                           value={isMinFocused ? minPriceInput : (isPriceTouched ? minPriceInput : 'Sem valor mínimo')}
@@ -471,7 +471,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest block text-left">Valor Máximo</label>
                       <div className="w-full bg-white rounded-2xl px-3 py-4 text-brand-dark font-bold text-center flex items-center justify-center gap-1">
-                        {(isPriceTouched || isMaxFocused) && <span className="text-[#8FA603]">R$</span>}
+                        {(isPriceTouched || isMaxFocused) && <span className="text-[#617964]">R$</span>}
                         <input 
                           type="text"
                           value={isMaxFocused ? maxPriceInput : (isPriceTouched ? maxPriceInput : 'Sem valor máximo')}
@@ -520,8 +520,8 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                             }}
                             className={`py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
                               group.state.includes(opt) 
-                                ? 'bg-[#8FA603] text-white' 
-                                : 'bg-white text-brand-dark/80 hover:bg-[#8FA603] hover:text-white'
+                                ? 'bg-[#617964] text-white' 
+                                : 'bg-white text-brand-dark/80 hover:bg-[#617964] hover:text-white'
                             }`}
                           >
                             {opt}
@@ -536,9 +536,9 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                 <div className="pt-4 flex items-center justify-between border-t border-brand-dark/5">
                   <button 
                     onClick={handleClearFilters}
-                    className="flex items-center gap-2 text-brand-dark/60 font-bold text-sm hover:text-[#374001] transition-colors cursor-pointer group"
+                    className="flex items-center gap-2 text-brand-dark/60 font-bold text-sm hover:text-[#617964] transition-colors cursor-pointer group"
                   >
-                    <div className="bg-white p-2 rounded-lg shadow-sm group-hover:bg-[#374001] group-hover:text-white transition-all">
+                    <div className="bg-white p-2 rounded-lg shadow-sm group-hover:bg-[#617964] group-hover:text-white transition-all">
                       <Eraser className="w-4 h-4" />
                     </div>
                     Limpar filtros
@@ -550,11 +550,11 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     variants={{
                       hover: { 
                         scale: 1.05,
-                        backgroundColor: "#9fb804",
+                        backgroundColor: "#617964",
                       },
                       tap: { scale: 0.95 }
                     }}
-                    className="relative bg-[#8FA603] text-white px-12 py-4 rounded-full font-bold transition-all cursor-pointer overflow-hidden group"
+                    className="relative bg-[#617964] text-white px-12 py-4 rounded-full font-bold transition-all cursor-pointer overflow-hidden group"
                   >
                     <span className="relative z-10 flex items-center gap-2">
                       Buscar
@@ -604,7 +604,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                         value={locationSearch}
                         onChange={(e) => setLocationSearch(e.target.value)}
                         placeholder="Digite a rua, bairro ou cidade..."
-                        className="w-full bg-gray-50 border-2 border-transparent focus:border-[#8FA603] rounded-2xl pl-12 pr-4 py-4 outline-none transition-all font-medium"
+                        className="w-full bg-gray-50 border-2 border-transparent focus:border-[#617964] rounded-2xl pl-12 pr-4 py-4 outline-none transition-all font-medium"
                         autoFocus
                       />
                     </div>
@@ -620,16 +620,16 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                               );
                             }}
                             className={`w-full flex items-center gap-4 p-4 rounded-lg md:rounded-xl transition-colors text-left group cursor-pointer ${
-                              selectedLocations.includes(loc) ? 'bg-[#8FA603]/10' : 'hover:bg-gray-50'
+                              selectedLocations.includes(loc) ? 'bg-[#617964]/10' : 'hover:bg-gray-50'
                             }`}
                           >
                             <div className={`p-2 rounded-lg transition-colors ${
-                              selectedLocations.includes(loc) ? 'bg-[#8FA603] text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-white'
+                              selectedLocations.includes(loc) ? 'bg-[#617964] text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-white'
                             }`}>
                               {selectedLocations.includes(loc) ? <Check className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
                             </div>
                             <span className={`font-semibold transition-colors ${
-                              selectedLocations.includes(loc) ? 'text-[#8FA603]' : 'text-brand-dark'
+                              selectedLocations.includes(loc) ? 'text-[#617964]' : 'text-brand-dark'
                             }`}>{loc}</span>
                           </button>
                         ))
@@ -651,7 +651,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                       onClick={() => setIsLocationModalOpen(false)}
                       className={`px-10 py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer ${
                         selectedLocations.length > 0 
-                          ? 'bg-[#8FA603] text-white hover:bg-[#8FA603]/90' 
+                          ? 'bg-[#617964] text-white hover:bg-[#617964]/90' 
                           : 'bg-gray-100 text-brand-dark hover:bg-gray-200'
                       }`}
                     >
@@ -693,7 +693,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                       <div className="flex items-center gap-6">
                         <button 
                           onClick={() => setSelectedStyles([])}
-                          className="text-sm font-bold text-gray-400 hover:text-[#374001] transition-colors cursor-pointer"
+                          className="text-sm font-bold text-gray-400 hover:text-[#617964] transition-colors cursor-pointer"
                         >
                           Limpar
                         </button>
@@ -710,8 +710,8 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                           onClick={() => toggleStyle(style)}
                           className={`w-full py-4 px-4 rounded-lg md:rounded-xl border text-[10px] md:text-sm font-bold transition-all cursor-pointer text-center ${
                             selectedStyles.includes(style)
-                              ? 'bg-[#8FA603] text-white border-[#8FA603] shadow-md'
-                              : 'bg-white text-brand-dark border-gray-200 hover:border-[#8FA603] hover:text-[#8FA603]'
+                              ? 'bg-[#617964] text-white border-[#617964] shadow-md'
+                              : 'bg-white text-brand-dark border-gray-200 hover:border-[#617964] hover:text-[#617964]'
                           }`}
                         >
                           {style}
@@ -726,7 +726,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                       onClick={() => setIsStyleModalOpen(false)}
                       className={`px-10 py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer ${
                         selectedStyles.length > 0 
-                          ? 'bg-[#8FA603] text-white hover:bg-[#8FA603]/90' 
+                          ? 'bg-[#617964] text-white hover:bg-[#617964]/90' 
                           : 'bg-gray-100 text-brand-dark hover:bg-gray-200'
                       }`}
                     >

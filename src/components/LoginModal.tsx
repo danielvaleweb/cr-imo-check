@@ -90,7 +90,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                         <input 
                           type="text" 
                           placeholder="Nome Completo"
-                          className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#8FA603] transition-all outline-none"
+                          className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#617964] transition-all outline-none"
                         />
                         <User className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
                       </div>
@@ -100,7 +100,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                         <input 
                           type="tel" 
                           placeholder="Telefone / WhatsApp"
-                          className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#8FA603] transition-all outline-none"
+                          className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#617964] transition-all outline-none"
                         />
                         <Phone className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
                       </div>
@@ -110,7 +110,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                         <input 
                           type="text" 
                           placeholder="CRECI"
-                          className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#8FA603] transition-all outline-none"
+                          className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#617964] transition-all outline-none"
                         />
                         <IdCard className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
                       </div>
@@ -122,7 +122,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     <input 
                       type="email" 
                       placeholder="E-mail"
-                      className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#8FA603] transition-all outline-none"
+                      className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#617964] transition-all outline-none"
                     />
                     <Mail className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
                   </div>
@@ -132,7 +132,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     <input 
                       type={showPassword ? "text" : "password"} 
                       placeholder="Senha"
-                      className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#8FA603] transition-all outline-none"
+                      className="w-full bg-white/5 border border-white/20 rounded-xl py-3.5 pl-6 pr-12 text-white placeholder:text-white/40 focus:border-[#617964] transition-all outline-none"
                     />
                     <button 
                       type="button"
@@ -149,7 +149,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                         <button 
                           type="button"
                           onClick={() => setRememberMe(!rememberMe)}
-                          className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${rememberMe ? 'bg-[#8FA603] border-[#8FA603]' : 'border-white/30 bg-transparent'}`}
+                          className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${rememberMe ? 'bg-[#617964] border-[#617964]' : 'border-white/30 bg-transparent'}`}
                         >
                           {rememberMe && <Check className="w-3 h-3 text-white stroke-[4px]" />}
                         </button>
@@ -162,7 +162,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   {/* Action Button */}
                   <button 
                     type="submit"
-                    className="w-full bg-gradient-to-r from-[#8FA603] to-[#374001] text-white py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-xl hover:opacity-90 transition-all active:scale-[0.98]"
+                    className="w-full bg-gradient-to-r from-[#617964] to-[#374001] text-white py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-xl hover:opacity-90 transition-all active:scale-[0.98]"
                   >
                     {mode === 'login' ? 'Entrar com Email' : 'Enviar Solicitação'}
                   </button>

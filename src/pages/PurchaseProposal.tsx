@@ -479,7 +479,7 @@ export default function PurchaseProposal() {
 
                     <div className="p-6 border-2 border-dashed border-marromescuro/10 rounded-3xl space-y-4">
                       <div className="flex items-center gap-3">
-                        <ShieldCheck className="w-6 h-6 text-[#8FA603]" />
+                        <ShieldCheck className="w-6 h-6 text-[#617964]" />
                         <h3 className="font-bold text-marromescuro">Segurança e Privacidade</h3>
                       </div>
                       <p className="text-xs text-marromescuro/60 leading-relaxed">

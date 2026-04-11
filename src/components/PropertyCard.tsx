@@ -25,12 +25,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ prop, onClick, isFavorite, 
     >
       <div className="relative h-72 overflow-hidden bg-brancobg">
         {prop.listingType === 'lançamento' && (
-          <div className="absolute top-4 left-4 z-20 bg-[#8FA603] text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg shadow-xl">
+          <div className="absolute top-4 left-4 z-20 bg-[#617964] text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg shadow-xl">
             Lançamento
           </div>
         )}
         {prop.listingType === 'permuta' && (
-          <div className="absolute top-4 left-4 z-20 bg-[#8FA603] text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg shadow-xl">
+          <div className="absolute top-4 left-4 z-20 bg-[#617964] text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg shadow-xl">
             Permuta
           </div>
         )}

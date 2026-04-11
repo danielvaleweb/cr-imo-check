@@ -44,7 +44,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-[85%] max-w-[400px] bg-[#374001] z-[71] shadow-2xl flex flex-col"
+            className="fixed top-0 right-0 h-full w-[85%] max-w-[400px] bg-[#617964] z-[71] shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-white/10">
@@ -81,7 +81,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                         className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all group"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-lg bg-white/10 text-brand-cream group-hover:bg-[#8FA603] group-hover:text-white transition-all transform group-hover:scale-125">
+                          <div className="p-2 rounded-lg bg-white/10 text-brand-cream group-hover:bg-[#617964] group-hover:text-white transition-all transform group-hover:scale-125">
                             <item.icon className="w-5 h-5" />
                           </div>
                           <span className="text-brand-cream font-medium">{item.label}</span>
@@ -170,7 +170,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                       className="flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all group"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="p-2 rounded-lg bg-white/10 text-brand-cream group-hover:bg-[#8FA603] group-hover:text-white transition-all transform group-hover:scale-125">
+                        <div className="p-2 rounded-lg bg-white/10 text-brand-cream group-hover:bg-[#617964] group-hover:text-white transition-all transform group-hover:scale-125">
                           <item.icon className="w-5 h-5" />
                         </div>
                         <span className="text-brand-cream font-medium">{item.label}</span>
@@ -189,7 +189,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                 href="https://wa.me/5524981000306" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-4 rounded-2xl bg-[#8FA603] text-white font-bold hover:bg-[#9fb804] transition-all text-center justify-center"
+                className="flex items-center gap-3 p-4 rounded-2xl bg-[#617964] text-white font-bold hover:bg-[#617964] transition-all text-center justify-center"
               >
                 Falar no WhatsApp
               </a>

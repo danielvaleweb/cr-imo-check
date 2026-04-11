@@ -373,7 +373,7 @@ export default function PropertyDetail() {
                 {property.floorPlanUrl && (
                   <button 
                     onClick={() => setShowFloorPlan(!showFloorPlan)}
-                    className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold transition-all border border-white/20 shadow-2xl snap-center ${showFloorPlan ? 'bg-[#8FA603]' : 'bg-black/40 hover:bg-black/60'}`}
+                    className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold transition-all border border-white/20 shadow-2xl snap-center ${showFloorPlan ? 'bg-[#617964]' : 'bg-black/40 hover:bg-black/60'}`}
                   >
                     <MapIcon className="w-5 h-5 mb-1" />
                     <span>PLANTA</span>
@@ -388,7 +388,7 @@ export default function PropertyDetail() {
                         setActiveImage(idx);
                         setShowFloorPlan(false);
                       }}
-                      className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl overflow-hidden border-2 transition-all shadow-2xl snap-center ${!showFloorPlan && activeImage === idx ? 'border-[#8FA603] scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                      className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl overflow-hidden border-2 transition-all shadow-2xl snap-center ${!showFloorPlan && activeImage === idx ? 'border-[#617964] scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
                     >
                       <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </button>
@@ -410,7 +410,7 @@ export default function PropertyDetail() {
                 {property.videoUrl && (
                   <button 
                     onClick={() => setIsVideoModalOpen(true)}
-                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#8FA603]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#8FA603] transition-colors border border-white/20 shadow-2xl snap-center"
+                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
                   >
                     <Play className="w-5 h-5 mb-1 fill-white" />
                     <span>VÍDEO</span>
@@ -581,7 +581,7 @@ export default function PropertyDetail() {
                               exit={{ opacity: 0, y: 10, scale: 0.9 }}
                               className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#1A1A1A] text-white text-[10px] font-bold px-4 py-2.5 rounded-xl shadow-2xl z-50 whitespace-nowrap flex items-center gap-2"
                             >
-                              <Check className="w-3 h-3 text-[#8FA603]" />
+                              <Check className="w-3 h-3 text-[#617964]" />
                               Copiado!
                               <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1A1A1A]" />
                             </motion.div>

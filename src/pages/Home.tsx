@@ -3,6 +3,7 @@ import { Diamond, ArrowDown, Play, Pause, ChevronLeft, ChevronRight } from 'luci
 import { useState, useEffect, useRef } from 'react';
 import GalleryItem from '../components/GalleryItem';
 import PremiumSlider from '../components/PremiumSlider';
+import Testimonials from '../components/Testimonials';
 import { CATEGORIES } from '../constants/categories';
 import { useNavigate } from 'react-router-dom';
 import { useProperties } from '../context/PropertyContext';
@@ -239,6 +240,7 @@ export default function Home() {
         </section>
       
       <PremiumSlider />
+      <Testimonials />
 
       </div>
     );

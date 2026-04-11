@@ -136,7 +136,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
     ? (shouldShow ? (isDeepScrolled ? "rgba(0, 0, 0, 0.5)" : "rgba(255, 255, 255, 0.1)") : "rgba(255, 255, 255, 0)")
     : (isTransparentPage 
         ? (shouldShow ? "rgba(55, 64, 1, 0.3)" : "rgba(55, 64, 1, 0)")
-        : (shouldShow ? "#374001" : "transparent"));
+        : (shouldShow ? "#617964" : "transparent"));
 
   return (
     <header ref={headerRef} className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[98%] max-w-[1800px] flex items-center gap-4">
@@ -234,9 +234,9 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
               {/* Desktop Search Button */}
               <button 
                 onClick={() => setIsMenuOpen(true)}
-                className={`hidden lg:flex items-center gap-2 bg-white text-brand-dark px-6 py-2 rounded-full text-sm font-bold ${isTransparentPage ? 'hover:bg-[#374001]' : 'hover:bg-[#8FA603]'} hover:text-white transition-all shadow-lg cursor-pointer group`}
+                className={`hidden lg:flex items-center gap-2 bg-white text-brand-dark px-6 py-2 rounded-full text-sm font-bold ${isTransparentPage ? 'hover:bg-[#617964]' : 'hover:bg-[#617964]'} hover:text-white transition-all shadow-lg cursor-pointer group`}
               >
-                <Search className="w-4 h-4 text-[#8FA603] group-hover:text-white group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+                <Search className="w-4 h-4 text-[#617964] group-hover:text-white group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
                 <span>Buscar imóvel</span>
               </button>
 
@@ -260,7 +260,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                   <div className="relative">
                     <Heart className="w-6 h-6 fill-white" />
                     {favoritesCount > 0 && (
-                      <div className="absolute -top-1 -right-1 bg-[#374001] text-white text-[8px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white/20">
+                      <div className="absolute -top-1 -right-1 bg-[#617964] text-white text-[8px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white/20">
                         {favoritesCount}
                       </div>
                     )}
@@ -275,7 +275,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                   {user ? (
                     <div className="relative">
                       <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-6 h-6 rounded-full border border-white/20" />
-                      <div className="absolute -bottom-1 -right-1 bg-[#25D366] w-2.5 h-2.5 rounded-full border-2 border-[#374001]" />
+                      <div className="absolute -bottom-1 -right-1 bg-[#25D366] w-2.5 h-2.5 rounded-full border-2 border-[#617964]" />
                     </div>
                   ) : (
                     <User className="w-6 h-6 transition-transform group-hover/login:scale-125" />
@@ -336,10 +336,10 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                           repeat: Infinity,
                           ease: "easeInOut",
                         }}
-                        className="absolute inset-0 bg-[#374001] rounded-full"
+                        className="absolute inset-0 bg-[#617964] rounded-full"
                       />
                       {/* Main badge circle */}
-                      <div className="relative bg-[#374001] text-white text-[10px] font-bold w-full h-full rounded-full flex items-center justify-center border border-white/20 shadow-sm">
+                      <div className="relative bg-[#617964] text-white text-[10px] font-bold w-full h-full rounded-full flex items-center justify-center border border-white/20 shadow-sm">
                         {favoritesCount}
                       </div>
                     </div>
@@ -357,7 +357,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                     {user ? (
                       <div className="relative">
                         <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-8 h-8 rounded-full border-2 border-white/20 group-hover:border-white transition-all shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)]" />
-                        <div className="absolute -bottom-0.5 -right-0.5 bg-[#25D366] w-3 h-3 rounded-full border-2 border-[#374001]" />
+                        <div className="absolute -bottom-0.5 -right-0.5 bg-[#25D366] w-3 h-3 rounded-full border-2 border-[#617964]" />
                       </div>
                     ) : (
                       <User className="w-7 h-7 text-white transition-all group-hover:scale-125 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)]" />
@@ -366,7 +366,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                   
                   {user && (
                     <div className="absolute top-full right-0 mt-2 opacity-0 group-hover/user:opacity-100 transition-opacity pointer-events-none">
-                      <div className="bg-[#374001] text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap">
+                      <div className="bg-[#617964] text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap">
                         Acessar Dashboard
                       </div>
                     </div>
