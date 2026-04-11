@@ -77,15 +77,15 @@ export default function Testimonials() {
   return (
     <section className="bg-white py-20 md:py-32 overflow-hidden">
       <div className="max-w-[1800px] mx-auto px-6">
-        <div className="mb-16 md:mb-24 text-center md:text-left">
+        <div className="mb-16 md:mb-24 text-center">
           <h2 className="text-5xl md:text-7xl font-bold text-brand-dark leading-tight tracking-tight">
             Aprovado por<br />
             <span className="text-[#E5E5D8]">+500 clientes</span>
           </h2>
         </div>
 
-        <div className="flex justify-start md:justify-center items-center min-h-[550px] overflow-x-auto md:overflow-visible py-10 no-scrollbar px-10 md:px-0">
-          <div className="flex items-center justify-start md:justify-center min-w-max md:min-w-0 pb-10">
+        <div className="flex justify-start md:justify-center items-center min-h-[550px] overflow-x-auto md:overflow-visible py-10 no-scrollbar px-6 md:px-0 snap-x snap-mandatory">
+          <div className="flex items-center justify-start md:justify-center min-w-max md:min-w-0 pb-10 gap-6 md:gap-0">
             {TESTIMONIALS.map((t, i) => {
               const isHovered = hoveredId === t.id;
               
@@ -101,7 +101,7 @@ export default function Testimonials() {
                     zIndex: isHovered ? 50 : i,
                   }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className={`relative w-[260px] md:w-[340px] h-[420px] md:h-[480px] rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col justify-between cursor-pointer shrink-0 ${t.color} ${t.textColor} ${i === 0 ? '' : '-ml-32 md:-ml-40'}`}
+                  className={`relative w-[85vw] md:w-[340px] h-[420px] md:h-[480px] rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col justify-between cursor-pointer shrink-0 snap-center ${t.color} ${t.textColor} ${i === 0 ? '' : 'md:-ml-40'}`}
                   style={{
                     transformOrigin: 'bottom center'
                   }}

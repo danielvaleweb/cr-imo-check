@@ -198,7 +198,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsMenuOpen(false)}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[55] cursor-pointer"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] cursor-pointer"
           />
           
           {/* Menu Content */}
@@ -207,7 +207,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
             animate={isDesktop ? { x: 0 } : { y: 0 }}
             exit={isDesktop ? { x: "100%" } : { y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className={`fixed z-[56] overflow-y-auto p-6 ${
+            className={`fixed z-[111] overflow-y-auto p-6 ${
               isDesktop 
                 ? "top-0 right-0 h-full w-[480px] rounded-none" 
                 : "bottom-0 left-0 right-0 rounded-t-[20px] max-h-[90vh]"
@@ -220,7 +220,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ delay: 0.4, duration: 0.6 }}
-                className="fixed top-1/2 -translate-y-1/2 right-[500px] z-[60] flex flex-col items-center gap-2"
+                className="fixed top-1/2 -translate-y-1/2 right-[500px] z-[112] flex flex-col items-center gap-2"
               >
                 <button 
                   onClick={() => setIsMenuOpen(false)}
@@ -569,7 +569,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
           {/* Location Modal */}
           <AnimatePresence>
             {isLocationModalOpen && (
-              <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+              <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -667,7 +667,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
           {/* Property Style Modal */}
           <AnimatePresence>
             {isStyleModalOpen && (
-              <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+              <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
