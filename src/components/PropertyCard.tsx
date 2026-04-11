@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Bed, Bath, Car, Maximize, DoorOpen, Heart, ArrowUpRight, Home } from 'lucide-react';
 import { Property } from '../context/PropertyContext';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
 
 interface PropertyCardProps {
   prop: Property;
@@ -23,7 +27,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ prop, onClick, isFavorite, 
       onClick={onClick}
       className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group cursor-pointer border border-marromescuro/5"
     >
-      <div className="relative h-72 overflow-hidden bg-brancobg">
+      <div className="relative aspect-[9/16] md:aspect-auto md:h-72 overflow-hidden bg-brancobg">
         {prop.listingType === 'lançamento' && (
           <div className="absolute top-4 left-4 z-20 bg-[#8FA603] text-white text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg shadow-xl">
             Lançamento
@@ -52,16 +56,39 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ prop, onClick, isFavorite, 
             <span className="text-sm font-bold text-marromescuro/40 relative z-10 uppercase tracking-wider">Imóvel sem foto</span>
           </motion.div>
         ) : (
-          <motion.img 
-            src={prop.images && prop.images.length > 0 && prop.images[0] !== '' ? prop.images[0] : prop.image} 
-            alt={prop.title} 
-            className="w-full h-full object-cover"
-            animate={{ 
-              filter: isHovered ? "blur(6px)" : "blur(0px)"
-            }}
-            transition={{ duration: 0.4 }}
-            referrerPolicy="no-referrer"
-          />
+          <>
+            {/* Mobile Swiper */}
+            <div className="block md:hidden w-full h-full">
+              <Swiper
+                modules={[Pagination]}
+                pagination={{ clickable: true }}
+                className="w-full h-full"
+              >
+                {(prop.images && prop.images.length > 0 && prop.images[0] !== '' ? prop.images : [prop.image]).map((img, idx) => (
+                  <SwiperSlide key={idx}>
+                    <img 
+                      src={img} 
+                      alt={`${prop.title} - ${idx + 1}`} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
+            
+            {/* Desktop Single Image */}
+            <motion.img 
+              src={prop.images && prop.images.length > 0 && prop.images[0] !== '' ? prop.images[0] : prop.image} 
+              alt={prop.title} 
+              className="hidden md:block w-full h-full object-cover"
+              animate={{ 
+                filter: isHovered ? "blur(6px)" : "blur(0px)"
+              }}
+              transition={{ duration: 0.4 }}
+              referrerPolicy="no-referrer"
+            />
+          </>
         )}
         
         <AnimatePresence>
