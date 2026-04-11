@@ -31,7 +31,7 @@ export default function Contact() {
               <div className="space-y-6">
                 {[
                   { icon: Phone, label: "Telefone", value: "+55 (24) 98100-0306" },
-                  { icon: Mail, label: "E-mail", value: "contato@cledanimoveis.com.br" },
+                  { icon: Mail, label: "E-mail", value: "contato@crimoveis.com.br" },
                   { icon: MapPin, label: "Endereço", value: "Av. Faria Lima, 4500 - Itaim Bibi, São Paulo - SP" },
                   { icon: MessageSquare, label: "WhatsApp", value: "Clique para iniciar conversa" }
                 ].map((item, idx) => (

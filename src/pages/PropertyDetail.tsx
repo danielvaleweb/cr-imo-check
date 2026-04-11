@@ -339,28 +339,19 @@ export default function PropertyDetail() {
                 transition={{ duration: 1, delay: 0.5 }}
                 className="flex justify-center"
               >
-                {property.listingType === 'lançamento' && property.projectLogoUrl ? (
-                  <img 
-                    src={property.projectLogoUrl} 
-                    alt={property.title} 
-                    className="max-h-32 md:max-h-48 lg:max-h-64 w-auto object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <motion.h1 
-                    animate={{ 
-                      backgroundPosition: ["-200% 0", "200% 0"] 
-                    }}
-                    transition={{ 
-                      duration: 6, 
-                      repeat: Infinity, 
-                      ease: "linear" 
-                    }}
-                    className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold tracking-tight italic bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] bg-[length:200%_auto] bg-clip-text text-transparent drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)] py-4 px-4 leading-relaxed"
-                  >
-                    {property.title}
-                  </motion.h1>
-                )}
+                <motion.h1 
+                  animate={{ 
+                    backgroundPosition: ["-200% 0", "200% 0"] 
+                  }}
+                  transition={{ 
+                    duration: 6, 
+                    repeat: Infinity, 
+                    ease: "linear" 
+                  }}
+                  className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold tracking-tight italic bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] bg-[length:200%_auto] bg-clip-text text-transparent drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)] py-4 px-4 leading-relaxed"
+                >
+                  {property.title}
+                </motion.h1>
               </motion.div>
             </motion.div>
           </div>
@@ -488,7 +479,7 @@ export default function PropertyDetail() {
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
                   <div className="flex flex-col items-center justify-center opacity-50">
                     <span className="text-white text-base md:text-2xl font-bold tracking-widest uppercase -rotate-12 whitespace-nowrap drop-shadow-lg">
-                      Direitos reservados Cr Imóveis 2026 ©
+                      Direitos reservados CR Imóveis 2026 ©
                     </span>
                   </div>
                 </div>
@@ -602,66 +593,8 @@ export default function PropertyDetail() {
                 )}
               </div>
 
-              {/* Characteristics Row - Centered vertically and horizontally */}
-              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 py-6 bg-white rounded-2xl shadow-sm border border-marromescuro/5">
-                {propertyData.rooms > 0 && (
-                  <div className="flex items-center gap-3">
-                    <Bed className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">{propertyData.rooms} {propertyData.rooms === 1 ? 'quarto' : 'quartos'}</span>
-                  </div>
-                )}
-
-                {propertyData.beds > 0 && (
-                  <div className="flex items-center gap-3">
-                    <BedDouble className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">{propertyData.beds} {propertyData.beds === 1 ? 'suíte' : 'suítes'}</span>
-                  </div>
-                )}
-
-                {propertyData.baths > 0 && (
-                  <div className="flex items-center gap-3">
-                    <Bath className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">{propertyData.baths} {propertyData.baths === 1 ? 'banheiro' : 'banheiros'}</span>
-                  </div>
-                )}
-
-                {propertyData.hasLavabo && (
-                  <div className="flex items-center gap-3">
-                    <Droplets className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">Lavabo</span>
-                  </div>
-                )}
-
-                {propertyData.parking > 0 && (
-                  <div className="flex items-center gap-3">
-                    <Car className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">{propertyData.parking} {propertyData.parking === 1 ? 'vaga' : 'vagas'}</span>
-                  </div>
-                )}
-
-                {propertyData.motoParking > 0 && (
-                  <div className="flex items-center gap-3">
-                    <Bike className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">{propertyData.motoParking} {propertyData.motoParking === 1 ? 'vaga moto' : 'vagas moto'}</span>
-                  </div>
-                )}
-
-                {propertyData.area && (
-                  <div className="flex items-center gap-3">
-                    <Maximize className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">{propertyData.area}</span>
-                  </div>
-                )}
-
-                {propertyData.elevators > 0 && (
-                  <div className="flex items-center gap-3">
-                    <ArrowUpRight className="w-6 h-6 text-terracota" strokeWidth={2} />
-                    <span className="text-sm font-medium text-marromescuro">{propertyData.elevators} {propertyData.elevators === 1 ? 'elevador' : 'elevadores'}</span>
-                  </div>
-                )}
               </div>
             </div>
-          </div>
 
           <div className="lg:col-span-1 p-8 bg-white border border-marromescuro/10 rounded-[32px] space-y-6">
             <div className="flex items-center justify-between gap-4">
@@ -868,6 +801,89 @@ export default function PropertyDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Left Column: Description & Gallery */}
           <div className="lg:col-span-2 space-y-16">
+            {/* Characteristics Row - Moved inside left column to push description down */}
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 py-8 bg-white rounded-3xl shadow-sm border border-marromescuro/5">
+              {propertyData.rooms > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <Bed className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Quartos</span>
+                  <span className="text-sm font-bold text-marromescuro">{propertyData.rooms}</span>
+                </div>
+              )}
+
+              {propertyData.beds > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <BedDouble className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Suítes</span>
+                  <span className="text-sm font-bold text-marromescuro">{propertyData.beds}</span>
+                </div>
+              )}
+
+              {propertyData.baths > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <Bath className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Banh.</span>
+                  <span className="text-sm font-bold text-marromescuro">{propertyData.baths}</span>
+                </div>
+              )}
+
+              {propertyData.hasLavabo && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <Droplets className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Lavabo</span>
+                  <span className="text-sm font-bold text-marromescuro">Sim</span>
+                </div>
+              )}
+
+              {propertyData.parking > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <Car className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Vagas</span>
+                  <span className="text-sm font-bold text-marromescuro">{propertyData.parking}</span>
+                </div>
+              )}
+
+              {propertyData.motoParking > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <Bike className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Moto</span>
+                  <span className="text-sm font-bold text-marromescuro">{propertyData.motoParking}</span>
+                </div>
+              )}
+
+              {propertyData.area && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <Maximize className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Área</span>
+                  <span className="text-sm font-bold text-marromescuro">{propertyData.area}</span>
+                </div>
+              )}
+
+              {propertyData.elevators > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
+                    <ArrowUpRight className="w-6 h-6 text-terracota" strokeWidth={2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Elev.</span>
+                  <span className="text-sm font-bold text-marromescuro">{propertyData.elevators}</span>
+                </div>
+              )}
+            </div>
+
             <section className="space-y-6">
               <h2 className="text-2xl font-bold text-marromescuro">Sobre o imóvel</h2>
               <div className="space-y-4">
@@ -908,7 +924,17 @@ export default function PropertyDetail() {
                 {/* Launch Information Section */}
                 {property.listingType === 'lançamento' && (
                   <div className="pt-6 border-t border-marromescuro/5">
-                    <p className="text-xs font-bold text-marromescuro/40 uppercase tracking-widest mb-4">Informações do Lançamento</p>
+                    <div className="flex items-center justify-between mb-6">
+                      <p className="text-xs font-bold text-marromescuro/40 uppercase tracking-widest">Informações do Empreendimento</p>
+                      {property.projectLogoUrl && (
+                        <img 
+                          src={property.projectLogoUrl} 
+                          alt="Logo do Empreendimento" 
+                          className="h-12 w-auto object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {property.floors > 0 && (
                         <div className="p-4 bg-marromescuro/5 rounded-2xl">
@@ -953,7 +979,7 @@ export default function PropertyDetail() {
                 <div className="flex items-start gap-3 p-4 bg-white rounded-xl border border-marromescuro/10">
                   <Info className="w-5 h-5 text-marromescuro/30 shrink-0 mt-0.5" />
                   <p className="text-[10px] text-marromescuro/40 leading-relaxed">
-                    Estas informações refletem a opinião do corretor associado e não necessariamente da Coelho da Fonseca, que não se responsabiliza por eventuais divergências ou prejuízos decorrentes do uso dessas informações.
+                    Estas informações refletem a opinião do corretor associado e não necessariamente da CR Imóveis, que não se responsabiliza por eventuais divergências ou prejuízos decorrentes do uso dessas informações.
                   </p>
                 </div>
               </div>
@@ -1135,7 +1161,7 @@ export default function PropertyDetail() {
                   Falar com {property.agent.name.split(' ')[0]}
                 </button>
                 <button 
-                  onClick={() => window.location.href = 'mailto:suporte@crimoveisdeluxo.com.br'}
+                  onClick={() => window.location.href = 'mailto:contato@crimoveis.com.br'}
                   className="w-full py-4 bg-white text-marromescuro border border-marromescuro/5 rounded-xl font-bold hover:bg-marromescuro/5 transition-all flex items-center justify-center gap-2"
                 >
                   <Mail className="w-5 h-5" />
@@ -1159,7 +1185,7 @@ export default function PropertyDetail() {
                 Simular financiamento
               </button>
               <p className="text-[10px] text-marromescuro/40 leading-relaxed">
-                A Coelho é correspondente bancário do Itaú, o maior banco da América Latina, com taxas exclusivas para seus clientes.
+                A CR Imóveis é correspondente bancário do Itaú, o maior banco da América Latina, com taxas exclusivas para seus clientes.
               </p>
             </div>
           </div>
@@ -1202,6 +1228,8 @@ export default function PropertyDetail() {
             ))}
           </div>
         </section>
+
+      </div>
 
         {/* Scheduling Modal */}
         <AnimatePresence>
@@ -1537,6 +1565,5 @@ export default function PropertyDetail() {
           )}
         </AnimatePresence>
       </div>
-    </div>
   );
 }

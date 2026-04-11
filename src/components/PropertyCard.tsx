@@ -81,16 +81,65 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ prop, onClick, isFavorite, 
         </AnimatePresence>
       </div>
 
-      <div className="p-6 space-y-6">
-        <div className="space-y-1">
-          <h3 className="text-xl font-bold text-marromescuro tracking-tight">{prop.title}</h3>
+      <div className="p-6 space-y-6 relative">
+        {/* Always visible title for accessibility/SEO but styled to be hidden or subtle if needed */}
+        <div className="space-y-1 transition-all duration-500 group-hover:opacity-0">
+          <h3 className="text-xl font-bold text-marromescuro tracking-tight line-clamp-1">{prop.title}</h3>
           <div className="flex items-center gap-1.5 text-marromescuro/40 text-sm">
             <MapPin className="w-4 h-4 text-terracota" />
-            <span>{prop.location}</span>
+            <span className="line-clamp-1">{prop.location}</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-marromescuro/5">
+        {/* Hover Information Overlay */}
+        <div className="absolute inset-x-6 bottom-6 opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-4 group-hover:translate-y-0 space-y-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-xl border border-marromescuro/5 z-10">
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-marromescuro tracking-tight leading-tight">{prop.title}</h3>
+            <div className="flex items-center gap-1.5 text-marromescuro/40 text-[10px] font-bold uppercase tracking-wider">
+              <MapPin className="w-3 h-3 text-terracota" />
+              <span>{prop.location}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-y-3 gap-x-2 pt-3 border-t border-marromescuro/5">
+            <div className="flex items-center gap-2 text-marromescuro/60 text-[10px] font-bold uppercase tracking-wider">
+              <Bed className="w-3 h-3 text-terracota" />
+              <span>{prop.beds} Suítes</span>
+            </div>
+            <div className="flex items-center gap-2 text-marromescuro/60 text-[10px] font-bold uppercase tracking-wider">
+              <Car className="w-3 h-3 text-terracota" />
+              <span>{prop.parking} Vagas</span>
+            </div>
+            <div className="flex items-center gap-2 text-marromescuro/60 text-[10px] font-bold uppercase tracking-wider">
+              <Bath className="w-3 h-3 text-terracota" />
+              <span>{prop.baths} Banheiros</span>
+            </div>
+            <div className="flex items-center gap-2 text-marromescuro/60 text-[10px] font-bold uppercase tracking-wider">
+              <Maximize className="w-3 h-3 text-terracota" />
+              <span>{prop.area}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-marromescuro/10">
+            <div className="flex flex-col">
+              <span className="text-[8px] uppercase tracking-widest text-marromescuro/30 font-bold">Investimento</span>
+              <span className="text-lg font-bold text-marromescuro">{prop.price}</span>
+            </div>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(e);
+              }}
+              className="p-2 rounded-full hover:bg-marromescuro/5 transition-colors group/fav"
+            >
+              <Heart 
+                className={`w-5 h-5 transition-all transform group-hover/fav:scale-125 ${isFavorite ? 'fill-[#435B45] text-[#435B45]' : 'text-marromescuro/20 group-hover/fav:text-marromescuro/40'}`} 
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-marromescuro/5 group-hover:opacity-0 transition-opacity duration-500">
           <div className="flex items-center gap-2 text-marromescuro/60 text-sm font-medium">
             <Bed className="w-4 h-4 text-terracota" />
             <span>{prop.beds} Suítes</span>
@@ -107,15 +156,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ prop, onClick, isFavorite, 
             <Maximize className="w-4 h-4 text-terracota" />
             <span>{prop.area}</span>
           </div>
-          {prop.elevators !== undefined && prop.elevators > 0 && (
-            <div className="flex items-center gap-2 text-marromescuro/60 text-sm font-medium">
-              <ArrowUpRight className="w-4 h-4 text-terracota" />
-              <span>{prop.elevators} Elevador{prop.elevators > 1 ? 'es' : ''}</span>
-            </div>
-          )}
         </div>
 
-        <div className="flex items-center justify-between pt-6 border-t border-marromescuro/10">
+        <div className="flex items-center justify-between pt-6 border-t border-marromescuro/10 group-hover:opacity-0 transition-opacity duration-500">
           <div className="flex flex-col">
             <span className="text-[10px] uppercase tracking-widest text-marromescuro/30 font-bold">Valor do Investimento</span>
             <span className="text-2xl font-bold text-marromescuro">{prop.price}</span>

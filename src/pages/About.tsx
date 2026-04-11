@@ -26,7 +26,7 @@ export default function About() {
             </h1>
             <div className="space-y-6 text-lg text-brand-dark/70">
               <p>
-                A CLEDAN Imóveis nasceu da paixão por conectar pessoas a lares que refletem suas aspirações e estilo de vida. Ao longo de mais de uma década, nos tornamos referência no mercado imobiliário de alto padrão.
+                A CR Imóveis nasceu da paixão por conectar pessoas a lares que refletem suas aspirações e estilo de vida. Ao longo de mais de uma década, nos tornamos referência no mercado imobiliário de alto padrão.
               </p>
               <p>
                 Nossa abordagem é centrada no cliente, combinando tecnologia de ponta com um atendimento humanizado e personalizado. Cada imóvel em nossa curadoria é selecionado com rigor para garantir exclusividade e qualidade.
