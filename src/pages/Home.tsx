@@ -31,19 +31,19 @@ export default function Home() {
     for (let i = 0; i < items.length; i += 6) {
       const group = items.slice(i, i + 6);
       groups.push(
-        <div key={`group-${i}`} className="flex gap-6 items-center pr-6">
-          {group[0] && <GalleryItem src={group[0].image} width="400px" height="450px" onClick={() => handleGalleryClick(i + 0)} />}
+        <div key={`group-${i}`} className="flex gap-4 md:gap-6 items-center pr-4 md:pr-6">
+          {group[0] && <GalleryItem src={group[0].image} className="w-[45vw] md:w-[400px] aspect-[9/16] md:aspect-auto md:h-[450px] shrink-0 snap-center" onClick={() => handleGalleryClick(i + 0)} />}
           {group.length > 1 && (
-            <div className="flex flex-col gap-6">
-              {group[1] && <GalleryItem src={group[1].image} width="350px" height="213px" onClick={() => handleGalleryClick(i + 1)} />}
-              {group[2] && <GalleryItem src={group[2].image} width="350px" height="213px" onClick={() => handleGalleryClick(i + 2)} />}
+            <div className="flex flex-row md:flex-col gap-4 md:gap-6 shrink-0">
+              {group[1] && <GalleryItem src={group[1].image} className="w-[45vw] md:w-[350px] aspect-[9/16] md:aspect-auto md:h-[213px] shrink-0 snap-center" onClick={() => handleGalleryClick(i + 1)} />}
+              {group[2] && <GalleryItem src={group[2].image} className="w-[45vw] md:w-[350px] aspect-[9/16] md:aspect-auto md:h-[213px] shrink-0 snap-center" onClick={() => handleGalleryClick(i + 2)} />}
             </div>
           )}
-          {group[3] && <GalleryItem src={group[3].image} width="320px" height="450px" onClick={() => handleGalleryClick(i + 3)} />}
+          {group[3] && <GalleryItem src={group[3].image} className="w-[45vw] md:w-[320px] aspect-[9/16] md:aspect-auto md:h-[450px] shrink-0 snap-center" onClick={() => handleGalleryClick(i + 3)} />}
           {group.length > 4 && (
-            <div className="flex flex-col gap-6">
-              {group[4] && <GalleryItem src={group[4].image} width="340px" height="213px" onClick={() => handleGalleryClick(i + 4)} />}
-              {group[5] && <GalleryItem src={group[5].image} width="340px" height="213px" onClick={() => handleGalleryClick(i + 5)} />}
+            <div className="flex flex-row md:flex-col gap-4 md:gap-6 shrink-0">
+              {group[4] && <GalleryItem src={group[4].image} className="w-[45vw] md:w-[340px] aspect-[9/16] md:aspect-auto md:h-[213px] shrink-0 snap-center" onClick={() => handleGalleryClick(i + 4)} />}
+              {group[5] && <GalleryItem src={group[5].image} className="w-[45vw] md:w-[340px] aspect-[9/16] md:aspect-auto md:h-[213px] shrink-0 snap-center" onClick={() => handleGalleryClick(i + 5)} />}
             </div>
           )}
         </div>
@@ -153,11 +153,13 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative flex">
+        <div className="relative flex overflow-x-auto md:overflow-visible no-scrollbar snap-x snap-mandatory md:snap-none">
           <div 
             className={`flex w-max animate-infinite-scroll ${isGalleryPaused ? 'pause-animation' : ''}`}
             onMouseEnter={() => setIsGalleryPaused(true)}
             onMouseLeave={() => setIsGalleryPaused(false)}
+            onTouchStart={() => setIsGalleryPaused(true)}
+            onTouchEnd={() => setIsGalleryPaused(false)}
           >
             {/* Render the actual items */}
             {renderGalleryGroup(slides)}

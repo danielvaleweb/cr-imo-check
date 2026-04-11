@@ -117,14 +117,4 @@
     transform: scale(0.7);
     z-index: 20;
   }
-
-  /* Swiper Pagination Styles */
-  .swiper-pagination-bullet {
-    background: white !important;
-    opacity: 0.5 !important;
-  }
-  .swiper-pagination-bullet-active {
-    background: var(--color-terracota) !important;
-    opacity: 1 !important;
-  }
 }

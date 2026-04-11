@@ -4,18 +4,19 @@ import { DoorOpen, Home } from 'lucide-react';
 
 interface GalleryItemProps {
   src: string;
-  width: string;
-  height: string;
+  width?: string;
+  height?: string;
+  className?: string;
   onClick: () => void;
 }
 
-export default function GalleryItem({ src, width, height, onClick }: GalleryItemProps) {
+export default function GalleryItem({ src, width, height, className = '', onClick }: GalleryItemProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div 
-      className="relative rounded-[32px] overflow-hidden shadow-xl group bg-brancobg"
-      style={{ width, height }}
+      className={`relative rounded-[32px] overflow-hidden shadow-xl group bg-brancobg ${className}`}
+      style={width && height ? { width, height } : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
