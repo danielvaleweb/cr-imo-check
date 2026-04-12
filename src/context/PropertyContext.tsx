@@ -18,6 +18,8 @@ export interface Property {
   videoUrl?: string;
   pdfUrl?: string;
   floorPlanUrl?: string;
+  floorPlanUrls?: string[];
+  tour360Url?: string;
   category: string;
   categorySlug: string;
   code?: string;

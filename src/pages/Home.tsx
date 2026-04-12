@@ -141,8 +141,8 @@ export default function Home() {
       </section>
 
       {/* Gallery Section */}
-      <section className="bg-white py-20 overflow-hidden">
-        <div className="max-w-[1800px] mx-auto px-6 mb-10">
+      <section className="bg-white pt-20 pb-10 overflow-hidden">
+        <div className="max-w-[1800px] mx-auto px-6 mb-6">
           <div className="flex items-center gap-3 text-brand-dark">
             <div className="bg-linear-to-br from-[#617964] to-[#617964] p-2 rounded-lg shadow-sm border border-white/20">
               <Diamond className="w-5 h-5 text-[#E5D19E]" />

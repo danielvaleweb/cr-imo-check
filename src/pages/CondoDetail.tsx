@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { 
@@ -31,7 +31,8 @@ import {
   ArrowUpRight,
   Home,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Compass
 } from 'lucide-react';
 import { useCondos } from '../context/CondoContext';
 import { useProperties } from '../context/PropertyContext';
@@ -40,10 +41,38 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useTexture, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 
-function Sphere360({ imageUrl }: { imageUrl: string }) {
+function Sphere360({ imageUrl, gyroEnabled }: { imageUrl: string, gyroEnabled: boolean }) {
   const texture = useTexture(imageUrl);
+  const sphereRef = useRef<THREE.Mesh>(null);
+
+  useEffect(() => {
+    if (!gyroEnabled) {
+      if (sphereRef.current) {
+        sphereRef.current.rotation.set(0, 0, 0);
+      }
+      return;
+    }
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (!sphereRef.current) return;
+      
+      // We need to handle null values
+      const alpha = e.alpha !== null ? THREE.MathUtils.degToRad(e.alpha) : 0;
+      const beta = e.beta !== null ? THREE.MathUtils.degToRad(e.beta) : 0;
+      const gamma = e.gamma !== null ? THREE.MathUtils.degToRad(e.gamma) : 0;
+
+      // Adjust rotation based on device orientation
+      // This is a basic mapping, might need fine-tuning for different devices/orientations
+      sphereRef.current.rotation.y = alpha;
+      sphereRef.current.rotation.x = beta - Math.PI / 2;
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [gyroEnabled]);
+
   return (
-    <Sphere args={[500, 60, 40]} scale={[-1, 1, 1]}>
+    <Sphere ref={sphereRef} args={[500, 60, 40]} scale={[-1, 1, 1]}>
       <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} />
     </Sphere>
   );
@@ -164,9 +193,13 @@ export default function CondoDetail() {
   const navigate = useNavigate();
   const { condos } = useCondos();
   const { properties } = useProperties();
-  const { favorites, toggleFavorite } = useOutletContext<{ favorites: (string | number)[], toggleFavorite: (id: string | number) => void }>();
+  const { favorites, toggleFavorite } = useOutletContext<{ 
+    favorites: (string | number)[], 
+    toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 
+  }>();
   
   const [is360Open, setIs360Open] = useState(false);
+  const [isGyroEnabled, setIsGyroEnabled] = useState(false);
   const [visibleProperties, setVisibleProperties] = useState(12);
 
   const { scrollY } = useScroll();
@@ -221,6 +254,27 @@ export default function CondoDetail() {
     setVisibleProperties(prev => prev + 8);
   };
 
+  const toggleGyro = async () => {
+    if (!isGyroEnabled) {
+      // Handle iOS permission
+      if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+        try {
+          const response = await (DeviceOrientationEvent as any).requestPermission();
+          if (response === 'granted') {
+            setIsGyroEnabled(true);
+          }
+        } catch (e) {
+          console.error("Erro ao solicitar permissão do giroscópio:", e);
+        }
+      } else {
+        // Non-iOS or older iOS
+        setIsGyroEnabled(true);
+      }
+    } else {
+      setIsGyroEnabled(false);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-20">
       {/* Top 360 Image Section */}
@@ -258,7 +312,7 @@ export default function CondoDetail() {
                 {condo.image360Url && (
                   <button 
                     onClick={() => setIs360Open(true)}
-                    className="px-8 py-4 bg-white/20 backdrop-blur-md border border-white/40 text-white rounded-full font-bold uppercase tracking-widest hover:bg-gradient-to-r hover:from-[#BBDA00] hover:to-[#839702] hover:border-transparent transition-all flex items-center gap-3 shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(187,218,0,0.4)]"
+                    className="px-8 py-4 bg-white/20 backdrop-blur-md border border-white/40 text-white rounded-full font-bold uppercase tracking-widest hover:bg-gradient-to-r hover:from-[#617964] hover:to-[#435B45] hover:border-transparent transition-all flex items-center gap-3 shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(97,121,100,0.4)]"
                   >
                     <Eye className="w-5 h-5" />
                     Ver em 360º
@@ -297,10 +351,10 @@ export default function CondoDetail() {
                   key={prop.id} 
                   prop={prop} 
                   onClick={() => navigate(`/imovel/${prop.id}`)} 
-                  isFavorite={favorites.includes(prop.id)}
+                  isFavorite={favorites.includes(String(prop.id))}
                   onToggleFavorite={(e: React.MouseEvent) => {
                     e.stopPropagation();
-                    toggleFavorite(prop.id);
+                    toggleFavorite(prop.id, 'property', e);
                   }}
                 />
               ))}
@@ -486,9 +540,23 @@ export default function CondoDetail() {
                 <X className="w-6 h-6" />
               </button>
               
-              <div className="absolute top-8 left-8 z-50 bg-black/40 backdrop-blur-md px-6 py-3 rounded-full text-white text-xs font-bold flex items-center gap-3 border border-white/10">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                MODO IMERSIVO: ARRASTE PARA EXPLORAR
+              <div className="absolute top-8 left-8 z-50 flex flex-col gap-3">
+                <div className="bg-black/40 backdrop-blur-md px-6 py-3 rounded-full text-white text-xs font-bold flex items-center gap-3 border border-white/10">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  MODO IMERSIVO: ARRASTE PARA EXPLORAR
+                </div>
+                
+                <button 
+                  onClick={toggleGyro}
+                  className={`px-6 py-3 rounded-full text-xs font-bold flex items-center gap-3 border transition-all backdrop-blur-md ${
+                    isGyroEnabled 
+                      ? 'bg-[#617964] border-[#617964] text-white shadow-[0_0_15px_rgba(97,121,100,0.4)]' 
+                      : 'bg-black/40 border-white/10 text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Compass className={`w-4 h-4 ${isGyroEnabled ? 'animate-spin-slow' : ''}`} />
+                  {isGyroEnabled ? 'GIROSCÓPIO ATIVADO' : 'ATIVAR GIROSCÓPIO'}
+                </button>
               </div>
               
               <Canvas 
@@ -499,12 +567,15 @@ export default function CondoDetail() {
               >
                 <OrbitControls 
                   enableZoom={false} 
-                  autoRotate 
+                  autoRotate={!isGyroEnabled} 
                   autoRotateSpeed={0.4}
                   rotateSpeed={-0.5} // Reverse for more natural feel
                 />
                 <React.Suspense fallback={null}>
-                  <Sphere360 imageUrl={condo.image360Url || "https://i.imgur.com/Gp90UvK.png"} />
+                  <Sphere360 
+                    imageUrl={condo.image360Url || "https://i.imgur.com/Gp90UvK.png"} 
+                    gyroEnabled={isGyroEnabled}
+                  />
                 </React.Suspense>
               </Canvas>
             </motion.div>

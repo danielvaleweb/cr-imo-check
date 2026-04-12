@@ -8,7 +8,10 @@ import PropertyCard from '../components/PropertyCard';
 export default function AltoPadrao() {
   const navigate = useNavigate();
   const { properties } = useProperties();
-  const { favorites, toggleFavorite } = useOutletContext<{ favorites: (string | number)[], toggleFavorite: (id: string | number) => void }>();
+  const { favorites, toggleFavorite } = useOutletContext<{ 
+    favorites: (string | number)[], 
+    toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 
+  }>();
   
   const filteredProperties = properties.filter(p => p.category === "Alto padrão");
 
@@ -23,8 +26,8 @@ export default function AltoPadrao() {
                 key={prop.id} 
                 prop={prop} 
                 onClick={() => navigate(`/imovel/${prop.id}`)} 
-                isFavorite={favorites.includes(prop.id)}
-                onToggleFavorite={() => toggleFavorite(prop.id)}
+                isFavorite={favorites.includes(String(prop.id))}
+                onToggleFavorite={(e) => toggleFavorite(prop.id, 'property', e)}
               />
             ))
           ) : (

@@ -276,12 +276,12 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                           initial={{ opacity: 0, y: -10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                          className="absolute top-full right-0 mt-3 w-64 bg-[#617964] text-white p-4 rounded-xl shadow-2xl z-50 text-xs leading-relaxed"
+                          className="absolute top-full right-0 mt-3 w-64 bg-[#617964] text-white p-4 rounded-xl shadow-2xl z-50 text-xs leading-relaxed font-bold"
                         >
                           <div className="absolute top-0 right-4 -translate-y-1/2 rotate-45 w-2 h-2 bg-[#617964]" />
-                          <p className="font-medium mb-1">Dica de Busca:</p>
+                          <p className="font-black mb-1">Dica de Busca:</p>
                           Você pode buscar por um único código ou vários ao mesmo tempo separando-os por vírgula.
-                          <div className="mt-2 pt-2 border-t border-white/10 text-white/60 italic">
+                          <div className="mt-2 pt-2 border-t border-marromescuro/10 text-marromescuro/60 italic">
                             Ex: 1316, 1317, 2418
                           </div>
                         </motion.div>
@@ -300,18 +300,18 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                   />
                   <button 
                     onClick={handleSearch}
-                    className="absolute right-2 top-6 -translate-y-1/2 bg-[#617964] p-2.5 rounded-lg hover:bg-[#617964]/90 transition-all flex items-center gap-1.5 overflow-hidden cursor-pointer group/search"
+                    className="absolute right-2 top-6 -translate-y-1/2 bg-[#617964] p-2.5 rounded-lg hover:opacity-90 transition-all flex items-center gap-1.5 overflow-hidden cursor-pointer group/search"
                   >
                     <motion.div 
                       className="flex flex-col gap-0.5 opacity-60"
                       animate={{ x: [0, -2, 0] }}
                       transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
                     >
-                      <div className="w-2 h-[1.5px] bg-white rounded-full translate-x-1" />
-                      <div className="w-3 h-[1.5px] bg-white rounded-full" />
-                      <div className="w-2 h-[1.5px] bg-white rounded-full translate-x-1" />
+                      <div className="w-2 h-[1.5px] bg-marromescuro rounded-full translate-x-1" />
+                      <div className="w-3 h-[1.5px] bg-marromescuro rounded-full" />
+                      <div className="w-2 h-[1.5px] bg-marromescuro rounded-full translate-x-1" />
                     </motion.div>
-                    <Search className="w-6 h-6 md:w-5 md:h-5 text-white -scale-x-100 transition-transform group-hover/search:scale-125" />
+                    <Search className="w-6 h-6 md:w-5 md:h-5 text-marromescuro -scale-x-100 transition-transform group-hover/search:scale-125" />
                   </button>
                 </div>
               </div>
@@ -354,7 +354,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                         onClick={() => setNegotiation(type as any)}
                         className={`relative flex items-center justify-center py-3.5 rounded-lg md:rounded-xl text-[10px] md:text-sm font-bold transition-all overflow-hidden cursor-pointer ${
                           negotiation === type 
-                            ? 'bg-[#617964] text-white' 
+                            ? 'bg-[#617964] text-white shadow-md' 
                             : 'bg-white text-brand-dark/60 hover:bg-[#617964]/10 hover:text-[#617964]'
                         }`}
                       >
@@ -420,7 +420,9 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                         onDrag={(_, info) => updatePrice('min', leftThumbX.get())}
                         style={{ x: leftThumbX }}
                         className="absolute top-1/2 -translate-y-1/2 -ml-3 w-6 h-6 bg-[#617964] border-2 border-white rounded-full flex items-center justify-center cursor-pointer z-20"
-                      />
+                      >
+                        <GripVertical className="w-3 h-3 text-white" />
+                      </motion.div>
 
                       {/* Right Thumb */}
                       <motion.div
@@ -436,7 +438,9 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                         onDrag={(_, info) => updatePrice('max', rightThumbX.get())}
                         style={{ x: rightThumbX }}
                         className="absolute top-1/2 -translate-y-1/2 -ml-3 w-6 h-6 bg-[#617964] border-2 border-white rounded-full flex items-center justify-center cursor-pointer z-20"
-                      />
+                      >
+                        <GripVertical className="w-3 h-3 text-white" />
+                      </motion.div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -520,8 +524,8 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                             }}
                             className={`py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
                               group.state.includes(opt) 
-                                ? 'bg-[#617964] text-white' 
-                                : 'bg-white text-brand-dark/80 hover:bg-[#617964] hover:text-white'
+                                ? 'bg-[#617964] text-white shadow-md' 
+                                : 'bg-white text-brand-dark/80 hover:bg-[#617964]/10 hover:text-[#617964]'
                             }`}
                           >
                             {opt}
@@ -550,11 +554,12 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     variants={{
                       hover: { 
                         scale: 1.05,
-                        backgroundColor: "#617964",
+                        backgroundColor: "#435B45",
+                        color: "#ffffff"
                       },
                       tap: { scale: 0.95 }
                     }}
-                    className="relative bg-[#617964] text-white px-12 py-4 rounded-full font-bold transition-all cursor-pointer overflow-hidden group"
+                    className="relative bg-gradient-to-r from-[#617964] to-[#435B45] text-white px-12 py-4 rounded-full font-bold transition-all cursor-pointer overflow-hidden group shadow-lg shadow-[#617964]/20"
                   >
                     <span className="relative z-10 flex items-center gap-2">
                       Buscar

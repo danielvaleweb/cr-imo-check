@@ -117,7 +117,8 @@ import {
   Map as MapIcon,
   Link,
   Instagram,
-  ShieldCheck
+  ShieldCheck,
+  ArrowLeft
 } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import { 
@@ -384,6 +385,8 @@ export default function BrokerDashboard() {
     videoUrl: '',
     pdfUrl: '',
     floorPlanUrl: '',
+    floorPlanUrls: [''],
+    tour360Url: '',
     status: 'Ativo',
     rooms: 0,
     motoParking: 0,
@@ -498,6 +501,33 @@ export default function BrokerDashboard() {
     setNewPropertyData({
       ...newPropertyData,
       images: updatedImages.length > 0 ? updatedImages : ['']
+    });
+  };
+
+  const handleAddFloorPlanField = () => {
+    if ((newPropertyData.floorPlanUrls || []).length < 10) {
+      setNewPropertyData({
+        ...newPropertyData,
+        floorPlanUrls: [...(newPropertyData.floorPlanUrls || []), '']
+      });
+    }
+  };
+
+  const handleRemoveFloorPlanField = (index: number) => {
+    const updated = (newPropertyData.floorPlanUrls || []).filter((_, i) => i !== index);
+    setNewPropertyData({
+      ...newPropertyData,
+      floorPlanUrls: updated.length > 0 ? updated : ['']
+    });
+  };
+
+  const handleFloorPlanChange = (index: number, value: string) => {
+    const updated = [...(newPropertyData.floorPlanUrls || [])];
+    updated[index] = value;
+    setNewPropertyData({
+      ...newPropertyData,
+      floorPlanUrls: updated,
+      floorPlanUrl: updated[0] // Keep legacy field in sync
     });
   };
 
@@ -631,6 +661,8 @@ export default function BrokerDashboard() {
       videoUrl: '',
       pdfUrl: '',
       floorPlanUrl: '',
+      floorPlanUrls: [''],
+      tour360Url: '',
       status: 'Ativo',
       rooms: 0,
       motoParking: 0,
@@ -682,6 +714,8 @@ export default function BrokerDashboard() {
       videoUrl: property.videoUrl || '',
       pdfUrl: property.pdfUrl || '',
       floorPlanUrl: property.floorPlanUrl || '',
+      floorPlanUrls: property.floorPlanUrls || (property.floorPlanUrl ? [property.floorPlanUrl] : ['']),
+      tour360Url: property.tour360Url || '',
       status: property.status || 'Ativo',
       rooms: property.rooms || 0,
       motoParking: property.motoParking || 0,
@@ -768,6 +802,8 @@ export default function BrokerDashboard() {
         videoUrl: '',
         pdfUrl: '',
         floorPlanUrl: '',
+        floorPlanUrls: [''],
+        tour360Url: '',
         status: 'Ativo',
         rooms: 0,
         motoParking: 0,
@@ -911,16 +947,25 @@ export default function BrokerDashboard() {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-8">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#617964] rounded-xl flex items-center justify-center shadow-lg shadow-[#617964]/20">
-                <Home className="text-white w-6 h-6" />
-              </div>
-              <span className="text-xl font-black tracking-tighter text-[#1A1A1A]">CR <span className="text-[#617964]">DASH</span></span>
-            </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
-              <X className="w-5 h-5 text-gray-400" />
+          <div className="flex flex-col gap-6 mb-10">
+            <button 
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 text-gray-400 hover:text-[#617964] transition-colors text-xs font-bold uppercase tracking-widest w-fit"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Voltar ao Site
             </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#617964] rounded-xl flex items-center justify-center shadow-lg shadow-[#617964]/20">
+                  <Home className="text-white w-6 h-6" />
+                </div>
+                <span className="text-xl font-black tracking-tighter text-[#1A1A1A]">CR <span className="text-[#617964]">DASH</span></span>
+              </div>
+              <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
           </div>
 
           <nav className="space-y-2">
@@ -1501,15 +1546,75 @@ export default function BrokerDashboard() {
                             </div>
                           </div>
                           
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Plantas do Imóvel</label>
+                              {newPropertyData.floorPlanUrls.length < 10 && (
+                                <button
+                                  type="button"
+                                  onClick={handleAddFloorPlanField}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-[#617964]/10 text-[#617964] rounded-xl hover:bg-[#617964]/20 transition-all text-[10px] font-black uppercase tracking-wider"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  Adicionar Planta
+                                </button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                              {newPropertyData.floorPlanUrls.map((url, index) => (
+                                <div key={index} className="space-y-2 group">
+                                  <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm transition-all group-hover:shadow-md group-hover:border-[#617964]/20">
+                                    {url ? (
+                                      <img 
+                                        src={url} 
+                                        alt={`Planta ${index}`} 
+                                        className="w-full h-full object-cover" 
+                                        referrerPolicy="no-referrer"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = 'https://i.imgur.com/pe07Ikg.png';
+                                        }}
+                                      />
+                                    ) : (
+                                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 gap-1">
+                                        <MapIcon className="w-6 h-6" />
+                                        <span className="text-[8px] font-black uppercase tracking-tighter">Sem Planta</span>
+                                      </div>
+                                    )}
+                                    
+                                    {newPropertyData.floorPlanUrls.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveFloorPlanField(index)}
+                                        className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 shadow-sm z-10"
+                                      >
+                                        <Trash className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="relative">
+                                    <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                                    <input 
+                                      type="text" 
+                                      value={url}
+                                      onChange={(e) => handleFloorPlanChange(index, e.target.value)}
+                                      placeholder="Link da planta..."
+                                      className="w-full bg-gray-50 border-none rounded-xl py-2 pl-8 pr-3 text-[10px] font-medium focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link da Planta (Imagem)</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link do Tour 360º</label>
                             <div className="relative">
-                              <MapIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <ExternalLink className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                               <input 
                                 type="text" 
-                                value={newPropertyData.floorPlanUrl}
-                                onChange={(e) => setNewPropertyData({...newPropertyData, floorPlanUrl: e.target.value})}
-                                placeholder="Link da imagem da planta"
+                                value={newPropertyData.tour360Url}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, tour360Url: e.target.value})}
+                                placeholder="Link do tour virtual (Matterport, Kuula, etc)"
                                 className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>

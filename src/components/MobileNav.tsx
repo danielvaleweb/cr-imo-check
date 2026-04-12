@@ -44,7 +44,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-[85%] max-w-[400px] bg-[#617964] z-[71] shadow-2xl flex flex-col"
+            className="fixed top-0 right-0 h-full w-[85%] max-w-[400px] bg-gradient-to-b from-[#132014] to-[#435B45] z-[71] shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-white/10">
@@ -110,7 +110,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                                   key={condo.id}
                                   to={`/condominio/${condo.id}`}
                                   onClick={onClose}
-                                  className="block py-2 text-brand-cream/70 hover:text-white transition-colors text-sm font-medium"
+                                  className="block py-2 text-brand-cream/70 hover:text-[#617964] transition-colors text-sm font-medium"
                                 >
                                   {condo.name}
                                 </Link>
@@ -119,7 +119,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                                 <Link
                                   to="/condominios"
                                   onClick={onClose}
-                                  className="block py-2 text-white font-bold text-xs uppercase tracking-widest"
+                                  className="block py-2 text-[#617964] font-bold text-xs uppercase tracking-widest"
                                 >
                                   Ver todos condomínios
                                 </Link>
@@ -144,7 +144,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                                   key={prop.id}
                                   to={`/imovel/${prop.id}`}
                                   onClick={onClose}
-                                  className="block py-2 text-brand-cream/70 hover:text-white transition-colors text-sm font-medium"
+                                  className="block py-2 text-brand-cream/70 hover:text-[#617964] transition-colors text-sm font-medium"
                                 >
                                   {prop.title}
                                 </Link>
@@ -153,7 +153,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                                 <Link
                                   to="/lancamentos"
                                   onClick={onClose}
-                                  className="block py-2 text-white font-bold text-xs uppercase tracking-widest"
+                                  className="block py-2 text-[#617964] font-bold text-xs uppercase tracking-widest"
                                 >
                                   Ver todos lançamentos
                                 </Link>
@@ -189,7 +189,7 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
                 href="https://wa.me/5524981000306" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-4 rounded-2xl bg-[#617964] text-white font-bold hover:bg-[#617964] transition-all text-center justify-center"
+                className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#617964] to-[#435B45] text-white font-bold hover:opacity-90 transition-all text-center justify-center shadow-lg shadow-[#617964]/20"
               >
                 Falar no WhatsApp
               </a>

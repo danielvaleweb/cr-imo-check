@@ -38,6 +38,8 @@ import {
   ArrowUpRight,
   Droplets,
   Bike,
+  Dumbbell,
+  RotateCcw,
   BedDouble,
   Map as MapIcon
 } from 'lucide-react';
@@ -88,7 +90,7 @@ export default function PropertyDetail() {
   const { condos } = useCondos();
   const { favorites, toggleFavorite } = useOutletContext<{ 
     favorites: (string | number)[], 
-    toggleFavorite: (id: string | number, e: React.MouseEvent) => void 
+    toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 
   }>();
   const [scrolled, setScrolled] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
@@ -99,6 +101,11 @@ export default function PropertyDetail() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
+  const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState(false);
+  const [modalFloorPlanIndex, setModalFloorPlanIndex] = useState(0);
+  const [isTour360ModalOpen, setIsTour360ModalOpen] = useState(false);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [locationImageIndex, setLocationImageIndex] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [isNeighborhoodExpanded, setIsNeighborhoodExpanded] = useState(false);
   const [activePriceTab, setActivePriceTab] = useState(0);
@@ -298,7 +305,7 @@ export default function PropertyDetail() {
 
       {/* Hero Gallery */}
       <section className="relative h-screen w-full bg-white overflow-hidden">
-        {(!showFloorPlan && property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
+        {(property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
           <div className="w-full h-full flex flex-col items-center justify-center relative">
             <img 
               src="https://i.imgur.com/egg4k7M.png" 
@@ -311,9 +318,9 @@ export default function PropertyDetail() {
           </div>
         ) : (
           <img 
-            src={showFloorPlan ? property.floorPlanUrl : property.images[activeImage]} 
+            src={property.images[activeImage]} 
             alt="Property" 
-            className={`w-full h-full ${showFloorPlan ? 'object-contain bg-white' : 'object-cover'}`}
+            className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
           />
         )}
@@ -324,7 +331,7 @@ export default function PropertyDetail() {
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ 
-                opacity: showFloorPlan ? 0 : (!showControls && activeImage === 0 ? 1 : 0.5),
+                opacity: !showControls && activeImage === 0 ? 1 : 0.5,
                 y: 0
               }}
               transition={{ 
@@ -370,13 +377,23 @@ export default function PropertyDetail() {
                 animate={{ opacity: 1, y: 0 }}
                 className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-2 w-[95vw] md:w-auto overflow-x-auto no-scrollbar snap-x"
               >
-                {property.floorPlanUrl && (
+                {((property.floorPlanUrls && property.floorPlanUrls.length > 0 && property.floorPlanUrls[0] !== '') || property.floorPlanUrl) && (
                   <button 
-                    onClick={() => setShowFloorPlan(!showFloorPlan)}
-                    className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold transition-all border border-white/20 shadow-2xl snap-center ${showFloorPlan ? 'bg-[#617964]' : 'bg-black/40 hover:bg-black/60'}`}
+                    onClick={() => setIsFloorPlanModalOpen(true)}
+                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#132014]/90 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#132014] transition-colors border border-white/20 shadow-2xl snap-center"
                   >
                     <MapIcon className="w-5 h-5 mb-1" />
                     <span>PLANTA</span>
+                  </button>
+                )}
+
+                {property.tour360Url && (
+                  <button 
+                    onClick={() => setIsTour360ModalOpen(true)}
+                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
+                  >
+                    <RotateCcw className="w-5 h-5 mb-1" />
+                    <span>TOUR 360º</span>
                   </button>
                 )}
 
@@ -384,11 +401,8 @@ export default function PropertyDetail() {
                   {property.images.slice(0, 5).map((img, idx) => (
                     <button 
                       key={idx}
-                      onClick={() => {
-                        setActiveImage(idx);
-                        setShowFloorPlan(false);
-                      }}
-                      className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl overflow-hidden border-2 transition-all shadow-2xl snap-center ${!showFloorPlan && activeImage === idx ? 'border-[#617964] scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                      onClick={() => setActiveImage(idx)}
+                      className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl overflow-hidden border-2 transition-all shadow-2xl snap-center ${activeImage === idx ? 'border-[#617964] scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
                     >
                       <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </button>
@@ -592,9 +606,91 @@ export default function PropertyDetail() {
                   </div>
                 )}
               </div>
-
-              </div>
             </div>
+
+            {/* Characteristics Row - Moved inside left column to push description down */}
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 py-8 bg-[#617964] rounded-3xl shadow-sm border border-[#617964]/20 px-8">
+              {propertyData.rooms > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <Bed className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Quartos</span>
+                  <span className="text-xs font-bold text-white text-center">{propertyData.rooms}</span>
+                </div>
+              )}
+
+              {propertyData.beds > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <BedDouble className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Suítes</span>
+                  <span className="text-xs font-bold text-white text-center">{propertyData.beds}</span>
+                </div>
+              )}
+
+              {propertyData.baths > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <Bath className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Banh.</span>
+                  <span className="text-xs font-bold text-white text-center">{propertyData.baths}</span>
+                </div>
+              )}
+
+              {propertyData.hasLavabo && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <Droplets className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Lavabo</span>
+                  <span className="text-xs font-bold text-white text-center">Sim</span>
+                </div>
+              )}
+
+              {propertyData.parking > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <Car className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Vagas</span>
+                  <span className="text-xs font-bold text-white text-center">{propertyData.parking}</span>
+                </div>
+              )}
+
+              {propertyData.motoParking > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <Bike className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Moto</span>
+                  <span className="text-xs font-bold text-white text-center">{propertyData.motoParking}</span>
+                </div>
+              )}
+
+              {propertyData.area && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <Maximize className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Área</span>
+                  <span className="text-xs font-bold text-white text-center">{propertyData.area}</span>
+                </div>
+              )}
+
+              {propertyData.elevators > 0 && (
+                <div className="flex flex-col items-center gap-1 group/char">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                    <ArrowUpRight className="w-5 h-5 text-[#132014]" />
+                  </div>
+                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Elev.</span>
+                  <span className="text-xs font-bold text-white text-center">{propertyData.elevators}</span>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="lg:col-span-1 p-8 bg-white border border-marromescuro/10 rounded-[32px] space-y-6">
             <div className="flex items-center justify-between gap-4">
@@ -663,12 +759,12 @@ export default function PropertyDetail() {
                 </AnimatePresence>
 
                 <button 
-                  onClick={(e) => toggleFavorite(property.id, e)}
+                  onClick={(e) => toggleFavorite(property.id, 'property', e)}
                   className="p-2 hover:bg-terracota/10 rounded-full transition-colors group/fav"
                   title="Favoritar"
                 >
                   <Heart 
-                    className={`w-6 h-6 transition-all ${favorites.includes(property.id) ? 'fill-marromescuro text-marromescuro' : 'text-terracota fill-terracota/10 group-hover/fav:fill-terracota/30'}`} 
+                    className={`w-6 h-6 transition-all ${favorites.includes(String(property.id)) ? 'fill-marromescuro text-marromescuro' : 'text-terracota fill-terracota/10 group-hover/fav:fill-terracota/30'}`} 
                   />
                 </button>
               </div>
@@ -676,24 +772,24 @@ export default function PropertyDetail() {
 
             {/* Tabs Section */}
             <div className="space-y-4">
-              <div className="flex p-1 bg-white border border-marromescuro/10 rounded-2xl">
+              <div className="flex p-1 bg-[#617964]/5 border border-[#617964]/20 rounded-2xl">
                 {property.listingType === 'aluguel' ? (
                   <>
                     <button 
                       onClick={() => setActivePriceTab(0)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-white text-marromescuro shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
                     >
                       Aluguel
                     </button>
                     <button 
                       onClick={() => setActivePriceTab(1)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-white text-marromescuro shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
                     >
                       Mensal
                     </button>
                     <button 
                       onClick={() => setActivePriceTab(2)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-white text-marromescuro shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
                     >
                       Total
                     </button>
@@ -702,19 +798,19 @@ export default function PropertyDetail() {
                   <>
                     <button 
                       onClick={() => setActivePriceTab(0)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-white text-marromescuro shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
                     >
                       Imóvel
                     </button>
                     <button 
                       onClick={() => setActivePriceTab(1)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-white text-marromescuro shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
                     >
                       Mensal
                     </button>
                     <button 
                       onClick={() => setActivePriceTab(2)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-white text-marromescuro shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
                     >
                       Anual
                     </button>
@@ -722,7 +818,7 @@ export default function PropertyDetail() {
                 )}
               </div>
 
-              <div className="space-y-1 min-h-[100px] flex flex-col justify-center p-4 bg-white/40 rounded-2xl border border-marromescuro/5">
+              <div className="space-y-1 min-h-[100px] flex flex-col justify-center p-4 bg-[#617964]/5 rounded-2xl border border-[#617964]/20">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activePriceTab}
@@ -753,9 +849,9 @@ export default function PropertyDetail() {
                 </AnimatePresence>
               </div>
 
-              <div className="flex items-start gap-2 p-3 bg-white/50 rounded-xl border border-marromescuro/5">
+              <div className="flex items-start gap-2 p-3 bg-[#617964]/5 rounded-xl border border-[#617964]/20">
                 <Info className="w-3.5 h-3.5 text-marromescuro/30 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-[#E5D19E] leading-relaxed font-medium">
+                <p className="text-[9px] text-marromescuro/60 leading-relaxed font-medium">
                   Valores sujeitos a variações sem aviso prévio. Taxas como condomínio e IPTU podem sofrer alterações.
                 </p>
               </div>
@@ -801,88 +897,6 @@ export default function PropertyDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Left Column: Description & Gallery */}
           <div className="lg:col-span-2 space-y-16">
-            {/* Characteristics Row - Moved inside left column to push description down */}
-            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 py-8 bg-white rounded-3xl shadow-sm border border-marromescuro/5">
-              {propertyData.rooms > 0 && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <Bed className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Quartos</span>
-                  <span className="text-sm font-bold text-marromescuro">{propertyData.rooms}</span>
-                </div>
-              )}
-
-              {propertyData.beds > 0 && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <BedDouble className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Suítes</span>
-                  <span className="text-sm font-bold text-marromescuro">{propertyData.beds}</span>
-                </div>
-              )}
-
-              {propertyData.baths > 0 && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <Bath className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Banh.</span>
-                  <span className="text-sm font-bold text-marromescuro">{propertyData.baths}</span>
-                </div>
-              )}
-
-              {propertyData.hasLavabo && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <Droplets className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Lavabo</span>
-                  <span className="text-sm font-bold text-marromescuro">Sim</span>
-                </div>
-              )}
-
-              {propertyData.parking > 0 && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <Car className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Vagas</span>
-                  <span className="text-sm font-bold text-marromescuro">{propertyData.parking}</span>
-                </div>
-              )}
-
-              {propertyData.motoParking > 0 && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <Bike className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Moto</span>
-                  <span className="text-sm font-bold text-marromescuro">{propertyData.motoParking}</span>
-                </div>
-              )}
-
-              {propertyData.area && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <Maximize className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Área</span>
-                  <span className="text-sm font-bold text-marromescuro">{propertyData.area}</span>
-                </div>
-              )}
-
-              {propertyData.elevators > 0 && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="p-3 bg-marromescuro/5 rounded-2xl group-hover/char:bg-terracota/10 transition-colors">
-                    <ArrowUpRight className="w-6 h-6 text-terracota" strokeWidth={2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Elev.</span>
-                  <span className="text-sm font-bold text-marromescuro">{propertyData.elevators}</span>
-                </div>
-              )}
-            </div>
 
             <section className="space-y-6">
               <h2 className="text-2xl font-bold text-marromescuro">Sobre o imóvel</h2>
@@ -1028,59 +1042,145 @@ export default function PropertyDetail() {
 
             <section className="space-y-8">
               <h2 className="text-2xl font-bold text-marromescuro">Localização</h2>
-              <div className="bg-white p-8 rounded-[32px] shadow-sm border border-marromescuro/5">
+              <div className="bg-linear-to-r from-[#132014] to-[#617964] p-8 rounded-[32px] shadow-sm border border-white/10 relative overflow-hidden">
+                {/* Action Icons - Top Right */}
+                <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
+                  <button 
+                    onClick={() => setIsMapModalOpen(true)}
+                    className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-sm border border-white/10"
+                    title="Ver localização exata"
+                  >
+                    <MapPin className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={(e) => condo && toggleFavorite(condo.id, 'condo', e)}
+                    className={`p-3 rounded-full transition-all backdrop-blur-sm border border-white/10 ${
+                      condo && favorites.includes(`condo_${condo.id}`) 
+                        ? 'bg-brand-rust text-white border-brand-rust' 
+                        : 'bg-white/10 hover:bg-white/20 text-white'
+                    }`}
+                    title="Favoritar condomínio"
+                  >
+                    <Heart className={`w-5 h-5 ${condo && favorites.includes(`condo_${condo.id}`) ? 'fill-current' : ''}`} />
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                  <div className="rounded-3xl overflow-hidden shadow-2xl">
-                    <img 
-                      src={condo && condo.images && condo.images.length > 0 ? condo.images[0] : property.neighborhood.image} 
-                      alt={condo ? condo.name : "Neighborhood"} 
-                      className="w-full aspect-square object-cover"
-                      referrerPolicy="no-referrer"
-                    />
+                  <div 
+                    className="rounded-3xl overflow-hidden shadow-2xl h-[400px] bg-gray-100 relative group"
+                  >
+                    <AnimatePresence mode="wait">
+                      <motion.img 
+                        key={locationImageIndex}
+                        src={condo && condo.images && condo.images.length > 0 ? condo.images[locationImageIndex] : property.neighborhood.image} 
+                        alt={condo ? condo.name : "Neighborhood"} 
+                        initial={{ opacity: 0, scale: 1.1 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.6 }}
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => setIsMapModalOpen(true)}
+                        referrerPolicy="no-referrer"
+                      />
+                    </AnimatePresence>
+
+                    {condo && condo.images && condo.images.length > 1 && (
+                      <>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocationImageIndex(prev => prev === 0 ? condo.images.length - 1 : prev - 1);
+                          }}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition-all z-10"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocationImageIndex(prev => prev === condo.images.length - 1 ? 0 : prev + 1);
+                          }}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition-all z-10"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                          {condo.images.map((_, idx) => (
+                            <div 
+                              key={idx}
+                              className={`w-1.5 h-1.5 rounded-full transition-all ${idx === locationImageIndex ? 'bg-white w-4' : 'bg-white/40'}`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div className="space-y-6 flex flex-col justify-center h-full">
-                    <div className="space-y-4">
-                      <h3 className="text-2xl md:text-3xl font-serif font-bold text-marromescuro italic tracking-tight">
+                  <div className="space-y-5 flex flex-col justify-center h-full">
+                    <div className="space-y-3">
+                      <h3 className="text-2xl md:text-3xl font-serif font-bold text-brand-cream italic tracking-tight pr-24">
                         {condo ? condo.name : property.neighborhood.title}
                       </h3>
                       <div className="relative">
-                        <p className={`text-marromescuro/70 text-sm leading-relaxed ${!isNeighborhoodExpanded ? 'line-clamp-4 md:line-clamp-6' : ''}`}>
+                        <p className={`text-brand-cream/70 text-sm leading-relaxed ${!isNeighborhoodExpanded ? 'line-clamp-3 md:line-clamp-4' : ''}`}>
                           {condo ? condo.bio : property.neighborhood.description}
                         </p>
-                        <button 
-                          onClick={() => setIsNeighborhoodExpanded(!isNeighborhoodExpanded)}
-                          className="text-terracota text-xs font-bold hover:text-marromescuro transition-colors mt-2 flex items-center gap-1"
-                        >
-                          {isNeighborhoodExpanded ? 'Ler menos' : 'Ler mais'}
-                          <motion.div
-                            animate={{ rotate: isNeighborhoodExpanded ? 180 : 0 }}
-                            transition={{ duration: 0.3 }}
+                        {condo ? (
+                          <Link 
+                            to={`/condominio/${condo.id}`}
+                            className="text-[#E5D19E] text-xs font-bold hover:text-white transition-colors mt-2 flex items-center gap-1"
                           >
-                            <ChevronRight className="w-3 h-3 rotate-90" />
-                          </motion.div>
-                        </button>
+                            Ler mais sobre o condomínio
+                            <ChevronRight className="w-3 h-3" />
+                          </Link>
+                        ) : (
+                          <button 
+                            onClick={() => setIsNeighborhoodExpanded(!isNeighborhoodExpanded)}
+                            className="text-[#E5D19E] text-xs font-bold hover:text-white transition-colors mt-2 flex items-center gap-1"
+                          >
+                            {isNeighborhoodExpanded ? 'Ler menos' : 'Ler mais'}
+                            <motion.div
+                              animate={{ rotate: isNeighborhoodExpanded ? 180 : 0 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <ChevronRight className="w-3 h-3 rotate-90" />
+                            </motion.div>
+                          </button>
+                        )}
                       </div>
                     </div>
-                    
-                    {condo ? (
-                      <div className="space-y-4">
-                        <Link 
-                          to={`/condominio/${condo.id}`}
-                          className="inline-flex items-center gap-2 text-xs font-bold text-terracota hover:text-marromescuro transition-colors mt-4"
-                        >
-                          Ver detalhes do condomínio
-                          <ChevronRight className="w-4 h-4" />
-                        </Link>
+
+                    {condo && condo.leisure && condo.leisure.length > 0 && (
+                      <div className="flex flex-wrap gap-4 pt-2">
+                        {condo.leisure.slice(0, 5).map((item, index) => {
+                          const lowerItem = item.toLowerCase();
+                          let Icon = Info;
+                          if (lowerItem.includes('piscina')) Icon = Waves;
+                          if (lowerItem.includes('academia') || lowerItem.includes('fitness')) Icon = Dumbbell;
+                          if (lowerItem.includes('churrasqueira') || lowerItem.includes('gourmet')) Icon = UtensilsCrossed;
+                          if (lowerItem.includes('sauna')) Icon = Droplets;
+                          if (lowerItem.includes('bicicletário')) Icon = Bike;
+                          
+                          return (
+                            <div key={index} className="flex flex-col items-center gap-1 group">
+                              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand-cream group-hover:bg-white/20 transition-colors border border-white/5">
+                                <Icon className="w-5 h-5" />
+                              </div>
+                              <span className="text-[8px] text-brand-cream/60 font-bold uppercase tracking-tighter text-center max-w-[60px] leading-none">{item}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ) : (
+                    )}
+                    
+                    {!condo && (
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest">Gastronomia</p>
-                          <p className="text-xs text-marromescuro/70 font-medium">{property.neighborhood.gastronomy}</p>
+                          <p className="text-[10px] font-bold text-brand-cream/40 uppercase tracking-widest">Gastronomia</p>
+                          <p className="text-xs text-brand-cream/70 font-medium">{property.neighborhood.gastronomy}</p>
                         </div>
                         <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest">Clubes</p>
-                          <p className="text-xs text-marromescuro/70 font-medium">{property.neighborhood.clubs}</p>
+                          <p className="text-[10px] font-bold text-brand-cream/40 uppercase tracking-widest">Clubes</p>
+                          <p className="text-xs text-brand-cream/70 font-medium">{property.neighborhood.clubs}</p>
                         </div>
                       </div>
                     )}
@@ -1170,24 +1270,7 @@ export default function PropertyDetail() {
               </div>
             </div>
 
-            {/* Financing Card */}
-            <div className="bg-white rounded-3xl border border-marromescuro/10 shadow-xl p-8 space-y-6 text-center sticky top-[540px]">
-              <div className="flex justify-center gap-4">
-                <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold text-xs">Itaú</div>
-                <div className="w-10 h-10 bg-marromescuro rounded-lg flex items-center justify-center text-white">
-                  <Info className="w-5 h-5" />
-                </div>
-              </div>
-              <p className="text-xs text-marromescuro/60 font-medium">
-                Mantenha sua liquidez e amplie suas possibilidades.
-              </p>
-              <button className="w-full py-4 bg-marromescuro text-white rounded-xl font-bold hover:bg-marromescuro/90 transition-all">
-                Simular financiamento
-              </button>
-              <p className="text-[10px] text-marromescuro/40 leading-relaxed">
-                A CR Imóveis é correspondente bancário do Itaú, o maior banco da América Latina, com taxas exclusivas para seus clientes.
-              </p>
-            </div>
+            {/* Financing Card Removed */}
           </div>
         </div>
 
@@ -1204,7 +1287,7 @@ export default function PropertyDetail() {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 isFavorite={favorites.includes(prop.id)}
-                onToggleFavorite={(e) => toggleFavorite(prop.id, e)}
+                onToggleFavorite={(e) => toggleFavorite(prop.id, 'property', e)}
               />
             ))}
           </div>
@@ -1222,8 +1305,8 @@ export default function PropertyDetail() {
                   navigate(`/imovel/${prop.id}`);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                isFavorite={favorites.includes(prop.id)}
-                onToggleFavorite={(e) => toggleFavorite(prop.id, e)}
+                isFavorite={favorites.includes(String(prop.id))}
+                onToggleFavorite={(e) => toggleFavorite(prop.id, 'property', e)}
               />
             ))}
           </div>
@@ -1232,6 +1315,102 @@ export default function PropertyDetail() {
       </div>
 
         {/* Scheduling Modal */}
+        {/* Floor Plan Modal */}
+        <AnimatePresence>
+          {isFloorPlanModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+            >
+              <button 
+                onClick={() => setIsFloorPlanModalOpen(false)}
+                className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all z-50"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="relative w-full max-w-5xl aspect-[4/3] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-marromescuro">Plantas do Imóvel</h3>
+                    <p className="text-xs text-marromescuro/40">Visualizando planta {modalFloorPlanIndex + 1} de {(property.floorPlanUrls || [property.floorPlanUrl]).length}</p>
+                  </div>
+                </div>
+
+                <div className="flex-1 relative bg-white p-8">
+                  <img 
+                    src={(property.floorPlanUrls || [property.floorPlanUrl])[modalFloorPlanIndex]} 
+                    alt="Planta" 
+                    className="w-full h-full object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                  
+                  {(property.floorPlanUrls || [property.floorPlanUrl]).length > 1 && (
+                    <>
+                      <button 
+                        onClick={() => setModalFloorPlanIndex(prev => prev > 0 ? prev - 1 : (property.floorPlanUrls || []).length - 1)}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-marromescuro/5 hover:bg-marromescuro/10 text-marromescuro rounded-full transition-all"
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                      <button 
+                        onClick={() => setModalFloorPlanIndex(prev => prev < (property.floorPlanUrls || []).length - 1 ? prev + 1 : 0)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-marromescuro/5 hover:bg-marromescuro/10 text-marromescuro rounded-full transition-all"
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {(property.floorPlanUrls || []).length > 1 && (
+                  <div className="p-6 bg-gray-50 flex justify-center gap-4 overflow-x-auto">
+                    {(property.floorPlanUrls || []).map((url, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setModalFloorPlanIndex(idx)}
+                        className={`w-20 h-14 rounded-xl overflow-hidden border-2 transition-all ${modalFloorPlanIndex === idx ? 'border-brand-rust scale-105' : 'border-transparent opacity-50'}`}
+                      >
+                        <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 360 Tour Modal */}
+        <AnimatePresence>
+          {isTour360ModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+            >
+              <button 
+                onClick={() => setIsTour360ModalOpen(false)}
+                className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all z-50"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="relative w-full max-w-6xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl">
+                <iframe 
+                  src={property.tour360Url} 
+                  className="w-full h-full border-none"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>
           {isScheduleModalOpen && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
@@ -1514,6 +1693,69 @@ export default function PropertyDetail() {
                   >
                     Entendido e Concordo
                   </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Map Modal */}
+        <AnimatePresence>
+          {isMapModalOpen && (
+            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-10">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsMapModalOpen(false)}
+                className="absolute inset-0 bg-marromescuro/95 backdrop-blur-xl"
+              />
+              
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-6xl aspect-video bg-white rounded-[40px] overflow-hidden shadow-2xl flex flex-col"
+              >
+                <div className="p-6 border-b border-marromescuro/5 flex justify-between items-center bg-white">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-marromescuro/5 flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-terracota" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-marromescuro">Localização Exata</h3>
+                      <p className="text-xs text-marromescuro/40 font-medium uppercase tracking-widest">{property.location}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsMapModalOpen(false)}
+                    className="p-3 hover:bg-marromescuro/5 rounded-full transition-colors text-marromescuro"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                
+                <div className="flex-1 bg-gray-100 relative">
+                  <iframe 
+                    width="100%" 
+                    height="100%" 
+                    style={{ border: 0 }} 
+                    loading="lazy" 
+                    allowFullScreen 
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(property.location)}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                    title="Localização do Imóvel"
+                  />
+                  
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.location)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute bottom-8 right-8 bg-white px-8 py-4 rounded-2xl text-xs font-bold text-marromescuro shadow-2xl hover:bg-gray-50 transition-all flex items-center gap-3 border border-marromescuro/10"
+                  >
+                    <ExternalLink className="w-4 h-4 text-terracota" />
+                    ABRIR NO GOOGLE MAPS COMPLETO
+                  </a>
                 </div>
               </motion.div>
             </div>

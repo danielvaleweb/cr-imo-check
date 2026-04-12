@@ -8,6 +8,7 @@ import SearchMenu from './SearchMenu';
 import MobileNav from './MobileNav';
 import LoginModal from './LoginModal';
 import { useProperties } from '../context/PropertyContext';
+import { useCondos } from '../context/CondoContext';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -72,7 +73,7 @@ export default function Layout() {
   const [negotiation, setNegotiation] = useState<'comprar' | 'alugar' | 'permuta'>('comprar');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [favorites, setFavorites] = useState<number[]>(() => {
+  const [favorites, setFavorites] = useState<(string | number)[]>(() => {
     try {
       const saved = localStorage.getItem('assiss_favorites');
       return saved ? JSON.parse(saved) : [];
@@ -81,10 +82,30 @@ export default function Layout() {
     }
   });
 
-  // Filter favorites to only include properties that actually exist
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  const playSound = (type: 'pop' | 'trash') => {
+    const sounds = {
+      pop: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+      trash: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'
+    };
+    const audio = new Audio(sounds[type]);
+    audio.volume = 0.4;
+    audio.play().catch(() => {}); // Ignore autoplay blocks
+  };
+
+  // Filter favorites to only include properties or condos that actually exist
+  const { condos } = useCondos();
   const activeFavorites = useMemo(() => {
-    return favorites.filter(id => properties.some(p => p.id === id));
-  }, [favorites, properties]);
+    return favorites.filter(id => {
+      const idStr = String(id);
+      if (idStr.startsWith('condo_')) {
+        const actualId = idStr.replace('condo_', '');
+        return condos.some(c => String(c.id) === actualId);
+      }
+      return properties.some(p => String(p.id) === idStr);
+    });
+  }, [favorites, properties, condos]);
 
   // Auth listener
   useEffect(() => {
@@ -105,12 +126,9 @@ export default function Layout() {
       if (docSnap.exists()) {
         const userData = docSnap.data();
         if (userData.favorites) {
-          // Merge with local favorites or just take Firestore ones?
-          // Usually Firestore is the source of truth for logged in users.
           setFavorites(userData.favorites);
         }
       } else {
-        // If user doc doesn't exist, create it with current local favorites
         const initialData = {
           email: currentUser.email,
           role: 'user',
@@ -131,14 +149,15 @@ export default function Layout() {
 
     if (currentUser) {
       const userDocRef = doc(db, 'users', currentUser.uid);
-      // We use setDoc with merge: true to update just the favorites
       setDoc(userDocRef, { favorites }, { merge: true })
         .catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`));
     }
   }, [favorites, currentUser]);
 
   const clearFavorites = () => {
+    playSound('trash');
     setFavorites([]);
+    setToast({ message: 'Lista de favoritos limpa', type: 'info' });
   };
 
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
@@ -158,11 +177,28 @@ export default function Layout() {
     setWhatsappForm({ name: '', message: '' });
   };
 
-  const toggleFavorite = (id: number) => {
-    setFavorites(prev => 
-      prev.includes(id) ? prev.filter(favId => favId !== id) : [...prev, id]
-    );
+  const toggleFavorite = (id: string | number, type: 'property' | 'condo' = 'property') => {
+    const favId = type === 'condo' ? `condo_${id}` : String(id);
+    
+    setFavorites(prev => {
+      const isFavorited = prev.includes(favId);
+      if (!isFavorited) {
+        playSound('pop');
+        setToast({ 
+          message: type === 'condo' ? 'Condomínio adicionado aos favoritos' : 'Imóvel adicionado aos favoritos', 
+          type: 'success' 
+        });
+      }
+      return isFavorited ? prev.filter(f => f !== favId) : [...prev, favId];
+    });
   };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -226,6 +262,21 @@ export default function Layout() {
         >
           <Outlet context={{ favorites: activeFavorites, toggleFavorite, clearFavorites }} />
         </motion.main>
+      </AnimatePresence>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.8 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[500] bg-[#132014] text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-[#617964]/20"
+          >
+            <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-[#617964]' : 'bg-blue-400'}`} />
+            <span className="text-sm font-bold">{toast.message}</span>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {!isDashboard && <Footer />}

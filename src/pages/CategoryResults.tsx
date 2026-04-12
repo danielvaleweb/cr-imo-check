@@ -8,7 +8,10 @@ export default function CategoryResults() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { properties } = useProperties();
-  const { favorites, toggleFavorite } = useOutletContext<{ favorites: (string | number)[], toggleFavorite: (id: string | number) => void }>();
+  const { favorites, toggleFavorite } = useOutletContext<{ 
+    favorites: (string | number)[], 
+    toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 
+  }>();
 
   const category = CATEGORIES.find(c => c.slug === slug);
   
@@ -58,10 +61,10 @@ export default function CategoryResults() {
                 key={prop.id} 
                 prop={prop} 
                 onClick={() => navigate(`/imovel/${prop.id}`)} 
-                isFavorite={favorites.includes(prop.id)}
+                isFavorite={favorites.includes(String(prop.id))}
                 onToggleFavorite={(e) => {
                   e.stopPropagation();
-                  toggleFavorite(prop.id);
+                  toggleFavorite(prop.id, 'property', e);
                 }}
               />
             ))

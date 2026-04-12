@@ -12,7 +12,13 @@ export default function PremiumSlider() {
   if (launchProperties.length === 0) return null;
 
   return (
-    <section className="bg-[#132014] py-20 overflow-hidden relative">
+    <section 
+      className="bg-[#132014] py-20 overflow-hidden relative bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: `url("https://storage.robustcrm.com.br/souzagomes/files/imoveis__empreendimentos/41/attach/8cb9cd30-43d9-48c6-aec3-a31a856353cd.png")` }}
+    >
+      {/* Dark Overlay to ensure text readability */}
+      <div className="absolute inset-0 bg-[#132014]/80 pointer-events-none"></div>
+
       {/* Grain Texture Overlay */}
       <div 
         className="absolute inset-0 opacity-[0.15] pointer-events-none mix-blend-overlay" 

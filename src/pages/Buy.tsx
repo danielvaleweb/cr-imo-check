@@ -10,7 +10,10 @@ export default function Buy() {
   const { properties } = useProperties();
   const [searchParams] = useSearchParams();
   const codesParam = searchParams.get('codes');
-  const { favorites, toggleFavorite } = useOutletContext<{ favorites: (string | number)[], toggleFavorite: (id: string | number) => void }>();
+  const { favorites, toggleFavorite } = useOutletContext<{ 
+    favorites: (string | number)[], 
+    toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 
+  }>();
   
   const filteredProperties = codesParam 
     ? properties.filter(p => {
@@ -37,8 +40,8 @@ export default function Buy() {
                 key={prop.id} 
                 prop={prop} 
                 onClick={() => navigate(`/imovel/${prop.id}`)} 
-                isFavorite={favorites.includes(prop.id)}
-                onToggleFavorite={() => toggleFavorite(prop.id)}
+                isFavorite={favorites.includes(String(prop.id))}
+                onToggleFavorite={(e) => toggleFavorite(prop.id, 'property', e)}
               />
             ))
           ) : (

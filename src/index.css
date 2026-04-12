@@ -12,6 +12,8 @@
   --color-brancobg: #FFFCEF;
   --color-terracota: #435B45;
   --color-marromescuro: #435B45;
+
+  --animate-spin-slow: spin 8s linear infinite;
 }
 
 @layer utilities {

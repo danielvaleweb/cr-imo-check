@@ -27,7 +27,7 @@ export default function BrokerProfile() {
   const { properties } = useProperties();
   const { favorites, toggleFavorite } = useOutletContext<{ 
     favorites: (string | number)[], 
-    toggleFavorite: (id: string | number, e: React.MouseEvent) => void 
+    toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 
   }>();
 
   const broker = brokers.find(b => b.id.toString() === id);
@@ -247,8 +247,8 @@ export default function BrokerProfile() {
                       key={prop.id} 
                       prop={prop}
                       onClick={() => navigate(`/imovel/${prop.id}`)}
-                      isFavorite={favorites.includes(prop.id)}
-                      onToggleFavorite={(e) => toggleFavorite(prop.id, e)}
+                      isFavorite={favorites.includes(String(prop.id))}
+                      onToggleFavorite={(e) => toggleFavorite(prop.id, 'property', e)}
                     />
                   ))}
                 </div>
