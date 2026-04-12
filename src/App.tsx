@@ -23,10 +23,12 @@ import { CondoProvider } from './context/CondoContext';
 import CondoDetail from './pages/CondoDetail';
 import Condos from './pages/Condos';
 import ErrorBoundary from './components/ErrorBoundary';
+import SiteLoader from './components/SiteLoader';
 
 export default function App() {
   return (
     <ErrorBoundary>
+      <SiteLoader />
       <PropertyProvider>
         <BrokerProvider>
           <CondoProvider>
