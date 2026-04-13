@@ -16,7 +16,7 @@ const MENU_ITEMS = [
   { label: 'Lançamentos', path: '#', icon: Rocket, isDropdown: true, dropdownType: 'launches' },
   { label: 'Sobre', path: '/sobre', icon: Info },
   { label: 'Contato', path: '/contato', icon: Phone },
-  { label: 'Quero vender', path: '/exclusivos', icon: BadgeDollarSign },
+  { label: 'Quero vender', path: '/vender', icon: BadgeDollarSign },
 ];
 
 export default function MobileNav({ isOpen, onClose }: MobileNavProps) {

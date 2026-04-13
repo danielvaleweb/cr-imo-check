@@ -45,7 +45,7 @@ export default function Favorites() {
           {(favoritedProperties.length > 0 || favoritedCondos.length > 0) && (
             <button
               onClick={handleClear}
-              className="group flex items-center gap-2 px-6 py-3 bg-[#132014] text-[#617964] rounded-2xl text-sm font-bold hover:bg-[#1a2b1b] transition-all border border-[#617964]/20"
+              className="group flex items-center gap-2 px-6 py-3 bg-[#132014] text-white rounded-2xl text-sm font-bold hover:bg-[#1a2b1b] transition-all border border-[#617964]/20"
             >
               <motion.div
                 animate={isTrashAnimating ? { 
@@ -54,7 +54,7 @@ export default function Favorites() {
                 } : {}}
                 transition={{ duration: 0.5 }}
               >
-                <Trash2 className={`w-4 h-4 transition-colors ${isTrashAnimating ? 'text-red-400' : 'text-[#617964]'}`} />
+                <Trash2 className={`w-4 h-4 transition-colors ${isTrashAnimating ? 'text-red-400' : 'text-white'}`} />
               </motion.div>
               <span>Limpar tudo</span>
             </button>
@@ -67,7 +67,7 @@ export default function Favorites() {
             <div className="flex items-center gap-3">
               <div className="w-2 h-8 bg-marromescuro rounded-full" />
               <h2 className="text-3xl font-helvetica text-marromescuro tracking-tight">
-                <span className="font-light">IMÓVEIS</span> <span className="font-bold">FAVORITOS</span>
+                <span className="font-light">Imóveis</span> <span className="font-bold">favoritos</span>
               </h2>
             </div>
           )}
@@ -106,7 +106,7 @@ export default function Favorites() {
             <div className="flex items-center gap-3">
               <div className="w-2 h-8 bg-marromescuro rounded-full" />
               <h2 className="text-3xl font-helvetica text-marromescuro tracking-tight">
-                <span className="font-light">CONDOMÍNIOS</span> <span className="font-bold">FAVORITOS</span>
+                <span className="font-light">Condomínios</span> <span className="font-bold">favoritos</span>
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

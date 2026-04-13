@@ -24,7 +24,7 @@ interface BrokerContextType {
 
 const BrokerContext = createContext<BrokerContextType | undefined>(undefined);
 
-const INITIAL_BROKERS: Broker[] = [
+export const INITIAL_BROKERS: Broker[] = [
   {
     id: 1,
     name: 'Simone Fagundes',
@@ -50,7 +50,7 @@ const INITIAL_BROKERS: Broker[] = [
 ];
 
 export function BrokerProvider({ children }: { children: React.ReactNode }) {
-  const [brokers, setBrokers] = useState<Broker[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>(INITIAL_BROKERS);
 
   useEffect(() => {
     const seedBrokers = async () => {
@@ -97,6 +97,10 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onSnapshot(collection(db, 'brokers'), (snapshot) => {
       console.log('Broker Snapshot received. Count:', snapshot.size);
+      if (snapshot.empty) {
+        setBrokers(INITIAL_BROKERS);
+        return;
+      }
       const brokersData: Broker[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();

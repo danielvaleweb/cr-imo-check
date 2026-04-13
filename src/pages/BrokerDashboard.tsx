@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatPhone } from '../lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProperties } from '../context/PropertyContext';
 import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
+import { ROLE_GROUPS } from '../constants/roles';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { 
@@ -97,6 +98,7 @@ import {
   X,
   Trash2,
   Edit,
+  Check,
   ExternalLink,
   MapPin,
   Bed,
@@ -155,10 +157,14 @@ const HORIZONTAL_CONVENIENCES = [
 
 export default function BrokerDashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { properties, addProperty, removeProperty, updateProperty } = useProperties();
   const { brokers, addBroker, removeBroker, updateBroker } = useBrokers();
   const { condos, addCondo, updateCondo, removeCondo } = useCondos();
-  const [activeTab, setActiveTab] = useState('overview');
+  const activeTab = searchParams.get('tab') || 'overview';
+  const setActiveTab = (tab: string) => {
+    setSearchParams({ tab });
+  };
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const [proposals, setProposals] = useState<any[]>([]);
@@ -231,6 +237,7 @@ export default function BrokerDashboard() {
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [leads, setLeads] = useState<any[]>([]);
   const userDropdownRef = React.useRef<HTMLDivElement>(null);
 
   const [customOptions, setCustomOptions] = useState<{
@@ -255,6 +262,22 @@ export default function BrokerDashboard() {
       setProposals(proposalsData);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'proposals');
+    });
+    return () => unsubscribe();
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const q = query(collection(db, 'property_leads'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const leadsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setLeads(leadsData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'property_leads');
     });
     return () => unsubscribe();
   }, [isLoading]);
@@ -323,6 +346,7 @@ export default function BrokerDashboard() {
 
   // Broker Management
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isEditingBroker, setIsEditingBroker] = useState(false);
   const [editingBrokerId, setEditingBrokerId] = useState<string | number | null>(null);
 
@@ -975,7 +999,7 @@ export default function BrokerDashboard() {
               { id: 'proposals', label: 'Propostas', icon: FileText },
               { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
               { id: 'brokers', label: 'Corretores', icon: Users },
-              { id: 'leads', label: 'Leads & Clientes', icon: Users },
+              { id: 'leads', label: 'Captações', icon: Users },
               { id: 'calendar', label: 'Agenda', icon: Calendar },
               { id: 'reports', label: 'Relatórios', icon: TrendingUp },
             ].map((item) => (
@@ -3302,6 +3326,67 @@ export default function BrokerDashboard() {
                 ))}
               </div>
             </div>
+          ) : activeTab === 'leads' ? (
+            <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Captações de Imóveis</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie os leads de pessoas que querem vender ou alugar imóveis.</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Data</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Proprietário</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Imóvel</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Localização</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {leads.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-gray-500 font-medium">
+                            Nenhuma captação encontrada.
+                          </td>
+                        </tr>
+                      ) : (
+                        leads.map((lead) => (
+                          <tr key={lead.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="p-6">
+                              <div className="text-sm font-bold text-gray-900">
+                                {lead.createdAt?.toDate ? new Date(lead.createdAt.toDate()).toLocaleDateString('pt-BR') : 'N/A'}
+                              </div>
+                            </td>
+                            <td className="p-6">
+                              <div className="text-sm font-bold text-gray-900">{lead.ownerName}</div>
+                              <div className="text-xs text-gray-500">{lead.ownerEmail}</div>
+                              <div className="text-xs text-gray-500">{lead.ownerMobile || lead.ownerPhone}</div>
+                            </td>
+                            <td className="p-6">
+                              <div className="text-sm font-bold text-gray-900 capitalize">{lead.propertyType}</div>
+                              <div className="text-xs text-gray-500 capitalize">Para {lead.transactionType}</div>
+                              <div className="text-xs text-gray-500">{lead.bedrooms} dorms • {lead.suites} suítes • {lead.parking} vagas</div>
+                            </td>
+                            <td className="p-6">
+                              <div className="text-sm font-bold text-gray-900">{lead.neighborhood}</div>
+                              <div className="text-xs text-gray-500">{lead.street}, {lead.number}</div>
+                            </td>
+                            <td className="p-6">
+                              <div className="text-sm font-bold text-[#617964]">R$ {lead.price}</div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-20 h-20 bg-gray-100 rounded-3xl flex items-center justify-center mb-6">
@@ -3354,16 +3439,79 @@ export default function BrokerDashboard() {
                         placeholder="Ex: Simone Silva"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 relative">
                       <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Cargo / Função</label>
-                      <input 
-                        type="text"
-                        required
-                        value={newBrokerData.role}
-                        onChange={(e) => setNewBrokerData({...newBrokerData, role: e.target.value})}
-                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
-                        placeholder="Ex: Corretora Sênior"
-                      />
+                      <div 
+                        onClick={() => setIsRoleModalOpen(true)}
+                        className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900 cursor-pointer min-h-[56px] flex items-center"
+                      >
+                        {newBrokerData.role ? (
+                          <span className="truncate">{newBrokerData.role}</span>
+                        ) : (
+                          <span className="text-gray-400 font-normal">Selecione as funções</span>
+                        )}
+                      </div>
+
+                      {/* Role Selection Modal */}
+                      <AnimatePresence>
+                        {isRoleModalOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-[110] max-h-[300px] overflow-y-auto p-4"
+                          >
+                            <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                              <h3 className="font-bold text-gray-900">Selecionar Funções</h3>
+                              <button 
+                                type="button"
+                                onClick={() => setIsRoleModalOpen(false)}
+                                className="text-sm font-bold text-[#617964] hover:text-[#4a5c4c]"
+                              >
+                                Concluído
+                              </button>
+                            </div>
+                            <div className="space-y-6">
+                              {ROLE_GROUPS.map((group) => (
+                                <div key={group.label} className="space-y-2">
+                                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.label}</h4>
+                                  <div className="space-y-1">
+                                    {group.roles.map((role) => {
+                                      const selectedRoles = newBrokerData.role ? newBrokerData.role.split(', ') : [];
+                                      const isSelected = selectedRoles.includes(role);
+                                      
+                                      return (
+                                        <label key={role} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors">
+                                          <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-[#617964] border-[#617964]' : 'border-gray-300'}`}>
+                                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                                          </div>
+                                          <span className={`text-sm font-medium ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>
+                                            {role}
+                                          </span>
+                                          <input 
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={isSelected}
+                                            onChange={(e) => {
+                                              let newRoles;
+                                              if (e.target.checked) {
+                                                newRoles = [...selectedRoles, role];
+                                              } else {
+                                                newRoles = selectedRoles.filter(r => r !== role);
+                                              }
+                                              setNewBrokerData({...newBrokerData, role: newRoles.join(', ')});
+                                            }}
+                                          />
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Telefone</label>

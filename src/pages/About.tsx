@@ -13,18 +13,23 @@ export default function About() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="relative">
             <div className="aspect-square rounded-[64px] overflow-hidden shadow-2xl bg-marromescuro/5 flex items-center justify-center">
-              <Award className="w-20 h-20 text-marromescuro/10" />
+              <img 
+                src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" 
+                alt="Equipe trabalhando junta" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div className="absolute -bottom-8 -right-8 bg-brand-rust text-white p-12 rounded-[48px] shadow-2xl hidden md:block">
-              <div className="text-5xl font-serif font-bold">15+</div>
+              <div className="text-5xl font-helvetica font-bold">15+</div>
               <div className="text-sm font-medium tracking-widest uppercase opacity-80">Anos de História</div>
             </div>
           </div>
           <div className="space-y-8">
-            <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark leading-tight">
+            <h1 className="text-5xl md:text-7xl font-helvetica font-bold text-brand-dark leading-tight">
               Nossa <span className="text-brand-rust">Missão</span> é Realizar Sonhos.
             </h1>
-            <div className="space-y-6 text-lg text-brand-dark/70">
+            <div className="space-y-6 text-lg text-brand-dark/70 font-helvetica font-light">
               <p>
                 A CR Imóveis nasceu da paixão por conectar pessoas a lares que refletem suas aspirações e estilo de vida. Ao longo de mais de uma década, nos tornamos referência no mercado imobiliário de alto padrão.
               </p>
@@ -65,8 +70,8 @@ export default function About() {
               <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-sm">
                 <item.icon className="w-10 h-10 text-brand-rust" />
               </div>
-              <h3 className="text-2xl font-bold text-brand-dark">{item.title}</h3>
-              <p className="text-brand-dark/60 max-w-xs mx-auto">{item.desc}</p>
+              <h3 className="text-2xl font-helvetica font-bold text-brand-dark">{item.title}</h3>
+              <p className="text-brand-dark/60 max-w-xs mx-auto font-helvetica font-light">{item.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -74,8 +79,8 @@ export default function About() {
         {/* Team Section */}
         <div className="space-y-16">
           <div className="text-center space-y-4">
-            <h2 className="text-4xl md:text-5xl font-serif font-bold text-brand-dark">Nossa <span className="text-brand-rust">Equipe</span></h2>
-            <p className="text-lg text-brand-dark/60 max-w-2xl mx-auto">
+            <h2 className="text-4xl md:text-5xl font-helvetica font-bold text-brand-dark">Nossa <span className="text-brand-rust">Equipe</span></h2>
+            <p className="text-lg text-brand-dark/60 max-w-2xl mx-auto font-helvetica font-light">
               Conheça os especialistas que estão prontos para transformar sua jornada imobiliária em uma experiência extraordinária.
             </p>
           </div>
@@ -120,11 +125,11 @@ export default function About() {
 
                   <div className="p-8 text-center space-y-4 relative z-20">
                     <div>
-                      <h3 className="text-2xl font-bold text-brand-dark">{broker.name}</h3>
-                      <p className="text-brand-rust font-bold text-sm uppercase tracking-widest">{broker.role}</p>
+                      <h3 className="text-2xl font-helvetica font-bold text-brand-dark">{broker.name}</h3>
+                      <p className="text-brand-rust font-helvetica font-bold text-sm uppercase tracking-widest">{broker.role}</p>
                     </div>
                     
-                    <p className="text-brand-dark/60 text-sm leading-relaxed line-clamp-3 min-h-[4.5rem]">
+                    <p className="text-brand-dark/60 text-sm leading-relaxed line-clamp-3 min-h-[4.5rem] font-helvetica font-light">
                       {broker.bio}
                     </p>
 

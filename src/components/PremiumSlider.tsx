@@ -67,12 +67,8 @@ export default function PremiumSlider() {
                 </h4>
                 
                 <div className="flex gap-3">
-                  <button className="flex-1 bg-white text-black py-4 rounded-xl font-bold text-sm hover:bg-white/90 transition-colors">
+                  <button className="flex-1 bg-[#617964] text-white py-4 rounded-xl font-bold text-sm hover:bg-[#617964]/90 transition-colors">
                     Ver Detalhes
-                  </button>
-                  <button className="flex-1 border border-white/40 text-white py-4 rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
-                    Contato
-                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>

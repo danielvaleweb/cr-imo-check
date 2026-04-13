@@ -217,7 +217,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
 
               <Link to="/sobre" className="transition-all duration-300 group-hover/nav:opacity-40 hover:!opacity-100 hover:!text-white cursor-pointer">Sobre</Link>
               <Link to="/contato" className="transition-all duration-300 group-hover/nav:opacity-40 hover:!opacity-100 hover:!text-white cursor-pointer">Contato</Link>
-              <Link to="/exclusivos" className="transition-all duration-300 group-hover/nav:opacity-40 hover:!opacity-100 hover:!text-white cursor-pointer">Quero vender</Link>
+              <Link to="/vender" className="transition-all duration-300 group-hover/nav:opacity-40 hover:!opacity-100 hover:!text-white cursor-pointer">Quero vender</Link>
             </motion.div>
           )}
         </AnimatePresence>

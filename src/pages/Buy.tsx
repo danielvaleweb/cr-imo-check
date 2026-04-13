@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Search } from 'lucide-react';
+import { Search, ChevronLeft } from 'lucide-react';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import React from 'react';
 import { useProperties } from '../context/PropertyContext';
@@ -29,9 +29,22 @@ export default function Buy() {
         return true;
       });
 
+  const isComprarPage = window.location.pathname === '/comprar';
+
   return (
-    <div className="pt-32 pb-20 px-6 bg-white min-h-screen">
+    <div className={`pt-32 pb-20 px-6 min-h-screen ${isComprarPage ? 'bg-marromescuro text-white' : 'bg-white'}`}>
       <div className="max-w-7xl mx-auto space-y-12">
+        {/* Header */}
+        <div className="space-y-6">
+          <button 
+            onClick={() => navigate(-1)}
+            className={`flex items-center gap-2 transition-colors group ${isComprarPage ? 'text-white/60 hover:text-white' : 'text-marromescuro/60 hover:text-marromescuro'}`}
+          >
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span>Voltar</span>
+          </button>
+        </div>
+
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProperties.length > 0 ? (
@@ -46,11 +59,11 @@ export default function Buy() {
             ))
           ) : (
             <div className="col-span-full py-20 text-center space-y-4">
-              <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-sm">
-                <Search className="w-8 h-8 text-gray-300" />
+              <div className={`${isComprarPage ? 'bg-white/10' : 'bg-white'} w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-sm`}>
+                <Search className={`w-8 h-8 ${isComprarPage ? 'text-white/30' : 'text-gray-300'}`} />
               </div>
-              <h3 className="text-xl font-bold text-marromescuro">Nenhum imóvel encontrado</h3>
-              <p className="text-marromescuro/60">
+              <h3 className={`text-xl font-bold ${isComprarPage ? 'text-white' : 'text-marromescuro'}`}>Nenhum imóvel encontrado</h3>
+              <p className={isComprarPage ? 'text-white/60' : 'text-marromescuro/60'}>
                 Verifique os filtros ou códigos digitados e tente novamente.
               </p>
               <button 
