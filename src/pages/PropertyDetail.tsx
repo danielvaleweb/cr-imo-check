@@ -546,8 +546,9 @@ export default function PropertyDetail() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Header Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-16">
-          <div className="lg:col-span-2 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-16 items-start">
+          <div className="lg:col-span-2 space-y-10">
+            <div className="space-y-8">
             <div className="space-y-6 relative">
               <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                 <div className="space-y-2">
@@ -690,213 +691,7 @@ export default function PropertyDetail() {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="lg:col-span-1 p-8 bg-white border border-marromescuro/10 rounded-[32px] space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">Valores do Investimento</span>
-              <div className="flex items-center gap-2 relative">
-                <button 
-                  onClick={() => setShowShareOptions(!showShareOptions)}
-                  className="py-2 px-2 hover:bg-terracota/10 rounded-full transition-colors group/share ml-0 mr-0"
-                  title="Compartilhar"
-                >
-                  <Share2 className="w-6 h-6 text-terracota group-hover/share:scale-110 transition-all" />
-                </button>
-
-                <AnimatePresence>
-                  {showShareOptions && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setShowShareOptions(false)}
-                      />
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-marromescuro/5 p-2 z-50 overflow-hidden"
-                      >
-                        <button
-                          onClick={handleShareWhatsApp}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-green-500/10 rounded-lg">
-                            <MessageCircle className="w-4 h-4 text-green-600" />
-                          </div>
-                          WhatsApp
-                        </button>
-                        <button
-                          onClick={handleShareFacebook}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-blue-600/10 rounded-lg">
-                            <Facebook className="w-4 h-4 text-blue-600" />
-                          </div>
-                          Facebook
-                        </button>
-                        <button
-                          onClick={handleShareInstagram}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-pink-600/10 rounded-lg">
-                            <Instagram className="w-4 h-4 text-pink-600" />
-                          </div>
-                          Instagram
-                        </button>
-                        <button
-                          onClick={handleCopyLink}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-marromescuro/5 rounded-lg">
-                            {copied ? <Check className="w-4 h-4 text-green-600" /> : <LinkIcon className="w-4 h-4 text-marromescuro" />}
-                          </div>
-                          {copied ? 'Copiado!' : 'Copiar Link'}
-                        </button>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-
-                <button 
-                  onClick={(e) => toggleFavorite(property.id, 'property', e)}
-                  className="p-2 hover:bg-terracota/10 rounded-full transition-colors group/fav"
-                  title="Favoritar"
-                >
-                  <Heart 
-                    className={`w-6 h-6 transition-all ${favorites.includes(String(property.id)) ? 'fill-marromescuro text-marromescuro' : 'text-terracota fill-terracota/10 group-hover/fav:fill-terracota/30'}`} 
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Tabs Section */}
-            <div className="space-y-4">
-              <div className="flex p-1 bg-[#617964]/5 border border-[#617964]/20 rounded-2xl">
-                {property.listingType === 'aluguel' ? (
-                  <>
-                    <button 
-                      onClick={() => setActivePriceTab(0)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Aluguel
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(1)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Mensal
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(2)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Total
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => setActivePriceTab(0)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Imóvel
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(1)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Mensal
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(2)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Anual
-                    </button>
-                  </>
-                )}
-              </div>
-
-              <div className="space-y-1 min-h-[100px] flex flex-col justify-center p-4 bg-[#617964]/5 rounded-2xl border border-[#617964]/20">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activePriceTab}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">
-                      {property.listingType === 'aluguel' ? (
-                        activePriceTab === 0 ? 'Valor para alugar' : activePriceTab === 1 ? 'IPTU+Seguro' : 'Total Mensal'
-                      ) : (
-                        activePriceTab === 0 ? 'Valor do Imóvel' : activePriceTab === 1 ? 'Condomínio' : 'Valor Anual (Total Estimado)'
-                      )}
-                    </span>
-                    <h2 className="text-3xl font-bold text-marromescuro">
-                      {property.listingType === 'aluguel' ? (
-                        activePriceTab === 0 ? property.price : 
-                        activePriceTab === 1 ? `R$ ${(((parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
-                        `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      ) : (
-                        activePriceTab === 0 ? property.price : 
-                        activePriceTab === 1 ? (property.condoFee || 'R$ 0,00') : 
-                        `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0) * 12 + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      )}
-                    </h2>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              <div className="flex items-start gap-2 p-3 bg-[#617964]/5 rounded-xl border border-[#617964]/20">
-                <Info className="w-3.5 h-3.5 text-marromescuro/30 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-marromescuro/60 leading-relaxed font-medium">
-                  Valores sujeitos a variações sem aviso prévio. Taxas como condomínio e IPTU podem sofrer alterações.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <button 
-                onClick={() => setIsScheduleModalOpen(true)}
-                className="w-full py-4 bg-marromescuro text-white rounded-2xl font-bold hover:bg-marromescuro/90 transition-all shadow-xl shadow-marromescuro/10 flex items-center justify-center gap-3"
-              >
-                <div className="relative flex items-center justify-center">
-                  <Home className="w-6 h-6" />
-                  <div className="absolute inset-0 flex items-center justify-center pt-1">
-                    <User className="w-3 h-3 text-white fill-white" />
-                  </div>
-                </div>
-                Agendar visita
-              </button>
-              <button 
-                onClick={() => navigate(`/proposta-compra/${property.id}`)}
-                className="w-full py-4 bg-white text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/5 transition-all flex items-center justify-center gap-3 shadow-lg"
-              >
-                <FileText className="w-6 h-6 text-terracota" />
-                Simular financiamento
-              </button>
-
-              {property.customButtons && property.customButtons.map((btn, idx) => (
-                <a 
-                  key={idx}
-                  href={btn.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-4 bg-marromescuro/5 text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/10 transition-all flex items-center justify-center gap-3"
-                >
-                  <ExternalLink className="w-5 h-5 text-terracota" />
-                  {btn.label}
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* Left Column: Description & Gallery */}
-          <div className="lg:col-span-2 space-y-16">
+                      </div>
 
             <section className="space-y-6">
               <h2 className="text-2xl font-bold text-marromescuro">Sobre o imóvel</h2>
@@ -1188,10 +983,209 @@ export default function PropertyDetail() {
                 </div>
               </div>
             </section>
-          </div>
+                    </div>
 
-          {/* Right Column: Sidebar */}
-          <div className="space-y-6">
+          <div className="lg:col-span-1 space-y-6 sticky top-32">
+<div className="p-8 bg-white border border-marromescuro/10 rounded-[32px] space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">Valores do Investimento</span>
+              <div className="flex items-center gap-2 relative">
+                <button 
+                  onClick={() => setShowShareOptions(!showShareOptions)}
+                  className="py-2 px-2 hover:bg-terracota/10 rounded-full transition-colors group/share ml-0 mr-0"
+                  title="Compartilhar"
+                >
+                  <Share2 className="w-6 h-6 text-terracota group-hover/share:scale-110 transition-all" />
+                </button>
+
+                <AnimatePresence>
+                  {showShareOptions && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setShowShareOptions(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-marromescuro/5 p-2 z-50 overflow-hidden"
+                      >
+                        <button
+                          onClick={handleShareWhatsApp}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                        >
+                          <div className="p-2 bg-green-500/10 rounded-lg">
+                            <MessageCircle className="w-4 h-4 text-green-600" />
+                          </div>
+                          WhatsApp
+                        </button>
+                        <button
+                          onClick={handleShareFacebook}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                        >
+                          <div className="p-2 bg-blue-600/10 rounded-lg">
+                            <Facebook className="w-4 h-4 text-blue-600" />
+                          </div>
+                          Facebook
+                        </button>
+                        <button
+                          onClick={handleShareInstagram}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                        >
+                          <div className="p-2 bg-pink-600/10 rounded-lg">
+                            <Instagram className="w-4 h-4 text-pink-600" />
+                          </div>
+                          Instagram
+                        </button>
+                        <button
+                          onClick={handleCopyLink}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                        >
+                          <div className="p-2 bg-marromescuro/5 rounded-lg">
+                            {copied ? <Check className="w-4 h-4 text-green-600" /> : <LinkIcon className="w-4 h-4 text-marromescuro" />}
+                          </div>
+                          {copied ? 'Copiado!' : 'Copiar Link'}
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+
+                <button 
+                  onClick={(e) => toggleFavorite(property.id, 'property', e)}
+                  className="p-2 hover:bg-terracota/10 rounded-full transition-colors group/fav"
+                  title="Favoritar"
+                >
+                  <Heart 
+                    className={`w-6 h-6 transition-all ${favorites.includes(String(property.id)) ? 'fill-marromescuro text-marromescuro' : 'text-terracota fill-terracota/10 group-hover/fav:fill-terracota/30'}`} 
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs Section */}
+            <div className="space-y-4">
+              <div className="flex p-1 bg-[#617964]/5 border border-[#617964]/20 rounded-2xl">
+                {property.listingType === 'aluguel' ? (
+                  <>
+                    <button 
+                      onClick={() => setActivePriceTab(0)}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                    >
+                      Aluguel
+                    </button>
+                    <button 
+                      onClick={() => setActivePriceTab(1)}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                    >
+                      Mensal
+                    </button>
+                    <button 
+                      onClick={() => setActivePriceTab(2)}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                    >
+                      Total
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => setActivePriceTab(0)}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                    >
+                      Imóvel
+                    </button>
+                    <button 
+                      onClick={() => setActivePriceTab(1)}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                    >
+                      Mensal
+                    </button>
+                    <button 
+                      onClick={() => setActivePriceTab(2)}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                    >
+                      Anual
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <div className="space-y-1 min-h-[100px] flex flex-col justify-center p-4 bg-[#617964]/5 rounded-2xl border border-[#617964]/20">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activePriceTab}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">
+                      {property.listingType === 'aluguel' ? (
+                        activePriceTab === 0 ? 'Valor para alugar' : activePriceTab === 1 ? 'IPTU+Seguro' : 'Total Mensal'
+                      ) : (
+                        activePriceTab === 0 ? 'Valor do Imóvel' : activePriceTab === 1 ? 'Condomínio' : 'Valor Anual (Total Estimado)'
+                      )}
+                    </span>
+                    <h2 className="text-3xl font-bold text-marromescuro">
+                      {property.listingType === 'aluguel' ? (
+                        activePriceTab === 0 ? property.price : 
+                        activePriceTab === 1 ? `R$ ${(((parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
+                        `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      ) : (
+                        activePriceTab === 0 ? property.price : 
+                        activePriceTab === 1 ? (property.condoFee || 'R$ 0,00') : 
+                        `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0) * 12 + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      )}
+                    </h2>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              <div className="flex items-start gap-2 p-3 bg-[#617964]/5 rounded-xl border border-[#617964]/20">
+                <Info className="w-3.5 h-3.5 text-marromescuro/30 shrink-0 mt-0.5" />
+                <p className="text-[9px] text-marromescuro/60 leading-relaxed font-medium">
+                  Valores sujeitos a variações sem aviso prévio. Taxas como condomínio e IPTU podem sofrer alterações.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button 
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="w-full py-4 bg-marromescuro text-white rounded-2xl font-bold hover:bg-marromescuro/90 transition-all shadow-xl shadow-marromescuro/10 flex items-center justify-center gap-3"
+              >
+                <div className="relative flex items-center justify-center">
+                  <Home className="w-6 h-6" />
+                  <div className="absolute inset-0 flex items-center justify-center pt-1">
+                    <User className="w-3 h-3 text-white fill-white" />
+                  </div>
+                </div>
+                Agendar visita
+              </button>
+              <button 
+                onClick={() => navigate(`/proposta-compra/${property.id}`)}
+                className="w-full py-4 bg-white text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/5 transition-all flex items-center justify-center gap-3 shadow-lg"
+              >
+                <FileText className="w-6 h-6 text-terracota" />
+                Simular financiamento
+              </button>
+
+              {property.customButtons && property.customButtons.map((btn, idx) => (
+                <a 
+                  key={idx}
+                  href={btn.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-4 bg-marromescuro/5 text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/10 transition-all flex items-center justify-center gap-3"
+                >
+                  <ExternalLink className="w-5 h-5 text-terracota" />
+                  {btn.label}
+                </a>
+              ))}
+            </div>
+          </div>
             {/* Agent Card */}
             <div className="bg-white rounded-3xl border border-marromescuro/10 shadow-xl p-8 space-y-6 text-center sticky top-40">
               <div 
@@ -1271,10 +1265,8 @@ export default function PropertyDetail() {
             </div>
 
             {/* Financing Card Removed */}
-          </div>
-        </div>
-
-        {/* Related Properties */}
+                    </div>
+        </div>  {/* Related Properties */}
         <section className="mt-24 space-y-12">
           <h2 className="text-2xl font-helvetica font-bold text-marromescuro">Quem viu este imóvel também se interessou por esses:</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

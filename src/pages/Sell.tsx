@@ -99,11 +99,19 @@ export default function Sell() {
     
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'property_leads'), {
-        ...formData,
-        createdAt: serverTimestamp()
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
       });
-      navigate('/dashboard?tab=leads');
+
+      if (!response.ok) {
+        throw new Error('Failed to submit lead');
+      }
+
+      setIsSuccess(true);
     } catch (error) {
       console.error("Error submitting form: ", error);
       alert("Ocorreu um erro ao enviar seu cadastro. Tente novamente.");
@@ -112,30 +120,36 @@ export default function Sell() {
     }
   };
 
-  if (isSuccess) {
-    return (
-      <div className="pt-32 pb-20 px-6 bg-white min-h-screen flex items-center justify-center font-helvetica">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-20 h-20 bg-[#617964]/10 rounded-full flex items-center justify-center mx-auto">
-            <Home className="w-10 h-10 text-[#617964]" />
-          </div>
-          <h2 className="text-3xl font-bold text-marromescuro">Cadastro Enviado!</h2>
-          <p className="text-marromescuro/60 font-medium">
-            Recebemos as informações do seu imóvel. Nossa equipe entrará em contato em breve para dar continuidade ao processo.
-          </p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-marromescuro text-white px-8 py-4 rounded-2xl font-bold hover:bg-marromescuro/90 transition-colors w-full shadow-xl"
-          >
-            Cadastrar outro imóvel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="pt-32 pb-20 px-6 bg-white min-h-screen font-helvetica">
+    <div className="pt-32 pb-20 px-6 bg-white min-h-screen font-helvetica relative">
+      
+      {/* Success Modal Overlay */}
+      {isSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-[32px] p-8 md:p-12 max-w-md w-full text-center space-y-6 shadow-2xl"
+          >
+            <div className="w-20 h-20 bg-[#617964]/10 rounded-full flex items-center justify-center mx-auto">
+              <Home className="w-10 h-10 text-[#617964]" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl md:text-3xl font-bold text-marromescuro">Seu imóvel foi enviado!</h2>
+              <p className="text-marromescuro/60 font-medium">
+                Recebemos as informações com sucesso. Nossa equipe entrará em contato em breve para dar continuidade ao processo.
+              </p>
+            </div>
+            <button 
+              onClick={() => navigate('/')}
+              className="bg-marromescuro text-white px-8 py-4 rounded-2xl font-bold hover:bg-marromescuro/90 transition-colors w-full shadow-xl"
+            >
+              Voltar para a página inicial
+            </button>
+          </motion.div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto space-y-20">
         
         {/* Header */}

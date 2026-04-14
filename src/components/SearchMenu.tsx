@@ -64,16 +64,16 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
   const [maxPriceInput, setMaxPriceInput] = useState(formatCurrency(MAX_PRICE));
 
   useEffect(() => {
-    if (isPriceTouched && !isMinFocused) {
+    if (!isMinFocused) {
       setMinPriceInput(formatCurrency(priceRange.min));
     }
-  }, [priceRange.min, isPriceTouched, isMinFocused]);
+  }, [priceRange.min, isMinFocused]);
 
   useEffect(() => {
-    if (isPriceTouched && !isMaxFocused) {
+    if (!isMaxFocused) {
       setMaxPriceInput(formatCurrency(priceRange.max));
     }
-  }, [priceRange.max, isPriceTouched, isMaxFocused]);
+  }, [priceRange.max, isMaxFocused]);
 
   const handlePriceInputChange = (type: 'min' | 'max', value: string) => {
     setIsPriceTouched(true);
@@ -104,8 +104,8 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
       if (isMenuOpen && sliderRef.current) {
         const width = sliderRef.current.offsetWidth;
         if (width > 0) {
-          const leftPos = ((priceRange.min - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * width;
-          const rightPos = ((priceRange.max - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * width;
+          const leftPos = (Math.log(priceRange.min / MIN_PRICE) / Math.log(MAX_PRICE / MIN_PRICE)) * width;
+          const rightPos = (Math.log(priceRange.max / MIN_PRICE) / Math.log(MAX_PRICE / MIN_PRICE)) * width;
           leftThumbX.set(leftPos);
           rightThumbX.set(rightPos);
         }
@@ -116,7 +116,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
     // Re-run after a short delay to ensure layout is stable
     const timer = setTimeout(updatePositions, 100);
     return () => clearTimeout(timer);
-  }, [isMenuOpen]);
+  }, [isMenuOpen, priceRange.min, priceRange.max]);
 
   const handleClearFilters = () => {
     setNegotiation('comprar');
@@ -126,6 +126,8 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
     setVagas([]);
     setIsPriceTouched(false);
     setPriceRange({ min: MIN_PRICE, max: MAX_PRICE });
+    setMinPriceInput(formatCurrency(MIN_PRICE));
+    setMaxPriceInput(formatCurrency(MAX_PRICE));
     setCodeSearch('');
     if (sliderRef.current) {
       const width = sliderRef.current.offsetWidth;
@@ -141,7 +143,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
     if (width <= 0) return;
     
     const percentage = Math.max(0, Math.min(1, x / width));
-    let value = Math.round(MIN_PRICE + percentage * (MAX_PRICE - MIN_PRICE));
+    let value = Math.round(MIN_PRICE * Math.pow(MAX_PRICE / MIN_PRICE, percentage));
     
     // Snap to min/max at the edges
     if (percentage < 0.01) value = MIN_PRICE;
@@ -149,9 +151,9 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
     
     setPriceRange(prev => {
       if (type === 'min') {
-        return { ...prev, min: Math.min(value, prev.max - 100000) };
+        return { ...prev, min: Math.min(value, prev.max - 10000) };
       } else {
-        return { ...prev, max: Math.max(value, prev.min + 100000) };
+        return { ...prev, max: Math.max(value, prev.min + 10000) };
       }
     });
   };
@@ -447,10 +449,10 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest block text-left">Valor Mínimo</label>
                       <div className="w-full bg-white rounded-2xl px-3 py-4 text-brand-dark font-bold text-center flex items-center justify-center gap-1">
-                        {(isPriceTouched || isMinFocused) && <span className="text-[#617964]">R$</span>}
+                        <span className="text-[#617964]">R$</span>
                         <input 
                           type="text"
-                          value={isMinFocused ? minPriceInput : (isPriceTouched ? minPriceInput : 'Sem valor mínimo')}
+                          value={minPriceInput}
                           onChange={(e) => handlePriceInputChange('min', e.target.value)}
                           onFocus={() => {
                             setIsPriceTouched(true);
@@ -468,17 +470,17 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                               (e.target as HTMLInputElement).blur();
                             }
                           }}
-                          className={`bg-transparent border-none outline-none w-full text-center p-0 ${!(isPriceTouched || isMinFocused) ? 'text-brand-dark/30' : ''}`}
+                          className="bg-transparent border-none outline-none w-full text-center p-0"
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest block text-left">Valor Máximo</label>
                       <div className="w-full bg-white rounded-2xl px-3 py-4 text-brand-dark font-bold text-center flex items-center justify-center gap-1">
-                        {(isPriceTouched || isMaxFocused) && <span className="text-[#617964]">R$</span>}
+                        <span className="text-[#617964]">R$</span>
                         <input 
                           type="text"
-                          value={isMaxFocused ? maxPriceInput : (isPriceTouched ? maxPriceInput : 'Sem valor máximo')}
+                          value={maxPriceInput}
                           onChange={(e) => handlePriceInputChange('max', e.target.value)}
                           onFocus={() => {
                             setIsPriceTouched(true);
@@ -496,7 +498,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
                               (e.target as HTMLInputElement).blur();
                             }
                           }}
-                          className={`bg-transparent border-none outline-none w-full text-center p-0 ${!(isPriceTouched || isMaxFocused) ? 'text-brand-dark/30' : ''}`}
+                          className="bg-transparent border-none outline-none w-full text-center p-0"
                         />
                       </div>
                     </div>

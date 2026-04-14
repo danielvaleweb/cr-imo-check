@@ -121,9 +121,37 @@
         "userEmail": { "type": "string", "format": "email" }
       },
       "required": ["propertyId", "value", "userName", "userPhone", "userEmail"]
+    },
+    "PropertyLead": {
+      "title": "Property Lead",
+      "description": "A lead for a property to sell or rent",
+      "type": "object",
+      "properties": {
+        "propertyType": { "type": "string" },
+        "transactionType": { "type": "string", "enum": ["vender", "alugar"] },
+        "neighborhood": { "type": "string" },
+        "number": { "type": "string" },
+        "street": { "type": "string" },
+        "price": { "type": "string" },
+        "bedrooms": { "type": "string" },
+        "suites": { "type": "string" },
+        "parking": { "type": "string" },
+        "area": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerMobile": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "ownerEmail": { "type": "string", "format": "email" },
+        "acceptedTerms": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["propertyType", "transactionType", "ownerName", "ownerEmail", "acceptedTerms"]
     }
   },
   "firestore": {
+    "property_leads": {
+      "schema": { "$ref": "#/entities/PropertyLead" },
+      "description": "Collection of all property leads"
+    },
     "users": {
       "schema": { "$ref": "#/entities/User" },
       "description": "Collection of all users"

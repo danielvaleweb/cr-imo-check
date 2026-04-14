@@ -83,6 +83,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         (request.auth.token.email == "danielvaleweb@gmail.com" ||
+         request.auth.uid == "xgp4kEuc66UbGXIMcBVAa4fykus2" ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
     }
@@ -164,6 +165,26 @@ service cloud.firestore {
              isValidEmail(data.userEmail);
     }
 
+    function isValidPropertyLead(data) {
+      return hasRequiredFields(['propertyType', 'transactionType', 'ownerName', 'ownerEmail', 'acceptedTerms']) &&
+             data.propertyType is string &&
+             data.transactionType in ['vender', 'alugar'] &&
+             data.ownerName is string &&
+             isValidEmail(data.ownerEmail) &&
+             data.acceptedTerms == true &&
+             (!('neighborhood' in data) || data.neighborhood is string) &&
+             (!('number' in data) || data.number is string) &&
+             (!('street' in data) || data.street is string) &&
+             (!('price' in data) || data.price is string) &&
+             (!('bedrooms' in data) || data.bedrooms is string) &&
+             (!('suites' in data) || data.suites is string) &&
+             (!('parking' in data) || data.parking is string) &&
+             (!('area' in data) || data.area is string) &&
+             (!('ownerMobile' in data) || data.ownerMobile is string) &&
+             (!('ownerPhone' in data) || data.ownerPhone is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -198,6 +219,15 @@ service cloud.firestore {
       allow read: if isAdmin();
       // Anyone can create a proposal (lead generation)
       allow create: if isValidProposal(request.resource.data);
+      // Only admin can update/delete
+      allow update, delete: if isAdmin();
+    }
+
+    match /property_leads/{leadId} {
+      // PII Protection: Only admin can read property leads
+      allow read: if isAdmin();
+      // Anyone can create a property lead
+      allow create: if isValidPropertyLead(request.resource.data);
       // Only admin can update/delete
       allow update, delete: if isAdmin();
     }

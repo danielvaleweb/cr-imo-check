@@ -268,18 +268,23 @@ export default function BrokerDashboard() {
 
   useEffect(() => {
     if (isLoading) return;
+    
+    const fetchLeads = async () => {
+      try {
+        const response = await fetch('/api/leads');
+        if (response.ok) {
+          const data = await response.json();
+          setLeads(data);
+        }
+      } catch (error) {
+        console.error('Error fetching leads:', error);
+      }
+    };
 
-    const q = query(collection(db, 'property_leads'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const leadsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setLeads(leadsData);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'property_leads');
-    });
-    return () => unsubscribe();
+    fetchLeads();
+    // Poll for updates every 10 seconds since we lost real-time onSnapshot
+    const interval = setInterval(fetchLeads, 10000);
+    return () => clearInterval(interval);
   }, [isLoading]);
 
   useEffect(() => {
@@ -382,12 +387,24 @@ export default function BrokerDashboard() {
   };
 
   const handleDeleteBroker = (id: string | number) => {
-    if (window.confirm('Tem certeza que deseja remover este corretor?')) {
-      removeBroker(id);
+    setBrokerToDelete(id);
+  };
+
+  const confirmDeleteBroker = async () => {
+    if (brokerToDelete !== null) {
+      try {
+        await removeBroker(brokerToDelete);
+        setBrokerToDelete(null);
+      } catch (error) {
+        console.error('Error deleting broker:', error);
+      }
     }
   };
   const [propertyToDelete, setPropertyToDelete] = useState<string | number | null>(null);
   const [condoToDelete, setCondoToDelete] = useState<string | number | null>(null);
+  const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
+  const [proposalToDelete, setProposalToDelete] = useState<string | null>(null);
+  const [brokerToDelete, setBrokerToDelete] = useState<string | number | null>(null);
   const [newPropertyData, setNewPropertyData] = useState({
     title: '',
     location: '',
@@ -924,6 +941,31 @@ export default function BrokerDashboard() {
       } catch (error) {
         console.error("Erro ao excluir condomínio:", error);
         alert("Erro ao excluir o condomínio. Verifique suas permissões.");
+      }
+    }
+  };
+
+  const confirmDeleteLead = async () => {
+    if (leadToDelete !== null) {
+      try {
+        const response = await fetch(`/api/leads/${leadToDelete}`, { method: 'DELETE' });
+        if (response.ok) {
+          setLeads(prev => prev.filter(l => l.id !== leadToDelete));
+        }
+      } catch (error) {
+        console.error('Error deleting lead:', error);
+      }
+      setLeadToDelete(null);
+    }
+  };
+
+  const confirmDeleteProposal = async () => {
+    if (proposalToDelete !== null) {
+      try {
+        await deleteDoc(doc(db, 'proposals', proposalToDelete));
+        setProposalToDelete(null);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `proposals/${proposalToDelete}`);
       }
     }
   };
@@ -1986,6 +2028,135 @@ export default function BrokerDashboard() {
                 </button>
                 <button
                   onClick={confirmDeleteCondo}
+                  className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Lead Delete Confirmation Modal */}
+      <AnimatePresence>
+        {leadToDelete !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setLeadToDelete(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 text-center mb-2">Excluir Captação?</h3>
+              <p className="text-gray-500 text-center font-medium mb-8">
+                Esta ação não pode ser desfeita. A captação será removida permanentemente.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setLeadToDelete(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDeleteLead}
+                  className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Proposal Delete Confirmation Modal */}
+      <AnimatePresence>
+        {proposalToDelete !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setProposalToDelete(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 text-center mb-2">Excluir Proposta?</h3>
+              <p className="text-gray-500 text-center font-medium mb-8">
+                Esta ação não pode ser desfeita. A proposta será removida permanentemente.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setProposalToDelete(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDeleteProposal}
+                  className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Broker Delete Confirmation Modal */}
+      <AnimatePresence>
+        {brokerToDelete !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setBrokerToDelete(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 text-center mb-2">Excluir Corretor?</h3>
+              <p className="text-gray-500 text-center font-medium mb-8">
+                Esta ação não pode ser desfeita. O corretor será removido permanentemente.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setBrokerToDelete(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDeleteBroker}
                   className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
                 >
                   Excluir
@@ -3142,11 +3313,7 @@ export default function BrokerDashboard() {
                             </p>
                           </div>
                           <button 
-                            onClick={() => {
-                              if (window.confirm('Deseja excluir esta proposta?')) {
-                                deleteDoc(doc(db, 'proposals', proposal.id)).catch(err => handleFirestoreError(err, OperationType.DELETE, `proposals/${proposal.id}`));
-                              }
-                            }}
+                            onClick={() => setProposalToDelete(proposal.id)}
                             className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all shadow-sm"
                             title="Excluir Proposta"
                           >
@@ -3345,12 +3512,13 @@ export default function BrokerDashboard() {
                         <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Imóvel</th>
                         <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Localização</th>
                         <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Valor</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {leads.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-gray-500 font-medium">
+                          <td colSpan={6} className="p-8 text-center text-gray-500 font-medium">
                             Nenhuma captação encontrada.
                           </td>
                         </tr>
@@ -3359,7 +3527,7 @@ export default function BrokerDashboard() {
                           <tr key={lead.id} className="hover:bg-gray-50/50 transition-colors">
                             <td className="p-6">
                               <div className="text-sm font-bold text-gray-900">
-                                {lead.createdAt?.toDate ? new Date(lead.createdAt.toDate()).toLocaleDateString('pt-BR') : 'N/A'}
+                                {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
                               </div>
                             </td>
                             <td className="p-6">
@@ -3378,6 +3546,15 @@ export default function BrokerDashboard() {
                             </td>
                             <td className="p-6">
                               <div className="text-sm font-bold text-[#617964]">R$ {lead.price}</div>
+                            </td>
+                            <td className="p-6 text-right">
+                              <button
+                                onClick={() => setLeadToDelete(lead.id)}
+                                className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-xl transition-all"
+                                title="Excluir captação"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
                             </td>
                           </tr>
                         ))
