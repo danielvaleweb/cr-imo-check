@@ -355,7 +355,7 @@ export default function Home() {
 
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <a 
-                  href="https://maps.app.goo.gl/search/R.+Prof.+Virgilio+Pereira+da+Silva,+370+-+Vina+Del+Mar,+Juiz+de+Fora+-+MG"
+                  href="https://www.google.com/maps/dir//''/data=!4m7!4m6!1m1!4e2!1m2!1m1!1s0x989bd5a25fab87:0x5644e0c1399c88ed!3e0?g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 bg-marromescuro text-white px-8 py-4 rounded-2xl font-bold hover:bg-marromescuro/90 transition-all shadow-xl text-center flex items-center justify-center gap-2"
@@ -370,7 +370,7 @@ export default function Home() {
                   className="flex-1 bg-[#25D366] text-white px-8 py-4 rounded-2xl font-bold hover:bg-[#25D366]/90 transition-all shadow-xl text-center flex items-center justify-center gap-2"
                 >
                   <MessageCircle className="w-5 h-5" />
-                  Falar com a CR
+                  Nosso whatsapp
                 </a>
               </div>
             </div>

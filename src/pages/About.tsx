@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
-import { Award, Target, Heart, Phone, Mail } from 'lucide-react';
+import { Award, Target, Heart, Phone, Mail, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useBrokers } from '../context/BrokerContext';
 import { useProperties } from '../context/PropertyContext';
 
@@ -133,19 +134,29 @@ export default function About() {
                       {broker.bio}
                     </p>
 
-                    <div className="flex items-center justify-center gap-4 pt-6 border-t border-brand-dark/5">
-                      <a 
-                        href={`tel:${broker.phone.replace(/\D/g, '')}`}
-                        className="p-3 bg-brand-cream rounded-xl text-brand-dark/40 hover:text-brand-rust hover:bg-brand-rust/10 transition-all cursor-pointer"
+                    <div className="flex flex-col items-center gap-4 pt-6 border-t border-brand-dark/5">
+                      <div className="flex items-center justify-center gap-4">
+                        <a 
+                          href={`tel:${broker.phone.replace(/\D/g, '')}`}
+                          className="p-3 bg-brand-cream rounded-xl text-brand-dark/40 hover:text-brand-rust hover:bg-brand-rust/10 transition-all cursor-pointer"
+                        >
+                          <Phone className="w-5 h-5" />
+                        </a>
+                        <a 
+                          href={`mailto:${broker.email}`}
+                          className="p-3 bg-brand-cream rounded-xl text-brand-dark/40 hover:text-brand-rust hover:bg-brand-rust/10 transition-all cursor-pointer"
+                        >
+                          <Mail className="w-5 h-5" />
+                        </a>
+                      </div>
+
+                      <Link 
+                        to={`/corretor/${broker.id}`}
+                        className="w-full py-3 text-xs font-bold text-brand-rust hover:text-brand-dark transition-colors uppercase tracking-widest flex items-center justify-center gap-2 group/profile"
                       >
-                        <Phone className="w-5 h-5" />
-                      </a>
-                      <a 
-                        href={`mailto:${broker.email}`}
-                        className="p-3 bg-brand-cream rounded-xl text-brand-dark/40 hover:text-brand-rust hover:bg-brand-rust/10 transition-all cursor-pointer"
-                      >
-                        <Mail className="w-5 h-5" />
-                      </a>
+                        Ver Perfil Completo
+                        <ChevronRight className="w-3 h-3 transition-transform group-hover/profile:translate-x-1" />
+                      </Link>
                     </div>
                   </div>
                 </motion.div>
