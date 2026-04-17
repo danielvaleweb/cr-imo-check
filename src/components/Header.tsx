@@ -4,8 +4,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { useCondos } from '../context/CondoContext';
 import { useProperties } from '../context/PropertyContext';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { getDoc, doc } from 'firebase/firestore';
 
 interface HeaderProps {
   isScrolled: boolean;
@@ -40,8 +41,54 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
   const [user, setUser] = useState<FirebaseUser | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        // Log para depuração de permissões
+        console.log('Header Auth State:', {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          authInfo: currentUser.providerData
+        });
+
+        // Exceção imediata para o administrador para evitar consultas desnecessárias
+        const adminEmail = 'danielvaleweb@gmail.com';
+        const isExplicitAdmin = 
+          currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2' || 
+          currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
+
+        if (isExplicitAdmin) {
+          console.log('Header: Admin detected by UID/Email, bypassing Firestore check');
+          setUser(currentUser);
+          return;
+        }
+
+        // Validation: Check if user document exists and is approved
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.status === 'approved' || userData.role === 'admin') {
+              setUser(currentUser);
+            } else {
+              console.warn('Header: User not approved or not admin');
+              setUser(null);
+            }
+          } else {
+            console.warn('Header: User document does not exist in Firestore');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error("Error validating header user:", error);
+          // Se houver erro de permissão mas o e-mail for do admin (fallback de segurança), permite
+          if (isExplicitAdmin) {
+            setUser(currentUser);
+          } else {
+            setUser(null);
+          }
+        }
+      } else {
+        setUser(null);
+      }
     });
     return () => unsubscribe();
   }, []);

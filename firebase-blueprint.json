@@ -96,10 +96,14 @@
       "type": "object",
       "properties": {
         "role": { "type": "string", "enum": ["admin", "user"] },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "creci": { "type": "string" },
         "favorites": { "type": "array", "items": { "type": "number" } }
       },
-      "required": ["role", "email"]
+      "required": ["role", "email", "status"]
     },
     "Proposal": {
       "title": "Proposal",

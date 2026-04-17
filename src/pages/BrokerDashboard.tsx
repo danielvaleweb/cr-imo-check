@@ -16,6 +16,7 @@ import {
   updateDoc, 
   deleteDoc, 
   doc,
+  getDoc,
   addDoc,
   getDocs,
   where,
@@ -238,6 +239,7 @@ export default function BrokerDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
+  const [usersToApprove, setUsersToApprove] = useState<any[]>([]);
   const userDropdownRef = React.useRef<HTMLDivElement>(null);
 
   const [customOptions, setCustomOptions] = useState<{
@@ -288,6 +290,55 @@ export default function BrokerDashboard() {
   }, [isLoading]);
 
   useEffect(() => {
+    if (isLoading) return;
+    
+    console.log('Dashboard Auth Sync:', { 
+      isAdmin, 
+      userEmail: auth.currentUser?.email,
+      uid: auth.currentUser?.uid,
+      emailVerified: auth.currentUser?.emailVerified
+    });
+
+    const currentEmail = auth.currentUser?.email?.toLowerCase();
+    const currentUid = auth.currentUser?.uid;
+    const isExplicitAdmin = currentEmail === 'danielvaleweb@gmail.com' || currentUid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+
+    if (!isAdmin && !isExplicitAdmin) return;
+
+    // Use a direct collection reference for the admin to avoid query filtering logic conflicts
+    const usersCollection = collection(db, 'users');
+    const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
+      const adminEmail = 'danielvaleweb@gmail.com';
+      const usersData = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        .filter((u: any) => u.email?.toLowerCase() !== adminEmail.toLowerCase()) // Não mostrar o admin na lista de aprovação
+        .sort((a: any, b: any) => {
+          const getTime = (val: any) => {
+            if (!val) return 0;
+            if (typeof val === 'string') return new Date(val).getTime();
+            if (val.toDate) return val.toDate().getTime();
+            if (val.seconds) return val.seconds * 1000;
+            return 0;
+          };
+          return getTime(b.createdAt) - getTime(a.createdAt);
+        });
+      setUsersToApprove(usersData);
+    }, (error) => {
+      // Se for erro de permissão mas somos admin, logamos mas não travamos a UI com throw
+      if (error.message.includes('permission')) {
+        console.warn('Silent permission error for users list (Admin Syncing...):', error);
+      } else {
+        handleFirestoreError(error, OperationType.LIST, 'users');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isLoading, isAdmin]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
         setIsUserDropdownOpen(false);
@@ -322,27 +373,51 @@ export default function BrokerDashboard() {
   }, [isLoading]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (!user) {
         navigate('/');
       } else {
-        // Check if admin
-        const userDocRef = doc(db, 'users', user.uid);
-        getDocs(query(collection(db, 'users'), where('__name__', '==', user.uid))).then((snapshot) => {
-          if (!snapshot.empty && snapshot.docs[0].data().role === 'admin') {
-            setIsAdmin(true);
-          } else if (user.email === 'danielvaleweb@gmail.com') {
-            setIsAdmin(true);
+        // Exceção imediata para o administrador
+        const adminEmail = 'danielvaleweb@gmail.com';
+        if (user.email?.toLowerCase() === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2') {
+          setIsAdmin(true);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if admin or approved
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            
+            // Allow admin or approved users
+            if (userData.role === 'admin' || user.email === 'danielvaleweb@gmail.com') {
+              setIsAdmin(true);
+            } else if (userData.status !== 'approved') {
+              // Not approved, kick back to home
+              await signOut(auth);
+              navigate('/');
+              return;
+            }
+          } else if (user.email !== 'danielvaleweb@gmail.com') {
+             // Not in Firestore and not the explicit admin email
+             await signOut(auth);
+             navigate('/');
+             return;
+          } else {
+             // Not in Firestore but is the explicit admin email
+             setIsAdmin(true);
           }
           setIsLoading(false);
-        }).catch(() => {
-          // Fallback to email check if users collection read fails
+        } catch (error) {
+          console.error("Dashboard auth check error:", error);
           if (user.email === 'danielvaleweb@gmail.com') {
             setIsAdmin(true);
           }
           setIsLoading(false);
-        });
+        }
       }
     });
 
@@ -994,6 +1069,17 @@ export default function BrokerDashboard() {
     });
   };
 
+  const handleUpdateUserStatus = async (userId: string, status: 'approved' | 'rejected') => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { 
+        status,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1026,7 +1112,10 @@ export default function BrokerDashboard() {
                 <div className="w-10 h-10 bg-[#617964] rounded-xl flex items-center justify-center shadow-lg shadow-[#617964]/20">
                   <Home className="text-white w-6 h-6" />
                 </div>
-                <span className="text-xl font-black tracking-tighter text-[#1A1A1A]">CR <span className="text-[#617964]">DASH</span></span>
+                <div className="flex flex-col">
+                  <span className="text-xl font-black tracking-tighter text-[#1A1A1A]">CR <span className="text-[#617964]">DASH</span></span>
+                  <span className="text-[10px] font-black text-[#617964] uppercase tracking-widest">{isAdmin ? 'Administrador' : 'Corretor'}</span>
+                </div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5 text-gray-400" />
@@ -1034,31 +1123,43 @@ export default function BrokerDashboard() {
             </div>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-1">
             {[
               { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
               { id: 'properties', label: 'Todos Imóveis', icon: Home },
               { id: 'proposals', label: 'Propostas', icon: FileText },
+              { id: 'users_approval', label: 'Aprovação de Usuários', icon: Users, adminOnly: true, badge: usersToApprove.filter(u => u.status === 'pending').length },
               { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
               { id: 'brokers', label: 'Corretores', icon: Users },
               { id: 'leads', label: 'Captações', icon: Users },
               { id: 'calendar', label: 'Agenda', icon: Calendar },
               { id: 'reports', label: 'Relatórios', icon: TrendingUp },
-            ].map((item) => (
+            ].filter(item => !item.adminOnly || isAdmin).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
                   setActiveTab(item.id);
                   if (window.innerWidth < 1024) setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
                   activeTab === item.id 
                     ? 'bg-[#617964]/10 text-[#617964]' 
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    : (item.badge && item.badge > 0)
+                      ? 'bg-blue-50/50 text-blue-600 hover:bg-blue-100'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <item.icon className="w-5 h-5" />
-                {item.label}
+                <div className="flex items-center gap-3">
+                  <item.icon className={`w-5 h-5 ${item.badge && item.badge > 0 && activeTab !== item.id ? 'text-blue-500' : ''}`} />
+                  {item.label}
+                </div>
+                {item.badge && item.badge > 0 ? (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                    activeTab === item.id ? 'bg-[#617964] text-white' : 'bg-blue-600 text-white animate-bounce'
+                  }`}>
+                    {item.badge}
+                  </span>
+                ) : null}
               </button>
             ))}
           </nav>
@@ -2786,6 +2887,28 @@ export default function BrokerDashboard() {
                 <p className="text-sm lg:text-base text-gray-500 font-medium">Aqui está o que está acontecendo com seus imóveis hoje.</p>
               </div>
 
+              {/* Pending Users Alert */}
+              {usersToApprove.filter(u => u.status === 'pending').length > 0 && (
+                <div className="bg-blue-50 border border-blue-100 rounded-[32px] p-6 mb-8 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-blue-900 uppercase tracking-tight">Solicitações de Cadastro</h3>
+                      <p className="text-xs text-blue-700 font-medium">Existem {usersToApprove.filter(u => u.status === 'pending').length} usuários aguardando aprovação para acessar o sistema.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTab('users_approval')}
+                    className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2"
+                  >
+                    Ver Solicitações
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8 lg:mb-10">
                 {[
@@ -3145,6 +3268,99 @@ export default function BrokerDashboard() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+            ) : activeTab === 'users_approval' ? (
+            <div className="space-y-8">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Aprovação de Usuários</h1>
+                <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie o acesso dos corretores que se cadastraram no sistema.</p>
+              </div>
+
+              <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Usuário</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">CRECI</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Contato</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {usersToApprove.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-12 text-center">
+                            <div className="flex flex-col items-center justify-center gap-3">
+                              <Users className="w-10 h-10 text-gray-300" />
+                              <p className="text-gray-500 font-medium">Nenhum usuário cadastrado.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        usersToApprove.map((u) => (
+                          <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="p-6">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-700 font-black text-xs uppercase tracking-widest">
+                                  {u.name?.charAt(0) || u.email?.charAt(0) || 'U'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-black text-gray-900 text-sm truncate">{u.name || 'Sem nome'}</p>
+                                  <p className="text-xs text-gray-500 font-medium truncate">{u.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-6">
+                              <div className="text-sm font-bold text-gray-900">{u.creci || 'Não informado'}</div>
+                            </td>
+                            <td className="p-6">
+                              <div className="text-sm font-bold text-gray-900">{u.phone || 'Não informado'}</div>
+                            </td>
+                            <td className="p-6">
+                              <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 w-fit ${
+                                u.status === 'pending' ? 'bg-blue-50 text-blue-600' :
+                                u.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                                'bg-red-50 text-red-600'
+                              }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                  u.status === 'pending' ? 'bg-blue-600' :
+                                  u.status === 'approved' ? 'bg-emerald-600' :
+                                  'bg-red-600'
+                                }`}></div>
+                                {u.status === 'pending' ? 'Pendente' : u.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                              </div>
+                            </td>
+                            <td className="p-6 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {u.status !== 'approved' && (
+                                  <button
+                                    onClick={() => handleUpdateUserStatus(u.id, 'approved')}
+                                    className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all"
+                                    title="Aprovar Usuário"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {u.status !== 'rejected' && (
+                                  <button
+                                    onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
+                                    className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all"
+                                    title="Rejeitar Usuário"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           ) : activeTab === 'condos' ? (
