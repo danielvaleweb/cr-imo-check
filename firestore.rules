@@ -15,13 +15,13 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Função de Admin ultra-segura contra nulos
+    // Função de Admin ultra-segura
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.uid == "xgp4kEuc66UbGXIMcBVAa4fykus2" ||
         (request.auth.token != null && 
-         request.auth.token.get('email', '') != null &&
-         request.auth.token.get('email', '').lower() == "danielvaleweb@gmail.com")
+         request.auth.token.email != null &&
+         request.auth.token.email.lower() == "danielvaleweb@gmail.com")
       );
     }
 
@@ -34,17 +34,10 @@ service cloud.firestore {
       // Admin pode tudo
       allow read, write: if isAdmin();
 
-      // Próprio usuário pode ler seu documento
+      // Regras para o próprio usuário
       allow get: if isOwner(userId);
-      
-      // Cadastro Inicial: Permitir que o proprietário crie seu doc
-      // Simplificado ao máximo para não bloquear o cadastro
       allow create: if isOwner(userId);
-      
-      // Permitir que o usuário se veja em listas (filtros de segurança do Firestore cuidam do resto)
-      allow list: if isOwner(userId);
-
-      // Atualização controlada: Usuário só altera seus dados, Admin altera tudo
+      allow list: if isAuthenticated() && request.query.limit <= 1 && isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
     }
 

@@ -139,15 +139,6 @@ export default function Layout() {
         if (userData.favorites) {
           setFavorites(userData.favorites);
         }
-      } else {
-        // Se o documento não existe, e não é o administrador, não permitimos permanência
-        const isAdminEmail = currentUser.email?.toLowerCase() === 'danielvaleweb@gmail.com';
-        const isAdminUid = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-        
-        if (!isAdminEmail && !isAdminUid) {
-          console.warn('Sessão encerrada: Perfil não encontrado no Firestore.');
-          auth.signOut();
-        }
       }
     }, (err) => {
       // Se der erro de permissão ao tentar ler o próprio doc, algo está errado com o vínculo do UID
