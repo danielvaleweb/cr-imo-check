@@ -269,25 +269,24 @@ export default function BrokerDashboard() {
   }, [isLoading]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !isAdmin) return;
     
-    const fetchLeads = async () => {
-      try {
-        const response = await fetch('/api/leads');
-        if (response.ok) {
-          const data = await response.json();
-          setLeads(data);
-        }
-      } catch (error) {
-        console.error('Error fetching leads:', error);
-      }
-    };
+    const leadsCollection = collection(db, 'property_leads');
+    const q = query(leadsCollection, orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const leadsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setLeads(leadsData);
+    }, (error) => {
+      console.error('Error fetching leads snapshot:', error);
+      handleFirestoreError(error, OperationType.LIST, 'property_leads');
+    });
 
-    fetchLeads();
-    // Poll for updates every 10 seconds since we lost real-time onSnapshot
-    const interval = setInterval(fetchLeads, 10000);
-    return () => clearInterval(interval);
-  }, [isLoading]);
+    return () => unsubscribe();
+  }, [isLoading, isAdmin]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -1023,12 +1022,10 @@ export default function BrokerDashboard() {
   const confirmDeleteLead = async () => {
     if (leadToDelete !== null) {
       try {
-        const response = await fetch(`/api/leads/${leadToDelete}`, { method: 'DELETE' });
-        if (response.ok) {
-          setLeads(prev => prev.filter(l => l.id !== leadToDelete));
-        }
+        await deleteDoc(doc(db, 'property_leads', leadToDelete));
       } catch (error) {
         console.error('Error deleting lead:', error);
+        handleFirestoreError(error, OperationType.DELETE, `property_leads/${leadToDelete}`);
       }
       setLeadToDelete(null);
     }
