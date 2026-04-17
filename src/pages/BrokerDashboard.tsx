@@ -1128,12 +1128,12 @@ export default function BrokerDashboard() {
               { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
               { id: 'properties', label: 'Todos Imóveis', icon: Home },
               { id: 'proposals', label: 'Propostas', icon: FileText },
-              { id: 'users_approval', label: 'Aprovação de Usuários', icon: Users, adminOnly: true, badge: usersToApprove.filter(u => u.status === 'pending').length },
               { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
               { id: 'brokers', label: 'Corretores', icon: Users },
               { id: 'leads', label: 'Captações', icon: Users },
               { id: 'calendar', label: 'Agenda', icon: Calendar },
               { id: 'reports', label: 'Relatórios', icon: TrendingUp },
+              { id: 'users_approval', label: 'Aprovar login', icon: Users, adminOnly: true, badge: usersToApprove.filter(u => u.status === 'pending').length },
             ].filter(item => !item.adminOnly || isAdmin).map((item) => (
               <button
                 key={item.id}
@@ -1149,7 +1149,7 @@ export default function BrokerDashboard() {
                       : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 text-left">
                   <item.icon className={`w-5 h-5 ${item.badge && item.badge > 0 && activeTab !== item.id ? 'text-blue-500' : ''}`} />
                   {item.label}
                 </div>
@@ -2806,9 +2806,14 @@ export default function BrokerDashboard() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 ml-4">
-            <button className="p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all relative">
+            <button 
+              onClick={() => setActiveTab('users_approval')}
+              className="p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all relative"
+            >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              {usersToApprove.filter(u => u.status === 'pending').length > 0 && (
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              )}
             </button>
             <button className="hidden sm:flex p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all">
               <Settings className="w-5 h-5" />

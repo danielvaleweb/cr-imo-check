@@ -86,12 +86,15 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setIsLoading(true);
     setErrorHeader(null);
 
+    const email = formData.email.trim();
+    const password = formData.password.trim();
+
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // Administrador entra direto
       const adminEmail = 'danielvaleweb@gmail.com';
-      if (formData.email.toLowerCase() === adminEmail.toLowerCase()) {
+      if (email.toLowerCase() === adminEmail.toLowerCase()) {
         onClose();
         navigate('/dashboard-corretor');
         return;
@@ -126,12 +129,18 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       onClose();
       navigate('/dashboard-corretor');
     } catch (error: any) {
-      console.error("Auth error:", error.code);
+      console.error("Auth error full:", error);
+      const errorCode = error.code || error.message;
       await signOut(auth); // Garantir logout se houver erro ou falta de permissão
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      
+      if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
         setErrorHeader('E-mail ou senha incorretos.');
+      } else if (errorCode === 'auth/invalid-email') {
+        setErrorHeader('O e-mail digitado não é válido.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setErrorHeader('Muitas tentativas sem sucesso. Tente novamente mais tarde.');
       } else {
-        setErrorHeader('Erro ao tentar fazer login. Tente novamente.');
+        setErrorHeader(`Erro ao tentar fazer login (${errorCode}). Tente novamente.`);
       }
     } finally {
       setIsLoading(false);
@@ -141,12 +150,15 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (formData.password !== formData.confirmPassword) {
+    const email = formData.email.trim();
+    const password = formData.password.trim();
+
+    if (password !== formData.confirmPassword.trim()) {
       setErrorHeader('As senhas não coincidem.');
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (password.length < 6) {
       setErrorHeader('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
@@ -155,19 +167,23 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setErrorHeader(null);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
+      if (!userCredential.user) {
+        throw new Error('Não foi possível criar o usuário.');
+      }
+
       // Update Auth Profile
       await updateProfile(userCredential.user, {
-        displayName: formData.name
+        displayName: formData.name.trim()
       });
 
       // Create Firestore Doc
-      const userEmail = formData.email.toLowerCase();
+      const userEmail = email.toLowerCase();
       await setDoc(doc(db, 'users', userCredential.user.uid), {
-        name: formData.name,
-        phone: formData.phone,
-        creci: formData.creci,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        creci: formData.creci.trim(),
         email: userEmail,
         status: 'pending',
         role: 'user',
@@ -184,13 +200,19 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       });
       
     } catch (error: any) {
-      console.error("Registration error:", error.code);
-      if (error.code === 'auth/email-already-in-use') {
+      console.error("Registration error full:", error);
+      const errorCode = error.code || error.message;
+      
+      if (errorCode === 'auth/email-already-in-use') {
         setErrorHeader('Este e-mail já está sendo usado por outra conta. Tente fazer login.');
-      } else if (error.code === 'auth/weak-password') {
+      } else if (errorCode === 'auth/weak-password') {
         setErrorHeader('A senha é muito fraca. Use pelo menos 6 caracteres.');
+      } else if (errorCode === 'auth/invalid-email') {
+        setErrorHeader('O e-mail digitado não é válido.');
+      } else if (error.message?.includes('permission-denied')) {
+        setErrorHeader('Erro de permissão ao salvar no banco. Verifique os dados novamente.');
       } else {
-        setErrorHeader('Erro ao realizar cadastro. Verifique os dados e tente novamente.');
+        setErrorHeader(`Erro ao realizar cadastro (${errorCode}). Verifique os dados e tente novamente de forma manual.`);
       }
     } finally {
       setIsLoading(false);
