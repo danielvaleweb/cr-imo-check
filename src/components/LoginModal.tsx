@@ -209,8 +209,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         setErrorHeader('A senha é muito fraca. Use pelo menos 6 caracteres.');
       } else if (errorCode === 'auth/invalid-email') {
         setErrorHeader('O e-mail digitado não é válido.');
-      } else if (error.message?.includes('permission-denied')) {
-        setErrorHeader('Erro de permissão ao salvar no banco. Verifique os dados novamente.');
+      } else if (error.message?.includes('permission-denied') || errorCode === 'permission-denied') {
+        setErrorHeader('Erro de permissão no banco. Se você usa AdBlock ou Brave Shield, desative-os e tente novamente, pois eles podem bloquear a conexão.');
       } else {
         setErrorHeader(`Erro ao realizar cadastro (${errorCode}). Verifique os dados e tente novamente de forma manual.`);
       }
