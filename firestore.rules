@@ -6,86 +6,48 @@ service cloud.firestore {
     // ===============================================================
     // Funções Auxiliares (Helper Functions)
     // ===============================================================
-
+    
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Função de Admin ultra-segura
+    // Função de Admin ultra-robusta e prioritária
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.uid == "xgp4kEuc66UbGXIMcBVAa4fykus2" ||
-        (request.auth.token != null && 
-         request.auth.token.email != null &&
-         request.auth.token.email.lower() == "danielvaleweb@gmail.com")
+        (request.auth.token != null && request.auth.token.get('email', '').lower() == "danielvaleweb@gmail.com")
       );
     }
 
     // ===============================================================
-    // Regras por Coleção
+    // Coleções Críticas do Dashboard (Admin Key Access)
     // ===============================================================
 
-    // Coleção de Usuários
+    match /property_leads/{id} {
+      allow get, list, write: if isAdmin();
+      allow create: if true;
+    }
+
+    match /proposals/{id} {
+      allow get, list, write: if isAdmin();
+      allow create: if true;
+    }
+
     match /users/{userId} {
-      // Admin pode tudo
-      allow read, write: if isAdmin();
-
-      // Regras para o próprio usuário
-      allow get: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow list: if isAuthenticated() && request.query.limit <= 1 && isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow get, list, write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
     }
 
-    // Propriedades (Públicas para leitura)
-    match /properties/{propertyId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
+    // ===============================================================
+    // Coleções Públicas e de Sistema
+    // ===============================================================
 
-    // Corretores (Públicos para leitura)
-    match /brokers/{brokerId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
+    match /properties/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /brokers/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /condos/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /system_config/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /condo_options/{id} { allow read: if true; allow write: if isAdmin(); }
 
-    // Condomínios (Públicos para leitura)
-    match /condos/{condoId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Ofertas e Negociações (Privadas)
-    match /proposals/{proposalId} {
-      allow read: if isAdmin();
-      allow create: if true; // Qualquer um pode enviar proposta
-      allow update, delete: if isAdmin();
-    }
-
-    // Leads de "Venda seu Imóvel" (Privados)
-    match /property_leads/{leadId} {
-      allow read: if isAdmin();
-      allow create: if true; // Qualquer um pode enviar lead
-      allow update, delete: if isAdmin();
-    }
-
-    // Configurações do Sistema
-    match /system_config/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Opções de Condomínio
-    match /condo_options/{optionId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // BACKUP: Bloqueio Total para qualquer outro caminho não especificado
+    // Backup Geral para Admin (Catch-all)
     match /{allPaths=**} {
       allow read, write: if isAdmin();
     }

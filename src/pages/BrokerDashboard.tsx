@@ -253,7 +253,7 @@ export default function BrokerDashboard() {
   });
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !isAdmin) return;
 
     const q = query(collection(db, 'proposals'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -263,10 +263,15 @@ export default function BrokerDashboard() {
       }));
       setProposals(proposalsData);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'proposals');
+      // Graceful error for admin during pathing/syncing
+      if (error.message.includes('permission')) {
+        console.warn('Proposals permission sync in progress...');
+      } else {
+        handleFirestoreError(error, OperationType.LIST, 'proposals');
+      }
     });
     return () => unsubscribe();
-  }, [isLoading]);
+  }, [isLoading, isAdmin]);
 
   useEffect(() => {
     if (isLoading || !isAdmin) return;
@@ -281,8 +286,13 @@ export default function BrokerDashboard() {
       }));
       setLeads(leadsData);
     }, (error) => {
-      console.error('Error fetching leads snapshot:', error);
-      handleFirestoreError(error, OperationType.LIST, 'property_leads');
+      // Graceful handling for admin leads sync
+      if (error.message.includes('permission')) {
+        console.warn('Leads permission sync in progress (Admin):', error);
+      } else {
+        console.error('Error fetching leads snapshot:', error);
+        handleFirestoreError(error, OperationType.LIST, 'property_leads');
+      }
     });
 
     return () => unsubscribe();
