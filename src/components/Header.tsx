@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useCondos } from '../context/CondoContext';
 import { useProperties } from '../context/PropertyContext';
 import { auth, db } from '../firebase';
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
 
 interface HeaderProps {

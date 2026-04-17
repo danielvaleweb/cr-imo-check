@@ -336,7 +336,7 @@ export default function BrokerDashboard() {
     });
 
     return () => unsubscribe();
-  }, [isLoading, isAdmin]);
+  }, [isLoading, isAdmin, auth.currentUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

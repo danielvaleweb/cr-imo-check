@@ -87,7 +87,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.uid == "xgp4kEuc66UbGXIMcBVAa4fykus2" ||
-        (request.auth.token != null && "email" in request.auth.token && request.auth.token.email.lower() == "danielvaleweb@gmail.com")
+        request.auth.token.email == "danielvaleweb@gmail.com"
       );
     }
 
@@ -195,7 +195,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      // Regra mestre absoluta para o Administrador
+      // Regra mestre absoluta para o Administrador - Colocada no topo para prioridade
       allow read, write: if isAdmin();
 
       // Regras de acesso para usuários comuns
