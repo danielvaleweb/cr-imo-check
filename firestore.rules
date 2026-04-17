@@ -87,7 +87,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.uid == "xgp4kEuc66UbGXIMcBVAa4fykus2" ||
-        (request.auth.token != null && "email" in request.auth.token && request.auth.token.email.lower() == "danielvaleweb@gmail.com")
+        (request.auth.token != null && "email" in request.auth.token && request.auth.token.email.toLower() == "danielvaleweb@gmail.com")
       );
     }
 
@@ -125,6 +125,7 @@ service cloud.firestore {
              (!('phone' in data) || (data.phone is string && data.phone.size() <= 20)) &&
              (!('creci' in data) || (data.creci is string && data.creci.size() <= 20)) &&
              (!('createdAt' in data) || data.createdAt is string) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
              (!('favorites' in data) || (data.favorites is list && data.favorites.size() < 1000));
     }
 
@@ -199,18 +200,19 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      // Regra mestre absoluta para o Administrador - Colocada no topo para prioridade
+      // Regra mestre absoluta para o Administrador
       allow read, write: if isAdmin();
 
-      // Regras de acesso para usuários comuns
-      allow get: if isOwner(userId) || (isAuthenticated() && "email" in resource.data && resource.data.email == request.auth.token.email);
-      allow list: if isAdmin() || (isAuthenticated() && "email" in resource.data && resource.data.email == request.auth.token.email);
-
-      // Only owner can create their profile as 'pending'
+      // Regras de acesso para o próprio usuário
+      allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
                     request.resource.data.status == 'pending' &&
                     request.resource.data.role == 'user';
-      // Only admin can change status or role
+      
+      // Permitir que o proprietário se veja na lista (se as filtragens passarem)
+      allow list: if isAdmin() || (isAuthenticated() && isOwner(userId));
+
+      // Atualização: Proprietário pode atualizar seu perfil, mas não seu status ou role
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) &&
                     (isAdmin() || (request.resource.data.status == resource.data.status && request.resource.data.role == resource.data.role));
     }
