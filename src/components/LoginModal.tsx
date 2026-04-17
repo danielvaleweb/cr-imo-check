@@ -99,7 +99,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       }
 
       // Realizar busca por e-mail no Firestore para validar se existe cadastro prévio por formulário
-      const q = query(collection(db, "users"), where("email", "==", user.email));
+      const userEmail = user.email?.toLowerCase();
+      const q = query(collection(db, "users"), where("email", "==", userEmail));
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
@@ -230,11 +231,12 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       });
 
       // Create Firestore Doc
+      const userEmail = formData.email.toLowerCase();
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         name: formData.name,
         phone: formData.phone,
         creci: formData.creci,
-        email: formData.email,
+        email: userEmail,
         status: 'pending',
         role: 'user',
         createdAt: new Date().toISOString()

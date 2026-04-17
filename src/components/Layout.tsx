@@ -125,19 +125,37 @@ export default function Layout() {
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const userData = docSnap.data();
+        
+        // Seção Crítica: Validar aprovação pra qualquer um que não seja o admin
+        const isAdminEmail = currentUser.email?.toLowerCase() === 'danielvaleweb@gmail.com';
+        const isAdminUid = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+        
+        if (!isAdminEmail && !isAdminUid && userData.status !== 'approved') {
+          console.warn('Sessão encerrada: Usuário não aprovado.');
+          auth.signOut();
+          return;
+        }
+
         if (userData.favorites) {
           setFavorites(userData.favorites);
         }
       } else {
-        const initialData = {
-          email: currentUser.email,
-          role: 'user',
-          favorites: favorites
-        };
-        setDoc(userDocRef, initialData).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`));
+        // Se o documento não existe, e não é o administrador, não permitimos permanência
+        const isAdminEmail = currentUser.email?.toLowerCase() === 'danielvaleweb@gmail.com';
+        const isAdminUid = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+        
+        if (!isAdminEmail && !isAdminUid) {
+          console.warn('Sessão encerrada: Perfil não encontrado no Firestore.');
+          auth.signOut();
+        }
       }
     }, (err) => {
-      handleFirestoreError(err, OperationType.GET, `users/${currentUser.uid}`);
+      // Se der erro de permissão ao tentar ler o próprio doc, algo está errado com o vínculo do UID
+      if (err.message.includes('permission')) {
+        console.error('Erro de permissão no Layout para o UID:', currentUser.uid);
+      } else {
+        handleFirestoreError(err, OperationType.GET, `users/${currentUser.uid}`);
+      }
     });
 
     return () => unsubscribe();

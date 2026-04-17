@@ -393,7 +393,7 @@ export default function BrokerDashboard() {
             const userData = userDoc.data();
             
             // Allow admin or approved users
-            if (userData.role === 'admin' || user.email === 'danielvaleweb@gmail.com') {
+            if (userData.role === 'admin' || user.email?.toLowerCase() === 'danielvaleweb@gmail.com') {
               setIsAdmin(true);
             } else if (userData.status !== 'approved') {
               // Not approved, kick back to home
