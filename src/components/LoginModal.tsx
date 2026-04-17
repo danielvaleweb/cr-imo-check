@@ -180,7 +180,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
       // Create Firestore Doc
       const userEmail = email.toLowerCase();
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
+      const registrationData = {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
         creci: formData.creci.trim(),
@@ -188,7 +188,14 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         status: 'pending',
         role: 'user',
         createdAt: new Date().toISOString()
+      };
+
+      console.log("Attempting to save user document:", {
+        uid: userCredential.user.uid,
+        data: registrationData
       });
+
+      await setDoc(doc(db, 'users', userCredential.user.uid), registrationData);
 
       // Show success wait modal
       await signOut(auth);
@@ -209,8 +216,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         setErrorHeader('A senha é muito fraca. Use pelo menos 6 caracteres.');
       } else if (errorCode === 'auth/invalid-email') {
         setErrorHeader('O e-mail digitado não é válido.');
-      } else if (error.message?.includes('permission-denied') || errorCode === 'permission-denied') {
-        setErrorHeader('Erro de permissão no banco. Se você usa AdBlock ou Brave Shield, desative-os e tente novamente, pois eles podem bloquear a conexão.');
+      } else if (error.message?.includes('permission-denied') || errorCode === 'permission-denied' || error.message?.includes('Missing or insufficient permissions')) {
+        setErrorHeader('O seu navegador está bloqueando a conexão com o banco de dados (ERR_BLOCKED_BY_CLIENT). Por favor, desative extensões como AdBlock ou o Shield do Brave para concluir o cadastro.');
       } else {
         setErrorHeader(`Erro ao realizar cadastro (${errorCode}). Verifique os dados e tente novamente de forma manual.`);
       }

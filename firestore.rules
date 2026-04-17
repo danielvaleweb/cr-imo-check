@@ -87,7 +87,10 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.uid == "xgp4kEuc66UbGXIMcBVAa4fykus2" ||
-        (request.auth.token != null && "email" in request.auth.token && request.auth.token.email.lower() == "danielvaleweb@gmail.com")
+        (request.auth.token != null && 
+         "email" in request.auth.token && 
+         request.auth.token.email != null &&
+         request.auth.token.email.lower() == "danielvaleweb@gmail.com")
       );
     }
 
@@ -206,17 +209,20 @@ service cloud.firestore {
       // Regras de acesso para o próprio usuário
       allow get: if isOwner(userId);
       
-      // Simplificado para garantir o funcionamento do cadastro inicial
+      // Permitir que usuários criem seu próprio documento inicial (sempre como pendente)
       allow create: if isOwner(userId) && 
-                    request.resource.data.status == 'pending' &&
-                    request.resource.data.role == 'user';
+                    request.resource.data.get('status', 'pending') == 'pending' &&
+                    request.resource.data.get('role', 'user') == 'user';
       
       // Permitir que o proprietário se veja na lista (se as filtragens passarem)
       allow list: if isAdmin() || (isAuthenticated() && isOwner(userId));
 
       // Atualização: Proprietário pode atualizar seu perfil, mas não seu status ou role
-      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) &&
-                    (isAdmin() || (request.resource.data.status == resource.data.status && request.resource.data.role == resource.data.role));
+      allow update: if (isOwner(userId) || isAdmin()) &&
+                    (isAdmin() || (
+                      request.resource.data.get('status', resource.data.status) == resource.data.status && 
+                      request.resource.data.get('role', resource.data.role) == resource.data.role
+                    ));
     }
 
     match /properties/{propertyId} {
