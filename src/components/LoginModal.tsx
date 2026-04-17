@@ -217,7 +217,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       } else if (errorCode === 'auth/invalid-email') {
         setErrorHeader('O e-mail digitado não é válido.');
       } else if (error.message?.includes('permission-denied') || errorCode === 'permission-denied' || error.message?.includes('Missing or insufficient permissions')) {
-        setErrorHeader('O seu navegador está bloqueando a conexão com o banco de dados (ERR_BLOCKED_BY_CLIENT). Por favor, desative extensões como AdBlock ou o Shield do Brave para concluir o cadastro.');
+        setErrorHeader('Erro de permissão no banco de dados. Verifique se sua conta foi aprovada ou se você tem permissão para esta ação.');
       } else {
         setErrorHeader(`Erro ao realizar cadastro (${errorCode}). Verifique os dados e tente novamente de forma manual.`);
       }
