@@ -299,23 +299,17 @@ export default function BrokerDashboard() {
   }, [isLoading, isAdmin]);
 
   useEffect(() => {
-    if (isLoading) return;
-    
-    console.log('Dashboard Auth Sync:', { 
-      isAdmin, 
-      userEmail: auth.currentUser?.email,
-      uid: auth.currentUser?.uid,
-      emailVerified: auth.currentUser?.emailVerified
-    });
-
     const currentEmail = auth.currentUser?.email?.toLowerCase();
     const currentUid = auth.currentUser?.uid;
     const isExplicitAdmin = currentEmail === 'danielvaleweb@gmail.com' || currentUid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
 
+    // Se não for admin (pelo estado ou explicitamente), não ouvimos os usuários
     if (!isAdmin && !isExplicitAdmin) return;
 
     // Use a direct collection reference for the admin to avoid query filtering logic conflicts
     const usersCollection = collection(db, 'users');
+    console.log('Dashboard: Starting users sync for admin...');
+
     const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
       const adminEmail = 'danielvaleweb@gmail.com';
       const usersData = snapshot.docs
@@ -323,7 +317,12 @@ export default function BrokerDashboard() {
           id: doc.id,
           ...doc.data()
         }))
-        .filter((u: any) => u.email?.toLowerCase() !== adminEmail.toLowerCase()) // Não mostrar o admin na lista de aprovação
+        .filter((u: any) => {
+          const userEmail = u.email?.toLowerCase();
+          const userUid = u.id;
+          // Não mostrar o próprio admin na lista
+          return userEmail !== adminEmail && userUid !== 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+        })
         .sort((a: any, b: any) => {
           const getTime = (val: any) => {
             if (!val) return 0;
@@ -334,6 +333,8 @@ export default function BrokerDashboard() {
           };
           return getTime(b.createdAt) - getTime(a.createdAt);
         });
+      
+      console.log(`Dashboard: Sync success. Found ${usersData.length} users (Admin excluded).`);
       setUsersToApprove(usersData);
     }, (error) => {
       // Se for erro de permissão mas somos admin, logamos mas não travamos a UI com throw
@@ -345,7 +346,7 @@ export default function BrokerDashboard() {
     });
 
     return () => unsubscribe();
-  }, [isLoading, isAdmin, auth.currentUser]);
+  }, [isAdmin, auth.currentUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -401,22 +402,23 @@ export default function BrokerDashboard() {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             
-            // Allow admin or approved users
-            if (userData.role === 'admin' || user.email?.toLowerCase() === 'danielvaleweb@gmail.com') {
-              setIsAdmin(true);
-            } else if (userData.status !== 'approved') {
-              // Not approved, just go to home but stay logged in
-              navigate('/');
-              return;
-            }
-          } else if (user.email !== 'danielvaleweb@gmail.com') {
-             // Not in Firestore and not admin, go to home
-             navigate('/');
-             return;
-          } else {
-             // Not in Firestore but is the explicit admin email
-             setIsAdmin(true);
-          }
+        // Allow admin or approved users
+        const isDaniel = user.email?.toLowerCase() === 'danielvaleweb@gmail.com';
+        if (userData.role === 'admin' || isDaniel) {
+          setIsAdmin(true);
+        } else if (userData.status !== 'approved') {
+          // Not approved, just go to home but stay logged in
+          navigate('/');
+          return;
+        }
+      } else if (user.email?.toLowerCase() !== 'danielvaleweb@gmail.com') {
+         // Not in Firestore and not admin, go to home
+         navigate('/');
+         return;
+      } else {
+         // Not in Firestore but is the explicit admin email
+         setIsAdmin(true);
+      }
           setIsLoading(false);
         } catch (error) {
           console.error("Dashboard auth check error:", error);
