@@ -405,14 +405,12 @@ export default function BrokerDashboard() {
             if (userData.role === 'admin' || user.email?.toLowerCase() === 'danielvaleweb@gmail.com') {
               setIsAdmin(true);
             } else if (userData.status !== 'approved') {
-              // Not approved, kick back to home
-              await signOut(auth);
+              // Not approved, just go to home but stay logged in
               navigate('/');
               return;
             }
           } else if (user.email !== 'danielvaleweb@gmail.com') {
-             // Not in Firestore and not the explicit admin email
-             await signOut(auth);
+             // Not in Firestore and not admin, go to home
              navigate('/');
              return;
           } else {

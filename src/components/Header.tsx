@@ -65,14 +65,9 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
         // Validation: Check if user document exists and is approved
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          // Always show the user in the header if they exist in Firestore
           if (userDoc.exists()) {
-            const userData = userDoc.data();
-            if (userData.status === 'approved' || userData.role === 'admin') {
-              setUser(currentUser);
-            } else {
-              console.warn('Header: User not approved or not admin');
-              setUser(null);
-            }
+            setUser(currentUser);
           } else {
             console.warn('Header: User document does not exist in Firestore');
             setUser(null);

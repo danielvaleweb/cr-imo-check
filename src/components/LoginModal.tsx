@@ -103,7 +103,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       const status = await checkUserStatus(userCredential.user.uid);
 
       if (status === 'pending') {
-        await signOut(auth);
+        // Stay logged in but show the pending modal
         setCustomError({
           title: 'Aguardando Aprovação',
           message: 'Seu cadastro foi recebido! Estamos analisando seus dados. Você receberá uma notificação assim que for autorizado.',
@@ -197,8 +197,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
       await setDoc(doc(db, 'users', userCredential.user.uid), registrationData);
 
-      // Show success wait modal
-      await signOut(auth);
+      // Show success wait modal and STAY logged in
       setCustomError({
         title: 'Solicitação Enviada',
         message: 'Seu cadastro foi recebido com sucesso! Um administrador irá revisar sua conta. Você será avisado quando puder logar.',

@@ -126,16 +126,7 @@ export default function Layout() {
       if (docSnap.exists()) {
         const userData = docSnap.data();
         
-        // Seção Crítica: Validar aprovação pra qualquer um que não seja o admin
-        const isAdminEmail = currentUser.email?.toLowerCase() === 'danielvaleweb@gmail.com';
-        const isAdminUid = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-        
-        if (!isAdminEmail && !isAdminUid && userData.status !== 'approved') {
-          console.warn('Sessão encerrada: Usuário não aprovado.');
-          auth.signOut();
-          return;
-        }
-
+        // Sincronizar favoritos
         if (userData.favorites) {
           setFavorites(userData.favorites);
         }
