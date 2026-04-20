@@ -13,7 +13,8 @@ import {
   AlertCircle, 
   MessageCircle, 
   RotateCcw,
-  Loader2
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
@@ -448,9 +449,9 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   exit={{ opacity: 0, scale: 0.9, y: 20 }}
                   className="bg-[#222] border border-white/10 rounded-[40px] p-8 md:p-12 w-full max-w-[500px] text-center space-y-8"
                 >
-                  <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mx-auto">
+                  <div className="w-20 h-20 bg-[#617964]/10 rounded-3xl flex items-center justify-center mx-auto">
                     {customError.type === 'auth_pending' ? (
-                      <Loader2 className="w-10 h-10 text-white animate-spin" />
+                      <CheckCircle2 className="w-10 h-10 text-[#617964]" />
                     ) : (
                       <AlertCircle className="w-10 h-10 text-terracota" />
                     )}
@@ -464,23 +465,22 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   </div>
 
                   <div className="flex flex-col gap-4 pt-4">
+                    <button 
+                      onClick={closeCustomModal}
+                      className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl font-bold text-lg hover:bg-gray-100 transition-all active:scale-[0.98]"
+                    >
+                      Obrigado!
+                    </button>
+
                     <a 
                       href="https://api.whatsapp.com/send?phone=5532988184518&text=Ol%C3%A1%2C%20gostaria%20de%20falar%20com%20um%20especialista%20da%20CR%20Im%C3%B3veis%20de%20Luxo!"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl font-bold text-lg hover:bg-gray-100 transition-all active:scale-[0.98]"
+                      className="w-full flex items-center justify-center gap-3 bg-white/5 border border-white/10 text-white py-4 rounded-2xl font-bold text-lg hover:bg-white/10 transition-all active:scale-[0.98]"
                     >
                       <MessageCircle className="w-6 h-6" />
                       Falar com a CR
                     </a>
-                    
-                    <button 
-                      onClick={closeCustomModal}
-                      className="w-full flex items-center justify-center gap-3 bg-white/5 border border-white/10 text-white py-4 rounded-2xl font-bold text-lg hover:bg-white/10 transition-all active:scale-[0.98]"
-                    >
-                      <RotateCcw className="w-6 h-6" />
-                      Tentar de novo
-                    </button>
                   </div>
                 </motion.div>
               </motion.div>

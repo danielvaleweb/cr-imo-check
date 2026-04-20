@@ -7,7 +7,7 @@ import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
 import { ROLE_GROUPS } from '../constants/roles';
 import { auth, db } from '../firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth';
 import { 
   collection, 
   onSnapshot, 
@@ -91,6 +91,7 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  ChevronLeft,
   MessageSquare,
   Clock,
   CheckCircle2,
@@ -304,48 +305,61 @@ export default function BrokerDashboard() {
     const isExplicitAdmin = currentEmail === 'danielvaleweb@gmail.com' || currentUid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
 
     // Se não for admin (pelo estado ou explicitamente), não ouvimos os usuários
-    if (!isAdmin && !isExplicitAdmin) return;
+    if (!isAdmin && !isExplicitAdmin) {
+      console.log('Dashboard Sync: User is not admin, skipping users listener.', { isAdmin, isExplicitAdmin, email: currentEmail });
+      return;
+    }
 
-    // Use a direct collection reference for the admin to avoid query filtering logic conflicts
     const usersCollection = collection(db, 'users');
-    console.log('Dashboard: Starting users sync for admin...');
-
-    const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
-      const adminEmail = 'danielvaleweb@gmail.com';
-      const usersData = snapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }))
-        .filter((u: any) => {
-          const userEmail = u.email?.toLowerCase();
-          const userUid = u.id;
-          // Não mostrar o próprio admin na lista
-          return userEmail !== adminEmail && userUid !== 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-        })
-        .sort((a: any, b: any) => {
-          const getTime = (val: any) => {
-            if (!val) return 0;
-            if (typeof val === 'string') return new Date(val).getTime();
-            if (val.toDate) return val.toDate().getTime();
-            if (val.seconds) return val.seconds * 1000;
-            return 0;
-          };
-          return getTime(b.createdAt) - getTime(a.createdAt);
-        });
-      
-      console.log(`Dashboard: Sync success. Found ${usersData.length} users (Admin excluded).`);
-      setUsersToApprove(usersData);
-    }, (error) => {
-      // Se for erro de permissão mas somos admin, logamos mas não travamos a UI com throw
-      if (error.message.includes('permission')) {
-        console.warn('Silent permission error for users list (Admin Syncing...):', error);
-      } else {
-        handleFirestoreError(error, OperationType.LIST, 'users');
-      }
+    console.log('Dashboard: Starting users sync for admin...', { 
+      databaseId: db.app.options.projectId,
+      uid: auth.currentUser?.uid,
+      email: auth.currentUser?.email
     });
 
-    return () => unsubscribe();
+    let unsubscribe: () => void;
+    
+    try {
+      unsubscribe = onSnapshot(usersCollection, (snapshot) => {
+        console.log(`Dashboard: Sync received ${snapshot.docs.length} users.`);
+        
+        const adminEmail = 'danielvaleweb@gmail.com';
+        const usersData = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          .filter((u: any) => {
+            const userEmail = u.email?.toLowerCase();
+            const userUid = u.id;
+            return userEmail !== adminEmail && userUid !== 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+          })
+          .sort((a: any, b: any) => {
+            const getTime = (val: any) => {
+              if (!val) return 0;
+              if (typeof val === 'string') return new Date(val).getTime();
+              if (val.toDate) return val.toDate().getTime();
+              if (val.seconds) return val.seconds * 1000;
+              return 0;
+            };
+            return getTime(b.createdAt) - getTime(a.createdAt);
+          });
+        
+        setUsersToApprove(usersData);
+      }, (error) => {
+        if (error.message.includes('permission')) {
+          console.warn('Dashboard Sync: Acesso negado pelo Firebase devido a regras restritas congeladas. Os usuários devem ser aprovados no Console.');
+        } else {
+          console.error('Dashboard Sync Error Callback:', error);
+        }
+      });
+    } catch (err) {
+      console.error('Dashboard Snapshot setup error:', err);
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [isAdmin, auth.currentUser]);
 
   useEffect(() => {
@@ -1141,7 +1155,11 @@ export default function BrokerDashboard() {
               { id: 'calendar', label: 'Agenda', icon: Calendar },
               { id: 'reports', label: 'Relatórios', icon: TrendingUp },
               { id: 'users_approval', label: 'Aprovar login', icon: Users, adminOnly: true, badge: usersToApprove.filter(u => u.status === 'pending').length },
-            ].filter(item => !item.adminOnly || isAdmin).map((item) => (
+            ].filter(item => {
+              if (!item.adminOnly) return true;
+              const isExplicitAdmin = auth.currentUser?.email?.toLowerCase() === 'danielvaleweb@gmail.com' || auth.currentUser?.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+              return isAdmin || isExplicitAdmin;
+            }).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
@@ -3586,8 +3604,12 @@ export default function BrokerDashboard() {
               </div>
 
               {/* Category Tabs */}
-              <div className="bg-white p-4 rounded-[2.5rem] shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
-                <div className="flex items-center gap-3 min-w-max">
+              <div className="relative group/tabs mb-6">
+                <div 
+                  id="broker-dashboard-categories" 
+                  className="bg-white p-4 rounded-[2.5rem] shadow-sm border border-gray-100 overflow-x-auto no-scrollbar scroll-smooth relative z-10"
+                >
+                  <div className="flex items-center gap-3 min-w-max lg:pr-12 lg:pl-2">
                   <button
                     onClick={() => setSelectedCategory('all')}
                     className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -3639,7 +3661,32 @@ export default function BrokerDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* Left Scroll Button */}
+              <button
+                onClick={() => {
+                  const el = document.getElementById('broker-dashboard-categories');
+                  if (el) el.scrollBy({ left: -300, behavior: 'smooth' });
+                }}
+                className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#617964] text-[#F3EFE6] hover:bg-[#374001] rounded-full shadow-lg items-center justify-center transition-all opacity-0 group-hover/tabs:opacity-100 cursor-pointer hidden md:flex"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              {/* Right Scroll Button */}
+              <button
+                onClick={() => {
+                  const el = document.getElementById('broker-dashboard-categories');
+                  if (el) el.scrollBy({ left: 300, behavior: 'smooth' });
+                }}
+                className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#617964] text-[#F3EFE6] hover:bg-[#374001] rounded-full shadow-lg items-center justify-center transition-all opacity-0 group-hover/tabs:opacity-100 cursor-pointer hidden md:flex"
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {properties
                   .filter(p => {
                     if (selectedCategory === 'all') return true;

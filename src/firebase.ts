@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 console.log('Initializing Firebase with config:', { ...firebaseConfig, apiKey: '***' });
@@ -8,10 +8,11 @@ console.log('Initializing Firebase with config:', { ...firebaseConfig, apiKey: '
 const app = initializeApp(firebaseConfig);
 const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
 
-// If firestoreDatabaseId is "(default)" or empty, let getFirestore use the default
-const db = databaseId !== '(default)'
-  ? getFirestore(app, databaseId)
-  : getFirestore(app);
+// Using initializeFirestore with memoryLocalCache to completely bypass 
+// IndexedDB cache corruption (ASSERTION FAILED / Unexpected State IDs)
+const db = initializeFirestore(app, {
+  localCache: memoryLocalCache()
+}, databaseId !== '(default)' ? databaseId : undefined);
 
 export { db };
 export const auth = getAuth(app);
