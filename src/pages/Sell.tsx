@@ -14,8 +14,9 @@ import {
   Building2,
   ChevronDown
 } from 'lucide-react';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { addLog } from '../services/logService';
 import { CATEGORIES } from '../constants/categories';
 
 const BENEFITS = [
@@ -112,6 +113,7 @@ export default function Sell() {
       }
 
       setIsSuccess(true);
+      await addLog('lead', 'Cadastrou imóvel (Captação)', `Proprietário: ${formData.ownerName}, Imóvel: ${formData.propertyType}`);
     } catch (error) {
       console.error("Error submitting form: ", error);
       alert("Ocorreu um erro ao enviar seu cadastro. Tente novamente.");

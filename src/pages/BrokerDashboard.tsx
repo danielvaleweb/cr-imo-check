@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { formatPhone } from '../lib/utils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProperties } from '../context/PropertyContext';
@@ -73,6 +73,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+import { addLog } from '../services/logService';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -97,11 +98,16 @@ import {
   CheckCircle2,
   AlertCircle,
   Menu,
+  GripVertical,
   X,
+  ShieldCheck,
+  FileText,
+  Save,
   Trash2,
   Edit,
   Check,
   ExternalLink,
+  MessageCircle,
   MapPin,
   Bed,
   Bath,
@@ -111,17 +117,14 @@ import {
   Phone,
   Info,
   Mail,
-  Save,
   Image as ImageIcon,
   Video,
   Trash,
-  FileText,
   Play,
   Rocket,
   Map as MapIcon,
   Link,
   Instagram,
-  ShieldCheck,
   ArrowLeft
 } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
@@ -157,6 +160,8 @@ const HORIZONTAL_CONVENIENCES = [
   'Ronda motorizada', 'Transporte interno para moradores'
 ];
 
+import { AgendaTab } from '../components/AgendaTab';
+
 export default function BrokerDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -171,7 +176,6 @@ export default function BrokerDashboard() {
 
   const [proposals, setProposals] = useState<any[]>([]);
 
-  // Dynamic Dashboard Data based on real properties and proposals
   const dashboardStats = useMemo(() => {
     const totalProperties = properties.length;
     
@@ -234,14 +238,241 @@ export default function BrokerDashboard() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingPropertyId, setEditingPropertyId] = useState<string | number | null>(null);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const [selectedChatBroker, setSelectedChatBroker] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = useState('');
+  const chatScrollRef = React.useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [agendaEvents, setAgendaEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'agenda_events'), orderBy('horario', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAgendaEvents(data);
+    }, (error) => {
+      console.warn("Agenda read error in Dashboard:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const todaysTasks = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return agendaEvents.filter(event => event.data === today);
+  }, [agendaEvents]);
+
+  const handleToggleTask = async (id: string, currentDone: boolean) => {
+    try {
+      await updateDoc(doc(db, 'agenda_events', id), {
+        done: !currentDone,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error toggling task:", error);
+    }
+  };
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
   const [usersToApprove, setUsersToApprove] = useState<any[]>([]);
   const userDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const [sidebarItems, setSidebarItems] = useState([
+    { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
+    { id: 'properties', label: 'Todos Imóveis', icon: Home },
+    { id: 'proposals', label: 'Propostas', icon: FileText },
+    { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
+    { id: 'brokers', label: 'Corretores', icon: Users },
+    { id: 'leads', label: 'Captações', icon: Users },
+    { id: 'calendar', label: 'Agenda', icon: Calendar },
+    { id: 'reports', label: 'Relatórios', icon: TrendingUp },
+    { id: 'users_approval', label: 'Aprovar login', icon: Users, adminOnly: true },
+  ]);
+
+  const [hasLoadedOrder, setHasLoadedOrder] = useState(false);
+
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('sidebar_order');
+    if (savedOrder) {
+      try {
+        const orderIds = JSON.parse(savedOrder);
+        setSidebarItems(prev => {
+          const orderedItems = [...prev].sort((a, b) => {
+            const idxA = orderIds.indexOf(a.id);
+            const idxB = orderIds.indexOf(b.id);
+            if (idxA === -1 && idxB === -1) return 0;
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
+          });
+          return orderedItems;
+        });
+      } catch (e) {
+        console.error("Failed to parse sidebar order", e);
+      }
+    }
+    setHasLoadedOrder(true);
+  }, []);
+
+  useEffect(() => {
+    if (hasLoadedOrder) {
+      localStorage.setItem('sidebar_order', JSON.stringify(sidebarItems.map(i => i.id)));
+    }
+  }, [sidebarItems, hasLoadedOrder]);
+
+  const visibleSidebarItems = useMemo(() => {
+    return sidebarItems.filter(item => {
+      if (!item.adminOnly) return true;
+      const isExplicitAdmin = auth.currentUser?.email?.toLowerCase() === 'danielvaleweb@gmail.com' || auth.currentUser?.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+      return isAdmin || isExplicitAdmin;
+    });
+  }, [sidebarItems, isAdmin]);
+
+  const handleReorder = (newOrder: any[]) => {
+    // Create a new master list that preserves the order of non-visible items 
+    // but updates the order of visible ones based on the new drag result.
+    const newSidebarItems = [...sidebarItems];
+    
+    // We want the new master list to have the items in 'newOrder' placed at the indices 
+    // where visible items were previously located.
+    let visibleIdx = 0;
+    const itemsToSet = sidebarItems.map(item => {
+      if (visibleSidebarItems.find(v => v.id === item.id)) {
+        return newOrder[visibleIdx++];
+      }
+      return item;
+    });
+
+    setSidebarItems(itemsToSet);
+  };
+
+  const [filteredNotifications, setFilteredNotifications] = useState<any[]>([]);
+  const [todayTasks, setTodayTasks] = useState<any[]>([]);
+  const [systemLogs, setSystemLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'system_logs'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setSystemLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (isMessagesOpen && selectedChatBroker && auth.currentUser) {
+      const myId = auth.currentUser.uid;
+      const otherId = selectedChatBroker.id.toString();
+      
+      const q = query(
+        collection(db, 'mensagens'),
+        where('room', 'in', [
+          `${myId}_${otherId}`,
+          `${otherId}_${myId}`
+        ]),
+        orderBy('createdAt', 'asc')
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setChatMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setTimeout(() => {
+          if (chatScrollRef.current) {
+            chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+          }
+        }, 100);
+      });
+      return () => unsubscribe();
+    }
+  }, [isMessagesOpen, selectedChatBroker]);
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newMessageText.trim() || !selectedChatBroker || !auth.currentUser) return;
+
+    try {
+      const text = newMessageText;
+      const myId = auth.currentUser.uid;
+      const otherId = selectedChatBroker.id.toString();
+      
+      setNewMessageText('');
+      await addDoc(collection(db, 'mensagens'), {
+        from: myId,
+        to: otherId,
+        room: `${myId}_${otherId}`,
+        text,
+        createdAt: serverTimestamp(),
+        senderName: auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Usuário'
+      });
+      
+      await addDoc(collection(db, 'notificacoes'), {
+        userId: otherId,
+        title: 'Nova Mensagem',
+        message: `${auth.currentUser.displayName || 'Alguém'} enviou uma mensagem para você.`,
+        type: 'message',
+        read: false,
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
+
+  // Search Logic moved here
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const queryStr = searchQuery.toLowerCase();
+    const results = [
+      ...properties.filter(p => p.title.toLowerCase().includes(queryStr) || p.location.toLowerCase().includes(queryStr)).map(p => ({ ...p, type: 'Imóvel' })),
+      ...leads.filter(l => l.name?.toLowerCase().includes(queryStr) || l.email?.toLowerCase().includes(queryStr)).map(l => ({ ...l, type: 'Lead', title: l.name })),
+      ...brokers.filter(b => b.name?.toLowerCase().includes(queryStr)).map(b => ({ ...b, type: 'Corretor', title: b.name }))
+    ].slice(0, 5);
+    setSearchResults(results);
+  }, [searchQuery, properties, leads, brokers]);
+
+  // Tasks of the day
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const q = query(
+      collection(db, 'agenda_events'),
+      where('type', '==', 'tarefa'),
+      where('data', '==', todayStr)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const userName = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0];
+      setTodayTasks(data.filter((t: any) => 
+        t.envolveQuem?.includes(userName)
+      ));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Notifications filtering
+  useEffect(() => {
+    const q = query(
+      collection(db, 'notificacoes'),
+      where('userId', '==', auth.currentUser?.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFilteredNotifications(data.filter((n: any) => 
+        n.type === 'tarefa' || n.type === 'commitment' || n.type === 'lead' || n.type === 'system'
+      ));
+    });
+    return () => unsubscribe();
+  }, []);
 
   const [customOptions, setCustomOptions] = useState<{
     leisure: { id: string; label: string }[];
@@ -471,12 +702,14 @@ export default function BrokerDashboard() {
     setIsBrokerModalOpen(true);
   };
 
-  const handleSaveBroker = (e: React.FormEvent) => {
+  const handleSaveBroker = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isEditingBroker && editingBrokerId !== null) {
-      updateBroker(editingBrokerId, newBrokerData);
+      await updateBroker(editingBrokerId, newBrokerData);
+      await addLog('broker', 'Editou corretor', `Corretor: ${newBrokerData.name}`);
     } else {
-      addBroker(newBrokerData);
+      await addBroker(newBrokerData);
+      await addLog('broker', 'Cadastrou corretor', `Corretor: ${newBrokerData.name}`);
     }
     setIsBrokerModalOpen(false);
     setIsEditingBroker(false);
@@ -491,7 +724,9 @@ export default function BrokerDashboard() {
   const confirmDeleteBroker = async () => {
     if (brokerToDelete !== null) {
       try {
+        const broker = brokers.find(b => b.id === brokerToDelete);
         await removeBroker(brokerToDelete);
+        await addLog('broker', 'Excluiu corretor', `Corretor: ${broker?.name || brokerToDelete}`);
         setBrokerToDelete(null);
       } catch (error) {
         console.error('Error deleting broker:', error);
@@ -768,9 +1003,11 @@ export default function BrokerDashboard() {
     setPropertyToDelete(id);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (propertyToDelete !== null) {
-      removeProperty(propertyToDelete);
+      const prop = properties.find(p => p.id === propertyToDelete);
+      await removeProperty(propertyToDelete);
+      await addLog('property', 'Excluiu imóvel', `Imóvel: ${prop?.title || propertyToDelete} (Cód: ${prop?.code})`);
       setPropertyToDelete(null);
     }
   };
@@ -911,8 +1148,10 @@ export default function BrokerDashboard() {
 
       if (isEditing && editingPropertyId !== null) {
         await updateProperty(editingPropertyId, propertyToSave);
+        await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
       } else {
         await addProperty(propertyToSave);
+        await addLog('property', 'Cadastrou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
       }
 
       setIsAddModalOpen(false);
@@ -982,8 +1221,10 @@ export default function BrokerDashboard() {
 
       if (isEditingCondo && editingCondoId !== null) {
         await updateCondo(editingCondoId, condoData);
+        await addLog('condo', 'Editou condomínio', `Condomínio: ${condoData.name}`);
       } else {
         await addCondo(condoData);
+        await addLog('condo', 'Cadastrou condomínio', `Condomínio: ${condoData.name}`);
       }
 
       setIsCondoModalOpen(false);
@@ -1034,7 +1275,9 @@ export default function BrokerDashboard() {
   const confirmDeleteCondo = async () => {
     if (condoToDelete !== null) {
       try {
+        const condo = condos.find(c => c.id === condoToDelete);
         await removeCondo(condoToDelete);
+        await addLog('condo', 'Excluiu condomínio', `Condomínio: ${condo?.name || condoToDelete}`);
         setCondoToDelete(null);
       } catch (error) {
         console.error("Erro ao excluir condomínio:", error);
@@ -1046,7 +1289,9 @@ export default function BrokerDashboard() {
   const confirmDeleteLead = async () => {
     if (leadToDelete !== null) {
       try {
+        const lead = leads.find(l => l.id === leadToDelete);
         await deleteDoc(doc(db, 'property_leads', leadToDelete));
+        await addLog('lead', 'Excluiu captação', `Proprietário: ${lead?.ownerName}, Imóvel: ${lead?.propertyType}`);
       } catch (error) {
         console.error('Error deleting lead:', error);
         handleFirestoreError(error, OperationType.DELETE, `property_leads/${leadToDelete}`);
@@ -1058,7 +1303,9 @@ export default function BrokerDashboard() {
   const confirmDeleteProposal = async () => {
     if (proposalToDelete !== null) {
       try {
+        const proposal = proposals.find(p => p.id === proposalToDelete);
         await deleteDoc(doc(db, 'proposals', proposalToDelete));
+        await addLog('proposal', 'Excluiu proposta', `Cliente: ${proposal?.userName}, Imóvel: ${proposal?.propertyName}`);
         setProposalToDelete(null);
       } catch (error) {
         handleFirestoreError(error, OperationType.DELETE, `proposals/${proposalToDelete}`);
@@ -1092,10 +1339,13 @@ export default function BrokerDashboard() {
 
   const handleUpdateUserStatus = async (userId: string, status: 'approved' | 'rejected') => {
     try {
-      await updateDoc(doc(db, 'users', userId), { 
+      const userRef = doc(db, 'users', userId);
+      const userToUpd = usersToApprove.find(u => u.id === userId);
+      await updateDoc(userRef, { 
         status,
         updatedAt: serverTimestamp()
       });
+      await addLog('user', status === 'approved' ? 'Aprovou acesso' : 'Rejeitou acesso', `Usuário: ${userToUpd?.name || userToUpd?.email}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
@@ -1103,6 +1353,8 @@ export default function BrokerDashboard() {
 
   const handleLogout = async () => {
     try {
+      const userName = auth.currentUser?.displayName || auth.currentUser?.email;
+      await addLog('system', 'Fez logout', `Usuário: ${userName}`);
       await signOut(auth);
       navigate('/');
     } catch (error) {
@@ -1112,6 +1364,246 @@ export default function BrokerDashboard() {
 
   return (
     <div className="h-screen bg-white flex flex-col lg:flex-row overflow-hidden">
+      {/* Messages Dropdown */}
+      <AnimatePresence>
+        {isMessagesOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="fixed top-20 right-4 lg:right-8 w-80 lg:w-96 bg-white rounded-[32px] shadow-2xl border border-gray-100 overflow-hidden z-[110] flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 120px)' }}
+          >
+            {selectedChatBroker ? (
+              <>
+                <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex items-center gap-4">
+                  <button 
+                    onClick={() => setSelectedChatBroker(null)}
+                    className="p-2 hover:bg-gray-200 rounded-xl transition-all"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-500" />
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <img src={selectedChatBroker.photo || "https://i.imgur.com/5l1CO1t.png"} className="w-10 h-10 rounded-xl object-cover" />
+                    <div>
+                      <h3 className="text-sm font-black text-gray-900">{selectedChatBroker.name}</h3>
+                      <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div 
+                  ref={chatScrollRef}
+                  className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px]"
+                >
+                  {chatMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50 p-8 text-center">
+                      <MessageSquare className="w-8 h-8 mb-2" />
+                      <p className="text-xs font-bold uppercase tracking-widest">Comece uma conversa</p>
+                    </div>
+                  ) : (
+                    chatMessages.map((msg) => (
+                      <div 
+                        key={msg.id}
+                        className={`flex ${msg.from === auth.currentUser?.uid ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                          msg.from === auth.currentUser?.uid 
+                            ? 'bg-[#617964] text-white rounded-tr-none shadow-lg shadow-[#617964]/10' 
+                            : msg.type === 'system'
+                              ? 'bg-amber-50 text-amber-800 border border-amber-100 italic rounded-tl-none text-xs'
+                              : 'bg-gray-100 text-gray-800 rounded-tl-none'
+                        }`}>
+                          {msg.text}
+                          <p className={`text-[8px] mt-1 opacity-50 font-bold uppercase ${msg.from === auth.currentUser?.uid ? 'text-white' : 'text-gray-500'}`}>
+                            {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Agora'}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form 
+                  onSubmit={handleSendMessage}
+                  className="p-4 border-t border-gray-100 bg-gray-50"
+                >
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      value={newMessageText}
+                      onChange={(e) => setNewMessageText(e.target.value)}
+                      placeholder="Sua mensagem..."
+                      className="w-full bg-white border-none rounded-xl py-3 pl-4 pr-12 text-xs font-medium focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm"
+                    />
+                    <button 
+                      type="submit"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[#617964] text-white rounded-lg hover:bg-[#374001] transition-all"
+                    >
+                      <ArrowUpRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+                  <h3 className="text-lg font-black text-gray-900">Mensagens Equipe</h3>
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Conecte-se com seus parceiros</p>
+                </div>
+                <div className="max-h-[400px] overflow-y-auto p-2">
+                  {brokers.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400">
+                      <User className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">Nenhum membro cadastrado.</p>
+                    </div>
+                  ) : (
+                    brokers.filter(b => b.id.toString() !== auth.currentUser?.uid).map((broker) => (
+                      <button
+                        key={broker.id}
+                        onClick={() => setSelectedChatBroker(broker)}
+                        className="w-full flex items-center gap-4 p-4 hover:bg-[#617964]/5 rounded-2xl transition-all group"
+                      >
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm transition-transform group-hover:scale-105">
+                            <img src={broker.photo || "https://i.imgur.com/5l1CO1t.png"} alt={broker.name} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
+                        </div>
+                        <div className="text-left flex-1 min-w-0">
+                          <p className="text-sm font-black text-gray-900 truncate">{broker.name}</p>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-[#25D366] group-hover:text-white transition-all">
+                          <MessageCircle className="w-4 h-4" />
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="p-4 bg-gray-50 border-t border-gray-100">
+                  <button className="w-full py-3 bg-[#617964] text-white rounded-xl text-xs font-black shadow-lg shadow-[#617964]/20">
+                    Ver Todas Conversas
+                  </button>
+                </div>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Settings / Permissions Modal */}
+      <AnimatePresence>
+        {isSettingsModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900">Configurações & Painel</h2>
+                  <p className="text-sm text-gray-500 font-medium">Gestão de acessos e permissões da equipe</p>
+                </div>
+                <button 
+                  onClick={() => setIsSettingsModalOpen(false)}
+                  className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all hover:shadow-lg"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-8 overflow-y-auto space-y-8">
+                {/* Permissões por Cargo */}
+                <div className="space-y-6">
+                  <h3 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5" /> Permissões por Cargo
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {['ADMIN', 'CORRETOR MASTER', 'CORRETOR'].map((cargo) => (
+                      <div key={cargo} className="p-6 bg-gray-50 rounded-3xl border border-gray-100 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-gray-900 uppercase tracking-tight">{cargo}</span>
+                          <span className="text-[10px] px-2 py-1 bg-[#617964]/10 text-[#617964] rounded-lg font-bold uppercase">Ativo</span>
+                        </div>
+                        <div className="space-y-2">
+                          {[
+                            { label: 'Pode Criar Imóveis', enabled: true },
+                            { label: 'Pode Editar Imóveis', enabled: cargo !== 'CORRETOR' },
+                            { label: 'Pode Deletar Imóveis', enabled: cargo === 'ADMIN' },
+                            { label: 'Pode Aprovar Logins', enabled: cargo === 'ADMIN' },
+                          ].map((perm, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-gray-200/50">
+                              <span className="font-bold text-gray-600">{perm.label}</span>
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center ${perm.enabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                <Check className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Login Approvals Settings */}
+                <div className="p-8 bg-gray-50 rounded-[32px] border border-gray-100">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Aprovação de Login</h3>
+                      <p className="text-xs text-gray-500 font-medium">Quem pode validar novas contas</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <div className="w-10 h-6 bg-[#617964] rounded-full relative p-1 cursor-pointer">
+                          <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+                       </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <button className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-200 hover:border-[#617964] hover:shadow-lg transition-all text-left">
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                           <Users className="w-4 h-4" />
+                        </div>
+                        <div>
+                           <p className="text-xs font-bold text-gray-900">Somente ADMIN</p>
+                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Recomendado</p>
+                        </div>
+                     </button>
+                     <button className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-200 hover:border-[#617964] hover:shadow-lg transition-all text-left opacity-60">
+                        <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
+                           <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                           <p className="text-xs font-bold text-gray-900">ADMIN + MASTER</p>
+                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Flexível</p>
+                        </div>
+                     </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-white border-t border-gray-100 flex gap-4 shrink-0">
+                <button className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all">
+                  Restaurar Padrão
+                </button>
+                <button 
+                  onClick={() => setIsSettingsModalOpen(false)}
+                  className="flex-1 py-4 bg-[#617964] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Sidebar - Desktop & Mobile */}
       <aside className={`
@@ -1144,49 +1636,48 @@ export default function BrokerDashboard() {
             </div>
           </div>
 
-          <nav className="space-y-1">
-            {[
-              { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
-              { id: 'properties', label: 'Todos Imóveis', icon: Home },
-              { id: 'proposals', label: 'Propostas', icon: FileText },
-              { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
-              { id: 'brokers', label: 'Corretores', icon: Users },
-              { id: 'leads', label: 'Captações', icon: Users },
-              { id: 'calendar', label: 'Agenda', icon: Calendar },
-              { id: 'reports', label: 'Relatórios', icon: TrendingUp },
-              { id: 'users_approval', label: 'Aprovar login', icon: Users, adminOnly: true, badge: usersToApprove.filter(u => u.status === 'pending').length },
-            ].filter(item => {
-              if (!item.adminOnly) return true;
-              const isExplicitAdmin = auth.currentUser?.email?.toLowerCase() === 'danielvaleweb@gmail.com' || auth.currentUser?.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-              return isAdmin || isExplicitAdmin;
-            }).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-                  activeTab === item.id 
-                    ? 'bg-[#617964]/10 text-[#617964]' 
-                    : (item.badge && item.badge > 0)
-                      ? 'bg-blue-50/50 text-blue-600 hover:bg-blue-100'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <div className="flex items-center gap-3 text-left">
-                  <item.icon className={`w-5 h-5 ${item.badge && item.badge > 0 && activeTab !== item.id ? 'text-blue-500' : ''}`} />
-                  {item.label}
-                </div>
-                {item.badge && item.badge > 0 ? (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                    activeTab === item.id ? 'bg-[#617964] text-white' : 'bg-blue-600 text-white animate-bounce'
-                  }`}>
-                    {item.badge}
-                  </span>
-                ) : null}
-              </button>
-            ))}
+          <nav>
+            <Reorder.Group axis="y" values={visibleSidebarItems} onReorder={handleReorder} className="space-y-1">
+              {visibleSidebarItems.map((item) => {
+                const badgeCount = item.id === 'users_approval' ? usersToApprove.filter(u => u.status === 'pending').length : 0;
+                return (
+                  <Reorder.Item
+                    key={item.id}
+                    value={item}
+                    className="relative group"
+                  >
+                    <button
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                        activeTab === item.id 
+                          ? 'bg-[#617964]/10 text-[#617964]' 
+                          : (badgeCount > 0)
+                            ? 'bg-blue-50/50 text-blue-600 hover:bg-blue-100'
+                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 text-left">
+                        <item.icon className={`w-5 h-5 ${badgeCount > 0 && activeTab !== item.id ? 'text-blue-500' : ''}`} />
+                        {item.label}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {badgeCount > 0 && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                            activeTab === item.id ? 'bg-[#617964] text-white' : 'bg-blue-600 text-white animate-bounce'
+                          }`}>
+                            {badgeCount}
+                          </span>
+                        )}
+                        <GripVertical className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
+                      </div>
+                    </button>
+                  </Reorder.Item>
+                );
+              })}
+            </Reorder.Group>
           </nav>
         </div>
       </aside>
@@ -2824,23 +3315,70 @@ export default function BrokerDashboard() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
                 type="text" 
-                placeholder="Buscar leads, imóveis ou documentos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar leads, imóveis ou corretores..."
                 className="w-full bg-gray-50 border-none rounded-2xl py-2.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
               />
+              
+              {/* Search Results Recommendations */}
+              <AnimatePresence>
+                {searchResults.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 p-2"
+                  >
+                    {searchResults.map((res, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setSearchQuery('');
+                          if (res.type === 'Imóvel') setActiveTab('inventory');
+                          else if (res.type === 'Lead') setActiveTab('leads');
+                          else if (res.type === 'Corretor') setActiveTab('team');
+                        }}
+                        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-all text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${res.type === 'Imóvel' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                            {res.type === 'Imóvel' ? <Home className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{res.title}</p>
+                            <p className="text-[10px] text-gray-500 uppercase font-black">{res.type}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 ml-4">
             <button 
-              onClick={() => setActiveTab('users_approval')}
+              onClick={() => setIsMessagesOpen(!isMessagesOpen)}
+              className={`p-2.5 rounded-xl transition-all relative ${isMessagesOpen ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+            >
+              <MessageSquare className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setActiveTab('notifications')}
               className="p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all relative"
             >
               <Bell className="w-5 h-5" />
-              {usersToApprove.filter(u => u.status === 'pending').length > 0 && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              {filteredNotifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
               )}
             </button>
-            <button className="hidden sm:flex p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all">
+            <button 
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="hidden sm:flex p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all"
+            >
               <Settings className="w-5 h-5" />
             </button>
             
@@ -2985,7 +3523,7 @@ export default function BrokerDashboard() {
                       </div>
                     </div>
                     
-                    <div className="h-[300px] lg:h-[400px] w-full">
+                    <div className="h-[400px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={dashboardStats.chartData}>
                           <defs>
@@ -3027,6 +3565,20 @@ export default function BrokerDashboard() {
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
+                  </div>
+
+                  {/* Agenda Section on Overview */}
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-black text-gray-900">Agenda do Dia</h3>
+                      <button 
+                        onClick={() => setActiveTab('calendar')}
+                        className="text-xs font-black text-[#617964] uppercase tracking-widest hover:underline"
+                      >
+                        Ver Agenda Completa
+                      </button>
+                    </div>
+                    <AgendaTab calendarOnly={true} />
                   </div>
 
                   {/* Recent Leads Table */}
@@ -3151,24 +3703,54 @@ export default function BrokerDashboard() {
                   >
                     <h3 className="text-xl font-black text-gray-900 mb-6">Tarefas do Dia</h3>
                     <div className="space-y-4">
-                      {[
-                        { title: 'Ligar para João Silva', time: '14:00', type: 'call', done: false },
-                        { title: 'Visita: Mansão Joá', time: '16:30', type: 'visit', done: true },
-                        { title: 'Enviar contrato Maria', time: '18:00', type: 'doc', done: false },
-                      ].map((task, i) => (
-                        <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border ${task.done ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100'}`}>
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${task.done ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                            {task.done ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
-                          </div>
-                          <div className="flex-1">
-                            <p className={`text-sm font-bold ${task.done ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</p>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{task.time}</p>
-                          </div>
+                      {todaysTasks.length === 0 ? (
+                        <div className="text-center py-10 border-2 border-dashed border-gray-100 rounded-[32px]">
+                           <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                             <CheckCircle2 className="w-6 h-6 text-gray-300" />
+                           </div>
+                           <p className="text-sm font-bold text-gray-400">Nenhuma tarefa para hoje</p>
+                           <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Aproveite para prospectar!</p>
                         </div>
-                      ))}
+                      ) : (
+                        todaysTasks.map((event) => {
+                          const title = event.type === 'tarefa' ? event.titulo : 
+                                       event.type === 'visita' ? `Visita: ${event.nomeCliente || 'Cliente'}` :
+                                       event.type === 'captacao' ? `Captação: ${event.nomeProprietario || 'Imóvel'}` :
+                                       event.type === 'reuniao' ? `Reunião: ${event.assunto || 'Sem assunto'}` : 'Compromisso';
+                          
+                          return (
+                            <div 
+                              key={event.id} 
+                              onClick={() => handleToggleTask(event.id, !!event.done)}
+                              className={`flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all ${
+                                event.done 
+                                  ? 'bg-gray-50 border-transparent opacity-60' 
+                                  : 'bg-white border-gray-100 hover:border-[#617964]/30 group'
+                              }`}
+                            >
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                                event.done 
+                                  ? 'bg-emerald-100 text-emerald-600' 
+                                  : 'bg-gray-100 text-gray-500 group-hover:bg-[#617964] group-hover:text-white'
+                              }`}>
+                                {event.done ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                              </div>
+                              <div className="flex-1">
+                                <p className={`text-sm font-bold ${event.done ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-[#617964]'}`}>
+                                  {title}
+                                </p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{event.horario}</p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
-                    <button className="w-full mt-6 py-4 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 text-sm font-bold hover:border-[#617964] hover:text-[#617964] transition-all flex items-center justify-center gap-2">
-                      <Plus className="w-4 h-4" /> Adicionar Tarefa
+                    <button 
+                      onClick={() => setActiveTab('calendar')}
+                      className="w-full mt-6 py-4 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 text-sm font-bold hover:border-[#617964] hover:text-[#617964] transition-all flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Gerenciar Agenda
                     </button>
                   </div>
 
@@ -3830,6 +4412,79 @@ export default function BrokerDashboard() {
                               >
                                 <Trash2 className="w-5 h-5" />
                               </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : activeTab === 'calendar' ? (
+            <AgendaTab />
+          ) : activeTab === 'reports' ? (
+            <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Relatórios de Atividade</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Log completo de todas as ações realizadas no sistema.</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Data / Hora</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Usuário</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Ação</th>
+                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Detalhes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {systemLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="p-12 text-center text-gray-400 italic">
+                             Nenhum registro de atividade encontrado.
+                          </td>
+                        </tr>
+                      ) : (
+                        systemLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="p-6 whitespace-nowrap">
+                              <div className="text-xs font-bold text-gray-900">
+                                {log.createdAt?.toDate ? log.createdAt.toDate().toLocaleDateString('pt-BR') : 'Agora'}
+                              </div>
+                              <div className="text-[10px] text-gray-400 font-black">
+                                {log.createdAt?.toDate ? log.createdAt.toDate().toLocaleTimeString('pt-BR') : ''}
+                              </div>
+                            </td>
+                            <td className="p-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-[#617964] uppercase tracking-tighter">
+                                  {log.userName?.charAt(0) || 'U'}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-bold text-gray-900">{log.userName}</div>
+                                  <div className="text-[10px] text-gray-400 font-medium">{log.userEmail}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-6">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                log.type === 'lead' ? 'bg-blue-50 text-blue-600' :
+                                log.type === 'property' ? 'bg-emerald-50 text-emerald-600' :
+                                log.type === 'proposal' ? 'bg-purple-50 text-purple-600' :
+                                log.type === 'broker' ? 'bg-amber-50 text-amber-600' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                                {log.action}
+                              </span>
+                            </td>
+                            <td className="p-6">
+                              <p className="text-sm text-gray-500 font-medium line-clamp-2">{log.details}</p>
                             </td>
                           </tr>
                         ))

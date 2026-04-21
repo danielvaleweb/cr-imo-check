@@ -26,6 +26,7 @@ import { useProperties } from '../context/PropertyContext';
 import { useBrokers } from '../context/BrokerContext';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { addLog } from '../services/logService';
 import { formatPhone } from '../lib/utils';
 
 const FAQ_ITEMS = [
@@ -111,6 +112,7 @@ export default function PurchaseProposal() {
         status: 'pending',
         createdAt: serverTimestamp()
       });
+      await addLog('proposal', 'Enviou proposta', `Cliente: ${formData.userName}, Imóvel: ${property?.title} (Cód: ${property?.code})`);
       
       setIsSuccess(true);
       // Play success sound

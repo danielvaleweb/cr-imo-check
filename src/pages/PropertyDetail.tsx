@@ -48,6 +48,9 @@ import { useProperties } from '../context/PropertyContext';
 import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
 import PropertyCard from '../components/PropertyCard';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { addLog } from '../services/logService';
+import { db } from '../firebase';
 
 const MOCK_PROPERTY = {
   id: '624270',
@@ -109,6 +112,7 @@ export default function PropertyDetail() {
   const [showControls, setShowControls] = useState(false);
   const [isNeighborhoodExpanded, setIsNeighborhoodExpanded] = useState(false);
   const [activePriceTab, setActivePriceTab] = useState(0);
+  const [visitRequested, setVisitRequested] = useState(false);
 
   const propertyData = properties.find(p => p.id.toString() === id) || properties[0];
   
@@ -252,10 +256,42 @@ export default function PropertyDetail() {
     }
   };
 
-  const handleScheduleSubmit = (e: React.FormEvent) => {
+  const handleScheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here we would normally send the data to a backend
-    console.log('Agendamento confirmado:', scheduleData);
+    
+    try {
+      // Auto-favorite property if not already
+      if (!favorites.includes(String(property.id))) {
+        toggleFavorite(property.id, 'property');
+      }
+
+      const prop = property as any;
+      const fullAddress = `${prop.street ? prop.street + ', ' : ''}${prop.neighborhood || prop.location?.split(',')[0] || ''}, ${prop.city || ''} - ${prop.state || prop.location?.split('-')[1]?.trim() || ''}`;
+
+      await addDoc(collection(db, 'agenda_events'), {
+        type: 'visita',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        termoAssinado: agreedToTerms,
+        nomeCliente: scheduleData.name,
+        emailCliente: scheduleData.email,
+        telefoneCliente: scheduleData.phone,
+        encontroLocal: scheduleData.location === 'property' ? 'no_local' : 'na_imobiliaria',
+        local: `${property.title} | ${fullAddress}`,
+        data: scheduleData.date,
+        horario: scheduleData.time,
+        createdBy: {
+          name: 'Cliente (Site)',
+          type: 'client'
+        }
+      });
+      await addLog('agenda', 'Agendou visita (Site)', `Cliente: ${scheduleData.name}, Imóvel: ${property.title}`);
+      setVisitRequested(true);
+      console.log('Agendamento confirmado:', scheduleData);
+    } catch (err) {
+      console.error('Failed to schedule visit to Firestore:', err);
+    }
+
     setIsScheduleModalOpen(false);
     
     // Show success message after a short delay
@@ -1153,16 +1189,30 @@ export default function PropertyDetail() {
 
             <div className="space-y-3">
               <button 
-                onClick={() => setIsScheduleModalOpen(true)}
-                className="w-full py-4 bg-marromescuro text-white rounded-2xl font-bold hover:bg-marromescuro/90 transition-all shadow-xl shadow-marromescuro/10 flex items-center justify-center gap-3"
+                onClick={() => !visitRequested && setIsScheduleModalOpen(true)}
+                disabled={visitRequested}
+                className={`w-full py-4 rounded-2xl font-bold transition-all shadow-xl flex items-center justify-center gap-3 ${
+                  visitRequested 
+                    ? 'bg-emerald-500 text-white shadow-emerald-500/10 cursor-default' 
+                    : 'bg-marromescuro text-white hover:bg-marromescuro/90 shadow-marromescuro/10'
+                }`}
               >
-                <div className="relative flex items-center justify-center">
-                  <Home className="w-6 h-6" />
-                  <div className="absolute inset-0 flex items-center justify-center pt-1">
-                    <User className="w-3 h-3 text-white fill-white" />
-                  </div>
-                </div>
-                Agendar visita
+                {visitRequested ? (
+                  <>
+                    <Check className="w-6 h-6" />
+                    Visita solicitada
+                  </>
+                ) : (
+                  <>
+                    <div className="relative flex items-center justify-center">
+                      <Home className="w-6 h-6" />
+                      <div className="absolute inset-0 flex items-center justify-center pt-1">
+                        <User className="w-3 h-3 text-white fill-white" />
+                      </div>
+                    </div>
+                    Agendar visita
+                  </>
+                )}
               </button>
               <button 
                 onClick={() => navigate(`/proposta-compra/${property.id}`)}
