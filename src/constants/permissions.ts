@@ -146,6 +146,20 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canHandleProposals: false,
     canManageSystem: false,
   },
+  "Membro": {
+    canViewReports: false,
+    canViewFinance: false,
+    canViewTeam: false,
+    canApproveUsers: false,
+    canDeleteProperties: false,
+    canEditProperties: false,
+    canDeleteCondos: false,
+    canEditCondos: false,
+    canDeleteBrokers: false,
+    canEditBrokers: false,
+    canHandleProposals: false,
+    canManageSystem: false,
+  },
 };
 
 // Add default values for all other roles based on their group category if needed

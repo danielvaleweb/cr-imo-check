@@ -381,7 +381,7 @@ export default function BrokerDashboard() {
     { id: 'properties', label: 'Todos Imóveis', icon: Home },
     { id: 'proposals', label: 'Propostas', icon: FileText, permission: 'canHandleProposals' },
     { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
-    { id: 'brokers', label: 'Corretores', icon: Users, permission: 'canViewTeam' },
+    { id: 'brokers', label: 'Equipe', icon: Users, permission: 'canViewTeam' },
     { id: 'leads', label: 'Captações', icon: Users },
     { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
     { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
@@ -1985,6 +1985,24 @@ export default function BrokerDashboard() {
         status,
         updatedAt: serverTimestamp()
       });
+
+      // If approved, also add to brokers (Team/Equipe) if not already there
+      if (status === 'approved' && userToUpd) {
+        const alreadyBroker = brokers.some(b => b.email?.toLowerCase() === userToUpd.email?.toLowerCase());
+        if (!alreadyBroker) {
+          await addBroker({
+            name: userToUpd.name || 'Novo Membro',
+            role: 'Membro',
+            photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
+            phone: userToUpd.phone || '',
+            email: userToUpd.email || '',
+            bio: 'Novo membro da equipe CR Imóveis.',
+            creci: userToUpd.creci || '',
+            instagram: ''
+          });
+        }
+      }
+
       await addLog('user', status === 'approved' ? 'Aprovou acesso' : 'Rejeitou acesso', `Usuário: ${userToUpd?.name || userToUpd?.email}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
@@ -5202,12 +5220,12 @@ export default function BrokerDashboard() {
             </>
           ) : activeTab === 'brokers' ? (
             <div
-              className="space-y-8"
+              className="space-y-12"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Corretores</h1>
-                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie a equipe de corretores da sua imobiliária.</p>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Equipe</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Conheça os profissionais que fazem a CR Imóveis ser referência em luxo.</p>
                 </div>
                 <button 
                   onClick={() => {
@@ -5218,111 +5236,166 @@ export default function BrokerDashboard() {
                   className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
-                  Adicionar Corretor
+                  Adicionar Membro
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pt-12 max-w-6xl mx-auto">
-                {brokers.map((broker) => {
-                  const brokerProperties = properties.filter(p => p.broker === broker.name);
-                  const latestProperty = brokerProperties.length > 0 ? brokerProperties[0] : null;
-                  const propertyImage = latestProperty ? (latestProperty.images?.[0] || latestProperty.image) : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80';
+              <div className="space-y-16">
+                {(() => {
+                  const getHierarchicalWeight = (roleName: string) => {
+                    const role = roleName.toUpperCase();
+                    if (role.includes('CEO')) return 0;
+                    if (role.includes('DIRETOR')) return 1;
+                    if (role.includes('GERENTE') || role.includes('COORDENADOR') || role.includes('SUPERVISOR')) return 2;
+                    if (role.includes('CORRETOR') || role.includes('CAPTADOR') || role.includes('CONSULTOR')) return 3;
+                    if (role.includes('ANALISTA') || role.includes('SOCIAL MEDIA') || role.includes('DESIGNER')) return 4;
+                    if (role.includes('ASSISTENTE') || role.includes('AUXILIAR')) return 5;
+                    return 6;
+                  };
 
-                  return (
-                    <div
-                      key={broker.id}
-                      className="relative bg-white rounded-[40px] shadow-sm border border-gray-100 group pt-20 max-w-[340px] mx-auto w-full"
-                    >
-                      {/* Background Property Image with Blur */}
-                      <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden rounded-t-[40px]">
-                        <img 
-                          src={propertyImage} 
-                          alt="Latest Property"
-                          className="w-full h-full object-cover blur-md scale-110 opacity-30 transition-transform duration-700 group-hover:scale-125"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-white" />
-                      </div>
+                  const groups = brokers.reduce((acc, b) => {
+                    let groupName = b.role;
+                    if (b.role.toUpperCase().includes('CEO')) groupName = 'Diretoria Executiva';
+                    
+                    if (!acc[groupName]) acc[groupName] = [];
+                    acc[groupName].push(b);
+                    return acc;
+                  }, {} as Record<string, typeof brokers>);
 
-                      {/* Broker Image in Circle - "Leaving the canvas" */}
-                      <div className="relative flex justify-center -mt-28 mb-4">
-                        <div className="w-36 h-36 rounded-full border-[10px] border-white shadow-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105">
-                          <img 
-                            src={broker.photo} 
-                            alt={broker.name}
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
+                  const groupNames = Object.keys(groups).sort((a, b) => {
+                    // Get first member of each group to determine rank (role specific)
+                    const roleA = groups[a][0].role;
+                    const roleB = groups[b][0].role;
+                    
+                    const weightA = getHierarchicalWeight(roleA);
+                    const weightB = getHierarchicalWeight(roleB);
+                    
+                    if (weightA !== weightB) return weightA - weightB;
+                    return a.localeCompare(b);
+                  });
+
+                  return groupNames.map(groupName => {
+                    const membersInGroup = groups[groupName];
+                    if (membersInGroup.length === 0) return null;
+
+                    return (
+                      <div key={groupName} className="space-y-8">
+                        <div className="flex items-center gap-4">
+                          <div className="h-[2px] flex-1 bg-gray-100"></div>
+                          <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] px-4 whitespace-nowrap bg-gray-50/50 py-1 rounded-full border border-gray-100">
+                            {groupName.toUpperCase().includes('DIRETORIA EXECUTIVA') ? 'CONSELHO E DIRETORIA' : groupName}
+                          </h2>
+                          <div className="h-[2px] flex-1 bg-gray-100"></div>
                         </div>
-                      </div>
 
-                      <div className="p-6 relative z-20">
-                        <div className="text-center mb-6">
-                          <h3 className="font-black text-gray-900 text-lg leading-tight">{broker.name}</h3>
-                          <p className="text-[#617964] font-bold text-xs uppercase tracking-widest">{broker.role}</p>
-                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                          {membersInGroup.map((broker) => {
+                            const brokerProperties = properties.filter(p => p.broker === broker.name);
+                            const latestProperty = brokerProperties.length > 0 ? brokerProperties[0] : null;
+                            const propertyImage = latestProperty ? (latestProperty.images?.[0] || latestProperty.image) : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80';
 
-                        <div className="space-y-3 mb-6 bg-gray-50/50 p-4 rounded-2xl">
-                          <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
-                            <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                              <Phone className="w-3 h-3 text-[#617964]" />
-                            </div>
-                            {broker.phone}
-                          </div>
-                          <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
-                            <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                              <Mail className="w-3 h-3 text-[#617964]" />
-                            </div>
-                            {broker.email}
-                          </div>
-                          {broker.creci && (
-                            <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
-                              <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                                <ShieldCheck className="w-3 h-3 text-[#617964]" />
+                            return (
+                              <div
+                                key={broker.id}
+                                className="relative bg-white rounded-[40px] shadow-sm border border-gray-100 group pt-20 max-w-[340px] mx-auto w-full"
+                              >
+                                {/* Background Property Image with Blur */}
+                                <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden rounded-t-[40px]">
+                                  <img 
+                                    src={propertyImage} 
+                                    alt="Latest Property"
+                                    className="w-full h-full object-cover blur-md scale-110 opacity-30 transition-transform duration-700 group-hover:scale-125"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-white" />
+                                </div>
+
+                                {/* Broker Image in Circle - "Leaving the canvas" */}
+                                <div className="relative flex justify-center -mt-28 mb-4">
+                                  <div className="w-36 h-36 rounded-full border-[10px] border-white shadow-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105">
+                                    <img 
+                                      src={broker.photo} 
+                                      alt={broker.name}
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="p-6 relative z-20">
+                                  <div className="text-center mb-6">
+                                    <h3 className="font-black text-gray-900 text-lg leading-tight">{broker.name}</h3>
+                                    <p className="text-[#617964] font-bold text-xs uppercase tracking-widest">{broker.role}</p>
+                                  </div>
+
+                                  <div className="space-y-3 mb-6 bg-gray-50/50 p-4 rounded-2xl text-left">
+                                    <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                                      <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                        <Phone className="w-3 h-3 text-[#617964]" />
+                                      </div>
+                                      {broker.phone}
+                                    </div>
+                                    <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                                      <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                        <Mail className="w-3 h-3 text-[#617964]" />
+                                      </div>
+                                      <span className="truncate">{broker.email}</span>
+                                    </div>
+                                    {broker.creci && (
+                                      <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                                        <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                          <ShieldCheck className="w-3 h-3 text-[#617964]" />
+                                        </div>
+                                        CRECI: {broker.creci}
+                                      </div>
+                                    )}
+                                    {broker.instagram && (
+                                      <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
+                                        <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                                          <Instagram className="w-3 h-3 text-[#617964]" />
+                                        </div>
+                                        @{broker.instagram}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <p className="text-xs text-gray-600 line-clamp-2 mb-6 font-medium text-center px-2">
+                                    {broker.bio}
+                                  </p>
+
+                                  <button 
+                                    onClick={() => navigate(`/corretor/${broker.id}`)}
+                                    className="w-full py-3 mb-6 bg-gray-50 text-gray-900 rounded-2xl text-xs font-black hover:bg-[#617964] hover:text-white transition-all border border-gray-100 flex items-center justify-center gap-2 group/btn"
+                                  >
+                                    Ver Perfil Completo
+                                    <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                                  </button>
+
+                                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                                    <button 
+                                      onClick={() => handleEditBroker(broker)}
+                                      className="px-4 py-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all flex items-center gap-2 text-xs font-black"
+                                    >
+                                      <Edit className="w-4 h-4" /> Editar
+                                    </button>
+                                    <button 
+                                      onClick={() => {
+                                        setBrokerToDelete(broker.id);
+                                      }}
+                                      className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 transition-all"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                              CRECI: {broker.creci}
-                            </div>
-                          )}
-                          {broker.instagram && (
-                            <div className="text-xs text-gray-500 font-bold flex items-center gap-3">
-                              <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                                <Instagram className="w-3 h-3 text-[#617964]" />
-                              </div>
-                              @{broker.instagram}
-                            </div>
-                          )}
-                        </div>
-
-                        <p className="text-xs text-gray-600 line-clamp-2 mb-6 font-medium text-center px-2">
-                          {broker.bio}
-                        </p>
-
-                        <button 
-                          onClick={() => navigate(`/corretor/${broker.id}`)}
-                          className="w-full py-3 mb-6 bg-gray-50 text-gray-900 rounded-2xl text-xs font-black hover:bg-[#617964] hover:text-white transition-all border border-gray-100 flex items-center justify-center gap-2 group/btn"
-                        >
-                          Ver Perfil Completo
-                          <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
-                        </button>
-
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                          <button 
-                            onClick={() => handleEditBroker(broker)}
-                            className="px-4 py-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all flex items-center gap-2 text-xs font-black"
-                          >
-                            <Edit className="w-4 h-4" /> Editar
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteBroker(broker.id)}
-                            className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 transition-all"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </div>
             ) : activeTab === 'users_approval' ? (

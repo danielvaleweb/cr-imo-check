@@ -25,6 +25,7 @@ export const ROLE_GROUPS = [
   {
     label: "Comercial (Vendas e Locação)",
     roles: [
+      "Membro",
       "Corretor de Imóveis",
       "Corretor de Locação",
       "Consultor Imobiliário",
