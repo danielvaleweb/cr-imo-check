@@ -662,13 +662,15 @@ export default function BrokerDashboard() {
     console.log('Dashboard: Auth listener starting...');
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log('Dashboard: Auth state changed:', currentUser?.email);
-      setUser(currentUser);
       
       if (!currentUser) {
+        setUser(null);
         setIsAdmin(false);
         setAuthStatus(null);
         setIsLoading(false);
       } else {
+        setUser(currentUser);
+        setIsLoading(true);
         const adminEmail = 'danielvaleweb@gmail.com';
         const isDaniel = currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
         const isUidAdmin = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
@@ -1615,6 +1617,7 @@ export default function BrokerDashboard() {
     }
 
     setIsSubmitting(true);
+    setIsLoading(true); // Bloquear a UI enquanto processa e Auth state muda
     setLoginError(null);
 
     try {
@@ -1637,8 +1640,10 @@ export default function BrokerDashboard() {
 
       await setDoc(doc(db, 'users', userCredential.user.uid), registrationData);
       setAuthStatus('pending');
+      setIsLoading(false);
     } catch (err: any) {
       console.error("Dashboard Register Error:", err);
+      setIsLoading(false);
       if (err.code === 'auth/email-already-in-use') {
         setLoginError('Este e-mail já está em uso.');
       } else {
@@ -1690,6 +1695,14 @@ export default function BrokerDashboard() {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-12 h-12 border-4 border-[#617964] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -1921,6 +1934,33 @@ export default function BrokerDashboard() {
             className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
           >
             Sair
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Garantir que corretores comuns só entrem se aprovados
+  if (user && !isAdmin && authStatus !== 'approved') {
+    return (
+       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center border border-gray-100"
+        >
+          <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-4">Verificando Perfil</h2>
+          <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+            Aguarde enquanto verificamos suas permissões de acesso...
+          </p>
+          <button 
+            onClick={handleLogout}
+            className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+          >
+            Sair e Voltar ao Site
           </button>
         </motion.div>
       </div>
