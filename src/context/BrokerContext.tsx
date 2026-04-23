@@ -39,10 +39,10 @@ export const INITIAL_BROKERS: Broker[] = [
   {
     id: 2,
     name: 'Daniel Vale',
-    role: 'CEO & DIRETOR CRIATIVO',
+    role: 'CEO Diretor criativo',
     photo: 'https://i.imgur.com/5l1CO1t.png',
-    phone: '(32) 88888-8888',
-    email: 'daniel@crimoveis.com.br',
+    phone: '(32) 98888-8888',
+    email: 'danielvaleweb@gmail.com',
     bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
     creci: '54.321-F',
     instagram: 'daniel_crimoveis'

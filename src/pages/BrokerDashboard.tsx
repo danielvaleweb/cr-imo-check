@@ -7,6 +7,7 @@ import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
 import { ExclusivityModal } from '../components/ExclusivityModal';
 import { ROLE_GROUPS } from '../constants/roles';
+import { getPermissions, DEFAULT_PERMISSIONS, PERMISSION_LABELS, type Permissions } from '../constants/permissions';
 import { auth, db } from '../firebase';
 import { 
   onAuthStateChanged, 
@@ -264,7 +265,6 @@ export default function BrokerDashboard() {
   const [isExclusivityModalOpen, setIsExclusivityModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingPropertyId, setEditingPropertyId] = useState<string | number | null>(null);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [selectedChatBroker, setSelectedChatBroker] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -299,11 +299,6 @@ export default function BrokerDashboard() {
     return () => unsubscribe();
   }, []);
 
-  const todaysTasks = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return agendaEvents.filter(event => event.data === today);
-  }, [agendaEvents]);
-
   const handleToggleTask = async (id: string, currentDone: boolean) => {
     try {
       await updateDoc(doc(db, 'agenda_events', id), {
@@ -316,6 +311,66 @@ export default function BrokerDashboard() {
   };
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
+  const [userPermissions, setUserPermissions] = useState<Permissions>(DEFAULT_PERMISSIONS);
+  const [rolePermissions, setRolePermissions] = useState<Record<string, Permissions>>({});
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
+  const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<string | null>(null);
+
+  const todaysTasks = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return agendaEvents.filter(event => event.data === today);
+  }, [agendaEvents]);
+
+  // Daily Summary Notification Logic
+  useEffect(() => {
+    if (!auth.currentUser || todaysTasks.length === 0 || !isAdmin) return;
+
+    const checkDailySummary = async () => {
+      try {
+        const todayString = new Date().toISOString().split('T')[0];
+        const notificationsRef = collection(db, 'notificacoes');
+        const q = query(
+          notificationsRef,
+          where('userId', '==', auth.currentUser?.uid),
+          where('type', '==', 'daily_summary'),
+          where('dateString', '==', todayString)
+        );
+
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          const captacoes = todaysTasks.filter(t => t.type === 'captacao');
+          const visitas = todaysTasks.filter(t => t.type === 'visita');
+          const tarefas = todaysTasks.filter(t => t.type === 'tarefa');
+
+          const parts = [];
+          if (captacoes.length) parts.push(`${captacoes.length} captação${captacoes.length > 1 ? 'ões' : 'ão'}`);
+          if (visitas.length) parts.push(`${visitas.length} visita${visitas.length > 1 ? 's' : ''}`);
+          if (tarefas.length) parts.push(`${tarefas.length} tarefa${tarefas.length > 1 ? 's' : ''}`);
+
+          if (parts.length === 0) return;
+
+          const message = `Agenda: hoje você tem ${parts.join(', ')} para realizar. Confira os detalhes!`;
+          
+          await addDoc(notificationsRef, {
+            userId: auth.currentUser?.uid,
+            title: 'Resumo do Dia',
+            message,
+            type: 'daily_summary',
+            dateString: todayString,
+            read: false,
+            clickAction: 'calendar',
+            createdAt: serverTimestamp()
+          });
+        }
+      } catch (error) {
+        console.error("Daily summary check error:", error);
+      }
+    };
+
+    checkDailySummary();
+  }, [auth.currentUser, todaysTasks, isAdmin]);
+
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
   const [usersToApprove, setUsersToApprove] = useState<any[]>([]);
@@ -324,15 +379,15 @@ export default function BrokerDashboard() {
   const [sidebarItems, setSidebarItems] = useState([
     { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
     { id: 'properties', label: 'Todos Imóveis', icon: Home },
-    { id: 'proposals', label: 'Propostas', icon: FileText },
+    { id: 'proposals', label: 'Propostas', icon: FileText, permission: 'canHandleProposals' },
     { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
-    { id: 'brokers', label: 'Corretores', icon: Users },
+    { id: 'brokers', label: 'Corretores', icon: Users, permission: 'canViewTeam' },
     { id: 'leads', label: 'Captações', icon: Users },
     { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
-    { id: 'finance', label: 'Financeiro', icon: CircleDollarSign },
+    { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
     { id: 'calendar', label: 'Agenda', icon: Calendar },
-    { id: 'reports', label: 'Relatórios', icon: TrendingUp },
-    { id: 'users_approval', label: 'Aprovar login', icon: Users, adminOnly: true },
+    { id: 'reports', label: 'Relatórios', icon: TrendingUp, permission: 'canViewReports' },
+    { id: 'users_approval', label: 'Aprovar login', icon: Users, permission: 'canApproveUsers' },
   ]);
 
   const [hasLoadedOrder, setHasLoadedOrder] = useState(false);
@@ -366,13 +421,65 @@ export default function BrokerDashboard() {
     }
   }, [sidebarItems, hasLoadedOrder]);
 
+  useEffect(() => {
+    // Load dynamic permissions from Firestore
+    const unsub = onSnapshot(doc(db, 'system_config', 'permissions'), (snapshot) => {
+      if (snapshot.exists()) {
+        setRolePermissions(snapshot.data() as Record<string, Permissions>);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Update userPermissions when role or rolePermissions changes
+  useEffect(() => {
+    if (userRole) {
+      const dynamicPerms = rolePermissions[userRole] || getPermissions(userRole);
+      setUserPermissions(dynamicPerms);
+    }
+  }, [userRole, rolePermissions]);
+
+  const handleSavePermissions = async () => {
+    try {
+      setIsLoadingPermissions(true);
+      await setDoc(doc(db, 'system_config', 'permissions'), rolePermissions);
+      
+      const roleText = selectedRoleForEdit ? `para o cargo: ${selectedRoleForEdit}` : '';
+      await addLog('system', 'Atualizou Permissões', `As permissões de acesso por cargo foram atualizadas ${roleText}.`);
+      
+      alert("Configurações salvas com sucesso!");
+    } catch (error) {
+      console.error("Error saving permissions:", error);
+      alert("Erro ao salvar permissões. Verifique sua conexão.");
+    } finally {
+      setIsLoadingPermissions(false);
+    }
+  };
+
+  const togglePermission = (role: string, field: keyof Permissions) => {
+    const currentPerms = rolePermissions[role] || getPermissions(role);
+    const newPerms = { ...currentPerms, [field]: !currentPerms[field] };
+    setRolePermissions(prev => ({ ...prev, [role]: newPerms }));
+  };
+
+  const allAvailableRoles = useMemo(() => {
+    return ROLE_GROUPS.flatMap(group => group.roles);
+  }, []);
   const visibleSidebarItems = useMemo(() => {
     return sidebarItems.filter(item => {
-      if (!item.adminOnly) return true;
+      // Daniel and forced admins always see everything
       const isExplicitAdmin = auth.currentUser?.email?.toLowerCase() === 'danielvaleweb@gmail.com' || auth.currentUser?.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-      return isAdmin || isExplicitAdmin;
+      if (isExplicitAdmin) return true;
+
+      if ((item as any).permission) {
+        return (userPermissions as any)[(item as any).permission];
+      }
+      if ((item as any).adminOnly) return isAdmin;
+      
+      return true;
     });
-  }, [sidebarItems, isAdmin]);
+  }, [sidebarItems, isAdmin, userPermissions]);
 
   const handleReorder = (newOrder: any[]) => {
     // Create a new master list that preserves the order of non-visible items 
@@ -510,7 +617,7 @@ export default function BrokerDashboard() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setFilteredNotifications(data.filter((n: any) => 
-        n.type === 'tarefa' || n.type === 'commitment' || n.type === 'lead' || n.type === 'system'
+        ['tarefa', 'commitment', 'lead', 'system', 'daily_summary', 'captacao', 'visita', 'reuniao'].includes(n.type)
       ));
     }, (error) => {
       console.warn("Notifications read error:", error);
@@ -691,6 +798,28 @@ export default function BrokerDashboard() {
         if (isDaniel || isUidAdmin) {
           setIsAdmin(true);
           setAuthStatus('approved');
+          setUserRole('CEO Diretor criativo');
+          setUserPermissions(getPermissions('CEO Diretor criativo'));
+          
+          // Auto-sync Daniel's broker record if needed
+          const danielEmail = currentUser.email?.toLowerCase();
+          const existingDanielBroker = brokers.find(b => b.email?.toLowerCase() === danielEmail);
+          if (existingDanielBroker && existingDanielBroker.role !== 'CEO Diretor criativo') {
+            updateBroker(existingDanielBroker.id, { role: 'CEO Diretor criativo' });
+          } else if (!existingDanielBroker && danielEmail === 'danielvaleweb@gmail.com') {
+            // If Daniel doesn't have a broker profile under this email yet, create one
+            addBroker({
+              name: 'Daniel Vale',
+              role: 'CEO Diretor criativo',
+              photo: 'https://i.imgur.com/5l1CO1t.png',
+              phone: '(32) 98888-8888',
+              email: danielEmail,
+              bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
+              creci: '54.321-F',
+              instagram: 'daniel_crimoveis'
+            });
+          }
+
           setIsLoading(false);
           return;
         }
@@ -700,7 +829,12 @@ export default function BrokerDashboard() {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setAuthStatus(userData.status);
-            if (userData.role === 'admin') setIsAdmin(true);
+            const role = userData.role || 'Corretor de Imóveis';
+            setUserRole(role);
+            setUserPermissions(getPermissions(role));
+            if (role === 'admin' || role.includes('Diretor') || role.includes('CEO') || role.includes('Gerente')) {
+               setIsAdmin(true);
+            }
           } else {
             if (!isDaniel && !isUidAdmin) {
               await signOut(auth);
@@ -751,17 +885,19 @@ export default function BrokerDashboard() {
   const handleSaveBroker = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (isEditingBroker && editingBrokerId !== null) {
-        await updateBroker(editingBrokerId, newBrokerData);
-        await addLog('broker', 'Editou corretor', `Corretor: ${newBrokerData.name}`);
-      } else {
-        await addBroker(newBrokerData);
-        await addLog('broker', 'Cadastrou corretor', `Corretor: ${newBrokerData.name}`);
-      }
+      const capturedData = { ...newBrokerData };
       setIsBrokerModalOpen(false);
       setIsEditingBroker(false);
       setEditingBrokerId(null);
       setNewBrokerData({ name: '', role: '', photo: '', phone: '', email: '', bio: '', creci: '', instagram: '' });
+
+      if (isEditingBroker && editingBrokerId !== null) {
+        await updateBroker(editingBrokerId, capturedData);
+        await addLog('broker', 'Editou corretor', `Corretor: ${capturedData.name}`);
+      } else {
+        await addBroker(capturedData);
+        await addLog('broker', 'Cadastrou corretor', `Corretor: ${capturedData.name}`);
+      }
     } catch (error: any) {
       console.error("Error saving broker:", error);
       alert("Erro ao salvar: " + error.message);
@@ -1603,6 +1739,11 @@ export default function BrokerDashboard() {
         }
       }
 
+      setIsAddModalOpen(false);
+      setIsEditing(false);
+      setEditingPropertyId(null);
+      setCurrentStep(1);
+
       if (isEditing && editingPropertyId !== null) {
         await updateProperty(editingPropertyId, propertyToSave);
         await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
@@ -1611,10 +1752,6 @@ export default function BrokerDashboard() {
         await addLog('property', 'Cadastrou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
       }
 
-      setIsAddModalOpen(false);
-      setIsEditing(false);
-      setEditingPropertyId(null);
-      setCurrentStep(1);
       // Reset form
       setNewPropertyData({
         title: '',
@@ -1718,14 +1855,6 @@ export default function BrokerDashboard() {
         images: newCondoData.images.filter(img => img !== '')
       };
 
-      if (isEditingCondo && editingCondoId !== null) {
-        await updateCondo(editingCondoId, condoData);
-        await addLog('condo', 'Editou condomínio', `Condomínio: ${condoData.name}`);
-      } else {
-        await addCondo(condoData);
-        await addLog('condo', 'Cadastrou condomínio', `Condomínio: ${condoData.name}`);
-      }
-
       setIsCondoModalOpen(false);
       setIsEditingCondo(false);
       setEditingCondoId(null);
@@ -1742,6 +1871,14 @@ export default function BrokerDashboard() {
         logoUrl: '',
         images: ['']
       });
+
+      if (isEditingCondo && editingCondoId !== null) {
+        await updateCondo(editingCondoId, condoData);
+        await addLog('condo', 'Editou condomínio', `Condomínio: ${condoData.name}`);
+      } else {
+        await addCondo(condoData);
+        await addLog('condo', 'Cadastrou condomínio', `Condomínio: ${condoData.name}`);
+      }
     } catch (error) {
       console.error("Erro ao salvar condomínio:", error);
       alert("Erro ao salvar o condomínio.");
@@ -1953,7 +2090,7 @@ export default function BrokerDashboard() {
           </div>
           
           <div className="flex items-center gap-2">
-            {(!proposal.status || proposal.status === 'pending') && (
+            {(!proposal.status || proposal.status === 'pending') && userPermissions.canHandleProposals && (
               <>
                 <button
                   onClick={() => handleUpdateProposalStatus(proposal.id, 'accepted')}
@@ -1969,7 +2106,7 @@ export default function BrokerDashboard() {
                 </button>
               </>
             )}
-            {proposal.status === 'rejected' && (
+            {proposal.status === 'rejected' && userPermissions.canHandleProposals && (
                <button
                   onClick={() => handleUpdateProposalStatus(proposal.id, 'accepted')}
                   className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all text-xs font-black uppercase tracking-wider"
@@ -1977,7 +2114,7 @@ export default function BrokerDashboard() {
                   Aprovar Agora
                 </button>
             )}
-            {proposal.status === 'accepted' && (
+            {proposal.status === 'accepted' && userPermissions.canHandleProposals && (
                <button
                   onClick={() => handleUpdateProposalStatus(proposal.id, 'rejected')}
                   className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all text-xs font-black uppercase tracking-wider"
@@ -1985,16 +2122,18 @@ export default function BrokerDashboard() {
                   Recusar Agora
                 </button>
             )}
-            <button 
-              onClick={() => {
-                playAlertSound();
-                setProposalToDelete(proposal.id);
-              }}
-              className="p-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
-              title="Excluir Proposta"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+            {userPermissions.canHandleProposals && (
+              <button 
+                onClick={() => {
+                  playAlertSound();
+                  setProposalToDelete(proposal.id);
+                }}
+                className="p-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+                title="Excluir Proposta"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -2014,6 +2153,7 @@ export default function BrokerDashboard() {
 
   const handleLogout = async () => {
     try {
+      setIsLogoutModalOpen(false);
       const userName = auth.currentUser?.displayName || auth.currentUser?.email;
       await addLog('system', 'Fez logout', `Usuário: ${userName}`);
       await signOut(auth);
@@ -2022,6 +2162,34 @@ export default function BrokerDashboard() {
       setIsAdmin(false);
     } catch (error) {
       console.error("Logout Error:", error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const unread = filteredNotifications.filter(n => !n.read);
+      for (const n of unread) {
+        await updateDoc(doc(db, 'notificacoes', n.id), { read: true });
+      }
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    }
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    try {
+      if (!notif.read) {
+        await updateDoc(doc(db, 'notificacoes', notif.id), { read: true });
+      }
+      if (notif.clickAction) {
+        setActiveTab(notif.clickAction);
+      } else if (['tarefa', 'visita', 'captacao', 'reuniao', 'daily_summary', 'commitment'].includes(notif.type)) {
+        setActiveTab('calendar');
+      } else if (notif.type === 'lead') {
+        setActiveTab('leads');
+      }
+    } catch (error) {
+      console.error("Error processing notification click:", error);
     }
   };
 
@@ -2554,130 +2722,12 @@ export default function BrokerDashboard() {
                     ))
                   )}
                 </div>
-                <div className="p-4 bg-gray-50 border-t border-gray-100">
-                  <button className="w-full py-3 bg-[#617964] text-white rounded-xl text-xs font-black shadow-lg shadow-[#617964]/20">
-                    Ver Todas Conversas
-                  </button>
-                </div>
               </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Settings / Permissions Modal */}
-      <AnimatePresence>
-        {isSettingsModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-black text-gray-900">Configurações & Painel</h2>
-                  <p className="text-sm text-gray-500 font-medium">Gestão de acessos e permissões da equipe</p>
-                </div>
-                <button 
-                  onClick={() => setIsSettingsModalOpen(false)}
-                  className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all hover:shadow-lg"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="p-8 overflow-y-auto space-y-8">
-                {/* Permissões por Cargo */}
-                <div className="space-y-6">
-                  <h3 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5" /> Permissões por Cargo
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {['ADMIN', 'CORRETOR MASTER', 'CORRETOR'].map((cargo) => (
-                      <div key={cargo} className="p-6 bg-gray-50 rounded-3xl border border-gray-100 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-black text-gray-900 uppercase tracking-tight">{cargo}</span>
-                          <span className="text-[10px] px-2 py-1 bg-[#617964]/10 text-[#617964] rounded-lg font-bold uppercase">Ativo</span>
-                        </div>
-                        <div className="space-y-2">
-                          {[
-                            { label: 'Pode Criar Imóveis', enabled: true },
-                            { label: 'Pode Editar Imóveis', enabled: cargo !== 'CORRETOR' },
-                            { label: 'Pode Deletar Imóveis', enabled: cargo === 'ADMIN' },
-                            { label: 'Pode Aprovar Logins', enabled: cargo === 'ADMIN' },
-                          ].map((perm, i) => (
-                            <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-gray-200/50">
-                              <span className="font-bold text-gray-600">{perm.label}</span>
-                              <div className={`w-4 h-4 rounded-full flex items-center justify-center ${perm.enabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                                <Check className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Login Approvals Settings */}
-                <div className="p-8 bg-gray-50 rounded-[32px] border border-gray-100">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Aprovação de Login</h3>
-                      <p className="text-xs text-gray-500 font-medium">Quem pode validar novas contas</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <div className="w-10 h-6 bg-[#617964] rounded-full relative p-1 cursor-pointer">
-                          <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
-                       </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <button className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-200 hover:border-[#617964] hover:shadow-lg transition-all text-left">
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                           <Users className="w-4 h-4" />
-                        </div>
-                        <div>
-                           <p className="text-xs font-bold text-gray-900">Somente ADMIN</p>
-                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Recomendado</p>
-                        </div>
-                     </button>
-                     <button className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-200 hover:border-[#617964] hover:shadow-lg transition-all text-left opacity-60">
-                        <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
-                           <ShieldCheck className="w-4 h-4" />
-                        </div>
-                        <div>
-                           <p className="text-xs font-bold text-gray-900">ADMIN + MASTER</p>
-                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Flexível</p>
-                        </div>
-                     </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-8 bg-white border-t border-gray-100 flex gap-4 shrink-0">
-                <button className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all">
-                  Restaurar Padrão
-                </button>
-                <button 
-                  onClick={() => setIsSettingsModalOpen(false)}
-                  className="flex-1 py-4 bg-[#617964] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
       {/* Sidebar - Desktop & Mobile */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-100 flex flex-col transition-transform duration-300 ease-in-out
@@ -4748,16 +4798,16 @@ export default function BrokerDashboard() {
             </button>
             <button 
               onClick={() => setActiveTab('notifications')}
-              className="p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all relative"
+              className={`p-2.5 rounded-xl transition-all relative ${activeTab === 'notifications' ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               <Bell className="w-5 h-5" />
               {filteredNotifications.filter(n => !n.read).length > 0 && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                <span className={`absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 ${activeTab === 'notifications' ? 'border-[#617964]' : 'border-white'}`}></span>
               )}
             </button>
             <button 
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="hidden sm:flex p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all"
+              onClick={() => setActiveTab('settings')}
+              className={`hidden sm:flex p-2.5 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               <Settings className="w-5 h-5" />
             </button>
@@ -4768,15 +4818,15 @@ export default function BrokerDashboard() {
                 className="flex items-center gap-3 hover:bg-gray-50 p-1 rounded-2xl transition-all cursor-pointer"
               >
                 <div className="text-right hidden md:block">
-                  <p className="text-sm font-black text-gray-900">{auth.currentUser?.displayName || 'Daniel Vale'}</p>
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                    {auth.currentUser?.email === 'danielvaleweb@gmail.com' ? 'CEO & DIRETOR CRIATIVO' : 'CORRETOR PARCEIRO'}
+                  <p className="text-sm font-black text-gray-900">{currentBroker?.name || auth.currentUser?.displayName || 'Usuário'}</p>
+                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest whitespace-nowrap">
+                    {currentBroker?.role || userRole || 'CORRETOR PARCEIRO'}
                   </p>
                 </div>
                 <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white">
                   <img 
-                    src={auth.currentUser?.photoURL || "https://i.imgur.com/5l1CO1t.png"} 
-                    alt={auth.currentUser?.displayName || "Daniel Vale"} 
+                    src={currentBroker?.photo || auth.currentUser?.photoURL || "https://i.imgur.com/5l1CO1t.png"} 
+                    alt={currentBroker?.name || auth.currentUser?.displayName || "Perfil"} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
@@ -5345,27 +5395,33 @@ export default function BrokerDashboard() {
                               </td>
                               <td className="p-6 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => handleUpdateUserStatus(u.id, 'approved')}
-                                    className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all flex items-center gap-2 text-xs font-black"
-                                    title="Aprovar Usuário"
-                                  >
-                                    <Check className="w-4 h-4" /> Aprovar
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
-                                    className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all flex items-center gap-2 text-xs font-black"
-                                    title="Rejeitar Usuário"
-                                  >
-                                    <X className="w-4 h-4" /> Recusar
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id)}
-                                    className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all"
-                                    title="Excluir Usuário"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  {userPermissions.canApproveUsers && (
+                                    <>
+                                      <button
+                                        onClick={() => handleUpdateUserStatus(u.id, 'approved')}
+                                        className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all flex items-center gap-2 text-xs font-black"
+                                        title="Aprovar Usuário"
+                                      >
+                                        <Check className="w-4 h-4" /> Aprovar
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
+                                        className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all flex items-center gap-2 text-xs font-black"
+                                        title="Rejeitar Usuário"
+                                      >
+                                        <X className="w-4 h-4" /> Recusar
+                                      </button>
+                                    </>
+                                  )}
+                                  {userPermissions.canDeleteBrokers && (
+                                    <button
+                                      onClick={() => handleDeleteUser(u.id)}
+                                      className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all"
+                                      title="Excluir Usuário"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -5423,20 +5479,24 @@ export default function BrokerDashboard() {
                               </td>
                               <td className="p-6 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
-                                    className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all font-black text-[10px] uppercase tracking-wider flex items-center gap-2"
-                                    title="Revogar Acesso"
-                                  >
-                                    <X className="w-4 h-4" /> Revogar
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id)}
-                                    className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
-                                    title="Excluir"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  {userPermissions.canApproveUsers && (
+                                    <button
+                                      onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
+                                      className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all font-black text-[10px] uppercase tracking-wider flex items-center gap-2"
+                                      title="Revogar Acesso"
+                                    >
+                                      <X className="w-4 h-4" /> Revogar
+                                    </button>
+                                  )}
+                                  {userPermissions.canDeleteBrokers && (
+                                    <button
+                                      onClick={() => handleDeleteUser(u.id)}
+                                      className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
+                                      title="Excluir"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -5532,30 +5592,32 @@ export default function BrokerDashboard() {
                   <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Condomínios</h1>
                   <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie todos os condomínios cadastrados.</p>
                 </div>
-                <button 
-                  onClick={() => {
-                    setIsEditingCondo(false);
-                    setEditingCondoId(null);
-                    setNewCondoData({
-                      name: '',
-                      location: '',
-                      portariaType: 'Não possui',
-                      gasSupply: 'botijão',
-                      leisure: [],
-                      verticalConveniencies: [],
-                      horizontalConveniencies: [],
-                      bio: '',
-                      image360Url: '',
-                      logoUrl: '',
-                      images: ['']
-                    });
-                    setIsCondoModalOpen(true);
-                  }}
-                  className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  Cadastrar Condomínio
-                </button>
+                {userPermissions.canEditCondos && (
+                  <button 
+                    onClick={() => {
+                      setIsEditingCondo(false);
+                      setEditingCondoId(null);
+                      setNewCondoData({
+                        name: '',
+                        location: '',
+                        portariaType: 'Não possui',
+                        gasSupply: 'botijão',
+                        leisure: [],
+                        verticalConveniencies: [],
+                        horizontalConveniencies: [],
+                        bio: '',
+                        image360Url: '',
+                        logoUrl: '',
+                        images: ['']
+                      });
+                      setIsCondoModalOpen(true);
+                    }}
+                    className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Cadastrar Condomínio
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -5609,20 +5671,24 @@ export default function BrokerDashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleEditCondo(condo)}
-                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all"
-                            title="Editar Condomínio"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteCondo(condo.id)}
-                            className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 hover:shadow-md transition-all"
-                            title="Excluir Condomínio"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {userPermissions.canEditCondos && (
+                            <button 
+                              onClick={() => handleEditCondo(condo)}
+                              className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all"
+                              title="Editar Condomínio"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {userPermissions.canDeleteCondos && (
+                            <button 
+                              onClick={() => handleDeleteCondo(condo.id)}
+                              className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 hover:shadow-md transition-all"
+                              title="Excluir Condomínio"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -5710,13 +5776,15 @@ export default function BrokerDashboard() {
                   <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie todos os imóveis dos seus corretores.</p>
                 </div>
                 <div className="flex flex-wrap gap-4">
-                  <button 
-                    onClick={handleAddProperty}
-                    className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Cadastrar Imóvel
-                  </button>
+                  {userPermissions.canEditProperties && (
+                    <button 
+                      onClick={handleAddProperty}
+                      className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Cadastrar Imóvel
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -5860,12 +5928,14 @@ export default function BrokerDashboard() {
                       </p>
                       <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                         <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleEditProperty(property)}
-                            className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                          {userPermissions.canEditProperties && (
+                            <button 
+                              onClick={() => handleEditProperty(property)}
+                              className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
                           <button 
                             onClick={() => navigate(`/imovel/${property.id}`)}
                             className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
@@ -5873,12 +5943,14 @@ export default function BrokerDashboard() {
                             <ExternalLink className="w-4 h-4" />
                           </button>
                         </div>
-                        <button 
-                          onClick={() => handleDeleteProperty(property.id)}
-                          className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 transition-all"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {userPermissions.canDeleteProperties && (
+                          <button 
+                            onClick={() => handleDeleteProperty(property.id)}
+                            className="p-2 bg-red-50 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-100 transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -5940,16 +6012,18 @@ export default function BrokerDashboard() {
                               <div className="text-sm font-bold text-[#617964]">R$ {lead.price}</div>
                             </td>
                             <td className="p-6 text-right">
-                              <button
-                                onClick={() => {
-                                  playAlertSound();
-                                  setLeadToDelete(lead.id);
-                                }}
-                                className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-xl transition-all"
-                                title="Excluir captação"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
+                              {userPermissions.canDeleteProperties && (
+                                <button
+                                  onClick={() => {
+                                    playAlertSound();
+                                    setLeadToDelete(lead.id);
+                                  }}
+                                  className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-xl transition-all"
+                                  title="Excluir captação"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))
@@ -5960,19 +6034,20 @@ export default function BrokerDashboard() {
               </div>
             </div>
           ) : activeTab === 'calendar' ? (
-            <AgendaTab />
+            <AgendaTab permissions={userPermissions} />
           ) : activeTab === 'fichas' ? (
             <FichasCadastraisTab />
           ) : activeTab === 'finance' ? (
-            <FinanceTab />
+            <FinanceTab permissions={userPermissions} />
           ) : activeTab === 'reports' ? (
-            <div className="space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Relatórios de Atividade</h1>
-                  <p className="text-sm lg:text-base text-gray-500 font-medium">Log completo de todas as ações realizadas no sistema.</p>
+            userPermissions.canViewReports ? (
+              <div className="space-y-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Relatórios de Atividade</h1>
+                    <p className="text-sm lg:text-base text-gray-500 font-medium">Log completo de todas as ações realizadas no sistema.</p>
+                  </div>
                 </div>
-              </div>
 
               <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
@@ -6035,6 +6110,92 @@ export default function BrokerDashboard() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          ) : (
+              <div className="p-20 text-center bg-white rounded-[40px] border border-gray-100 italic text-gray-500">
+                Você não tem permissão para visualizar relatórios.
+              </div>
+            )
+          ) : activeTab === 'notifications' ? (
+            <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Notificações</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Fique por dentro das atualizações e seus compromissos.</p>
+                </div>
+                {filteredNotifications.filter(n => !n.read).length > 0 && (
+                  <button 
+                    onClick={handleMarkAllAsRead}
+                    className="px-4 py-2 bg-[#617964]/10 text-[#617964] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#617964]/20 transition-all border border-[#617964]/20"
+                  >
+                    Marcar todas como lidas
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4 max-w-4xl">
+                {filteredNotifications.length === 0 ? (
+                  <div className="bg-white p-20 rounded-[40px] border border-gray-100 text-center shadow-sm">
+                    <div className="w-20 h-20 bg-gray-50 text-gray-200 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                      <Bell className="w-10 h-10" />
+                    </div>
+                    <h3 className="text-lg font-black text-gray-900 mb-2">Tudo em dia!</h3>
+                    <p className="text-gray-500 font-medium max-w-xs mx-auto">Você não tem novas notificações no momento.</p>
+                  </div>
+                ) : (
+                  filteredNotifications.map((notif) => (
+                    <div 
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`p-6 sm:p-8 rounded-[32px] border transition-all cursor-pointer flex items-start gap-6 group relative overflow-hidden ${
+                        notif.read ? 'bg-gray-50/30 border-gray-100 opacity-60 grayscale-[0.5]' : 'bg-white border-[#617964]/20 shadow-lg shadow-[#617964]/5'
+                      }`}
+                    >
+                      {!notif.read && (
+                        <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#617964]"></div>
+                      )}
+                      
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                        notif.read ? 'bg-gray-100 text-gray-400' :
+                        notif.type === 'tarefa' ? 'bg-blue-50 text-blue-600' :
+                        notif.type === 'captacao' ? 'bg-emerald-50 text-emerald-600' :
+                        notif.type === 'visita' ? 'bg-amber-50 text-amber-600' :
+                        notif.type === 'daily_summary' ? 'bg-[#374001] text-white' :
+                        'bg-gray-50 text-gray-500'
+                      }`}>
+                        {notif.type === 'tarefa' ? <CheckCircle2 className="w-6 h-6" /> :
+                         notif.type === 'captacao' || notif.type === 'visita' || notif.type === 'daily_summary' ? <Calendar className="w-6 h-6" /> :
+                         <Bell className="w-6 h-6" />}
+                      </div>
+
+                      <div className="flex-grow">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <h3 className={`font-black text-gray-900 tracking-tight ${notif.read ? 'text-base' : 'text-lg'}`}>
+                              {notif.title}
+                            </h3>
+                            {!notif.read && (
+                              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap ml-4">
+                            {notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('pt-BR') : 'Agora'}
+                          </span>
+                        </div>
+                        <p className={`text-sm leading-relaxed ${notif.read ? 'text-gray-500 font-medium' : 'text-gray-600 font-bold'}`}>
+                          {notif.message}
+                        </p>
+                        
+                        {!notif.read && (
+                          <div className="mt-4 flex items-center gap-2 text-[10px] font-black text-[#617964] uppercase tracking-widest group-hover:gap-3 transition-all">
+                            Ver detalhes <ArrowRight className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           ) : activeTab === 'profile' ? (
@@ -6145,6 +6306,137 @@ export default function BrokerDashboard() {
                   </p>
                 </div>
               )}
+            </div>
+          ) : activeTab === 'settings' ? (
+            <div className="space-y-8">
+               <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Configurações do Sistema</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gestão de acessos, permissões da equipe e integridade do painel.</p>
+               </div>
+
+               <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
+                  <div className="p-8 lg:p-12 space-y-10">
+                    {/* Permissões por Cargo */}
+                    <div className="space-y-6">
+                      <h3 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
+                        <ShieldCheck className="w-6 h-6" /> Controle de Permissões por Cargo
+                      </h3>
+                      
+                      <div className="space-y-6">
+                        <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 block">1. Escolha o cargo para gerenciar</label>
+                          <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2">
+                            {allAvailableRoles.map(role => (
+                              <button
+                                key={role}
+                                onClick={() => setSelectedRoleForEdit(role)}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all border ${
+                                  selectedRoleForEdit === role 
+                                    ? 'bg-[#617964] text-white border-[#617964] shadow-md shadow-[#617964]/20 scale-105' 
+                                    : 'bg-white text-gray-500 border-gray-200 hover:border-[#617964] hover:text-[#617964]'
+                                }`}
+                              >
+                                {role}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <AnimatePresence mode="wait">
+                          {selectedRoleForEdit ? (
+                            <motion.div 
+                              key={selectedRoleForEdit}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              className="p-8 bg-white rounded-[32px] border border-gray-100 shadow-xl shadow-gray-200/20 space-y-8 relative overflow-hidden"
+                            >
+                               <div className="absolute top-0 right-0 p-8 opacity-5">
+                                 <ShieldCheck className="w-32 h-32" />
+                               </div>
+                               
+                               <div className="flex items-center justify-between border-b border-gray-100 pb-6">
+                                  <div>
+                                    <h4 className="text-xl font-black text-gray-900 uppercase tracking-tight">Definindo Acessos: {selectedRoleForEdit}</h4>
+                                    <p className="text-xs text-gray-500 font-medium">Ligue ou desligue as funcionalidades para este cargo.</p>
+                                  </div>
+                                  <div className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                     Editando Agora
+                                  </div>
+                               </div>
+
+                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-6">
+                                 {Object.entries(PERMISSION_LABELS).map(([key, label]) => {
+                                   const perms = rolePermissions[selectedRoleForEdit] || getPermissions(selectedRoleForEdit);
+                                   const isEnabled = perms[key as keyof Permissions];
+                                   return (
+                                     <div key={key} className="flex items-center justify-between py-3 group border-b border-gray-50 last:border-0 hover:bg-gray-50/50 px-2 -mx-2 rounded-xl transition-colors">
+                                       <span className="text-sm font-bold text-gray-700 group-hover:text-gray-950 transition-colors">{label}</span>
+                                       <button
+                                         onClick={() => togglePermission(selectedRoleForEdit, key as keyof Permissions)}
+                                         className={`w-11 h-6 flex items-center rounded-full p-1 transition-all duration-300 shadow-inner ${isEnabled ? 'bg-[#617964]' : 'bg-gray-200'}`}
+                                       >
+                                         <div 
+                                           className="w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300 transform" 
+                                           style={{ transform: `translateX(${isEnabled ? '20px' : '0px'})` }}
+                                         />
+                                       </button>
+                                     </div>
+                                   );
+                                 })}
+                               </div>
+                            </motion.div>
+                          ) : (
+                            <div className="p-12 text-center bg-gray-50/50 rounded-[32px] border border-dashed border-gray-200">
+                               <p className="text-gray-400 font-bold italic">Selecione um cargo acima para ver suas permissões atuais.</p>
+                            </div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+
+                    {/* Safety Settings */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                       <div className="p-8 bg-amber-50/50 rounded-3xl border border-amber-100 space-y-4">
+                          <div className="flex items-center gap-3 text-amber-700">
+                             <AlertCircle className="w-5 h-5" />
+                             <h4 className="text-sm font-black uppercase tracking-widest">Zona de Risco</h4>
+                          </div>
+                          <p className="text-xs text-amber-600 font-medium">As alterações feitas aqui afetam imediatamente a experiência dos seus colaboradores.</p>
+                          <button 
+                            onClick={() => {
+                              if (window.confirm("Isso irá resetar todas as permissões personalizadas para o padrão original. Continuar?")) {
+                                 setRolePermissions({});
+                              }
+                            }}
+                            className="w-full py-4 bg-white border border-amber-200 text-amber-700 rounded-2xl text-xs font-black hover:bg-amber-100 transition-all uppercase tracking-widest"
+                          >
+                            Restaurar Todos os Padrões
+                          </button>
+                       </div>
+
+                       <div className="p-8 bg-[#617964]/5 rounded-3xl border border-[#617964]/10 space-y-4">
+                          <div className="flex items-center gap-3 text-[#617964]">
+                             <ShieldCheck className="w-5 h-5" />
+                             <h4 className="text-sm font-black uppercase tracking-widest">Confirmar Alterações</h4>
+                          </div>
+                          <p className="text-xs text-gray-500 font-medium">Lembre-se de salvar para que as novas regras entrem em vigor no banco de dados.</p>
+                          <button 
+                            onClick={handleSavePermissions}
+                            disabled={isLoadingPermissions}
+                            className="w-full py-4 bg-[#617964] text-white rounded-2xl text-xs font-black hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest"
+                          >
+                            {isLoadingPermissions ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Salvando...
+                              </>
+                            ) : 'Salvar Todas as Regras'}
+                          </button>
+                       </div>
+                    </div>
+                  </div>
+               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center">

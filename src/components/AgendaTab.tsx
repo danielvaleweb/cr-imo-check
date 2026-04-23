@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Plus, MapPin, Video, Users, Clock, AlertCircle, Phone, Mail, Link as LinkIcon, Download, Check, ExternalLink, X, MessageCircle, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
+import { Calendar, Plus, MapPin, Video, Users, Clock, AlertCircle, Phone, Mail, Link as LinkIcon, Download, Check, ExternalLink, X, MessageCircle, ChevronDown, ChevronUp, ChevronRight, Building } from 'lucide-react';
 import { useBrokers } from '../context/BrokerContext';
+import { useCondos } from '../context/CondoContext';
 import { collection, onSnapshot, addDoc, serverTimestamp, orderBy, query, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { addLog } from '../services/logService';
 import { Trash, Edit2, Eye, User } from 'lucide-react';
 import { playAlertSound } from '../lib/audio';
 
+import { Permissions } from '../constants/permissions';
+
 interface AgendaTabProps {
   calendarOnly?: boolean;
+  permissions?: Permissions;
 }
 
-export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
+export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps) {
   const { brokers } = useBrokers();
+  const { condos } = useCondos();
   const [events, setEvents] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -28,6 +33,12 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
   
   // Shared
   const [local, setLocal] = useState('');
+  const [addressStreet, setAddressStreet] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [addressCondo, setAddressCondo] = useState('');
+  const [addressNeighborhood, setAddressNeighborhood] = useState('');
+  const [addressCity, setAddressCity] = useState('');
+  const [addressState, setAddressState] = useState('');
   const [data, setData] = useState('');
   const [horario, setHorario] = useState('');
   const [tituloTarefa, setTituloTarefa] = useState('');
@@ -90,9 +101,28 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
         photo: auth.currentUser?.photoURL
       };
 
+      // Construct a combined local string for display/GPS if split fields are used
+      let combinedLocal = local;
+      if (addressStreet || addressCity) {
+        const parts = [
+          addressStreet && `${addressStreet}${addressNumber ? `, ${addressNumber}` : ''}`,
+          addressCondo,
+          addressNeighborhood,
+          addressCity,
+          addressState
+        ].filter(Boolean);
+        combinedLocal = parts.join(' - ');
+      }
+
       const baseData: any = {
         type: eventType,
-        local,
+        local: combinedLocal,
+        addressStreet,
+        addressNumber,
+        addressCondo,
+        addressNeighborhood,
+        addressCity,
+        addressState,
         data,
         horario,
         status: 'confirmed',
@@ -135,6 +165,9 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
 
       const finalData = { ...baseData, ...specificData };
 
+      setIsModalOpen(false);
+      resetForm();
+
       let docId = editingEventId;
       if (isEditMode && editingEventId) {
         await updateDoc(doc(db, 'agenda_events', editingEventId), finalData);
@@ -145,7 +178,8 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
         await addLog('agenda', 'Agendou compromisso', `${finalData.type === 'visita' ? 'Visita' : 'Tarefa'}: ${finalData.type === 'visita' ? finalData.nomeCliente : finalData.tituloTarefa}`);
 
         // Notify participants
-        const participants = eventType === 'captacao' ? quemVai : envolveQuem;
+        const participants = eventType === 'captacao' ? quemVai : 
+                            (eventType === 'visita' ? quemVai : envolveQuem); // Visita also uses quemVai for brokers
         if (participants && participants.length > 0) {
            for (const memberName of participants) {
              const broker = brokers.find(b => b.name === memberName);
@@ -161,12 +195,28 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
                              eventType === 'visita' ? `com ${nomeCliente}` :
                              eventType === 'reuniao' ? assunto : '';
 
+               let title = `Novo Compromisso: ${eventLabel}`;
+               let message = `Você foi incluído no(a) ${eventLabel.toLowerCase()}${detail ? ': ' + detail : ''}. Horário: ${horario}`;
+
+               // Refine wording based on user request
+               if (eventType === 'tarefa') {
+                 title = 'Nova Tarefa';
+                 message = `Hoje você tem uma nova tarefa: ${detail}.`;
+               } else if (eventType === 'captacao') {
+                 title = 'Agenda: Nova Captação';
+                 message = `Hoje você tem 1 captação para fazer às ${horario}.`;
+               } else if (eventType === 'visita') {
+                 title = 'Agenda: Nova Visita';
+                 message = `Você tem uma visita agendada ${detail} às ${horario}.`;
+               }
+
                await addDoc(collection(db, 'notificacoes'), {
                  userId: broker.id,
-                 title: `Novo Compromisso: ${eventLabel}`,
-                 message: `Você foi incluído no(a) ${eventLabel.toLowerCase()}${detail ? ': ' + detail : ''}. Horário: ${horario}`,
+                 title,
+                 message,
                  type: eventType,
                  read: false,
+                 clickAction: 'calendar',
                  createdAt: serverTimestamp()
                });
                
@@ -183,10 +233,6 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
            }
         }
       }
-
-      setIsModalOpen(false);
-      resetForm();
-      
     } catch (e) {
       console.error(e);
       alert('Erro ao salvar compromisso.');
@@ -195,6 +241,12 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
 
   const resetForm = () => {
     setLocal('');
+    setAddressStreet('');
+    setAddressNumber('');
+    setAddressCondo('');
+    setAddressNeighborhood('');
+    setAddressCity('');
+    setAddressState('');
     setData('');
     setHorario('');
     setQuemVai([]);
@@ -258,6 +310,12 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
   const handleEditRequest = (event: any) => {
     setEventType(event.type);
     setLocal(event.local || '');
+    setAddressStreet(event.addressStreet || '');
+    setAddressNumber(event.addressNumber || '');
+    setAddressCondo(event.addressCondo || '');
+    setAddressNeighborhood(event.addressNeighborhood || '');
+    setAddressCity(event.addressCity || '');
+    setAddressState(event.addressState || '');
     setData(event.data || '');
     setHorario(event.horario || '');
     if (event.type === 'captacao') {
@@ -397,13 +455,15 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
             <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Agenda</h1>
             <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie suas captações, visitas e reuniões.</p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Novo Agendamento
-          </button>
+          {permissions?.canEditProperties && (
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Novo Agendamento
+            </button>
+          )}
         </div>
       )}
 
@@ -610,26 +670,30 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
                                   >
                                     <Check className="w-3.5 h-3.5" />
                                   </button>
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEditRequest(event);
-                                    }}
-                                    className="p-1.5 bg-white rounded-lg text-[#617964] shadow-sm border border-gray-100 hover:bg-gray-50 transition-all"
-                                    title="Editar"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(event.id);
-                                    }}
-                                    className="p-1.5 bg-white rounded-lg text-red-500 shadow-sm border border-gray-100 hover:bg-red-50 transition-all"
-                                    title="Excluir"
-                                  >
-                                    <Trash className="w-3.5 h-3.5" />
-                                  </button>
+                                  {(permissions?.canEditProperties || event.createdBy?.uid === auth.currentUser?.uid) && (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditRequest(event);
+                                      }}
+                                      className="p-1.5 bg-white rounded-lg text-[#617964] shadow-sm border border-gray-100 hover:bg-gray-50 transition-all"
+                                      title="Editar"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {(permissions?.canDeleteProperties || event.createdBy?.uid === auth.currentUser?.uid) && (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(event.id);
+                                      }}
+                                      className="p-1.5 bg-white rounded-lg text-red-500 shadow-sm border border-gray-100 hover:bg-red-50 transition-all"
+                                      title="Excluir"
+                                    >
+                                      <Trash className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
 
                                 <div className="flex items-center gap-3 mb-3 pr-20">
@@ -825,15 +889,76 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Local (Rua, nº, cond, bairro...)</label>
-                    <input
-                      type="text"
-                      placeholder="Endereço completo para o GPS"
-                      value={local}
-                      onChange={e => setLocal(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
-                    />
+                  
+                  <div className="sm:col-span-2 grid sm:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase">Rua / Logradouro</label>
+                      <input
+                        type="text"
+                        value={addressStreet}
+                        onChange={e => setAddressStreet(e.target.value)}
+                        placeholder="Ex: Rua das Flores"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase">Número</label>
+                      <input
+                        type="text"
+                        value={addressNumber}
+                        onChange={e => setAddressNumber(e.target.value)}
+                        placeholder="Ex: 123"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase">Condomínio</label>
+                      <select
+                        value={addressCondo}
+                        onChange={e => setAddressCondo(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
+                      >
+                        <option value="">Nenhum / Não informado</option>
+                        {condos.map(c => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                        <option value="other">Outro (especificar no bairro)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase">Bairro</label>
+                      <input
+                        type="text"
+                        value={addressNeighborhood}
+                        onChange={e => setAddressNeighborhood(e.target.value)}
+                        placeholder="Ex: Centro"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase">Cidade</label>
+                      <input
+                        type="text"
+                        value={addressCity}
+                        onChange={e => setAddressCity(e.target.value)}
+                        placeholder="Ex: Petrópolis"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase">Estado (UF)</label>
+                      <input
+                        type="text"
+                        maxLength={2}
+                        value={addressState}
+                        onChange={e => setAddressState(e.target.value.toUpperCase())}
+                        placeholder="Ex: RJ"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 sm:col-span-2 hidden">
                   </div>
                 </div>
 
@@ -1055,7 +1180,7 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
               <div className="p-6 lg:p-8 border-t border-gray-100 bg-gray-50/50 shrink-0">
                 <button
                   onClick={handleCreate}
-                  disabled={!local || !horario}
+                  disabled={(!local && !addressStreet && !addressCondo) || !horario}
                   className="w-full bg-[#617964] disabled:bg-gray-300 text-white py-4 rounded-2xl font-black text-lg hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
                 >
                   <Check className="w-5 h-5" />

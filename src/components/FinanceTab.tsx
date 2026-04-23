@@ -42,7 +42,9 @@ const DEFAULT_CATEGORIES = {
   }
 };
 
-export function FinanceTab() {
+import { Permissions } from '../constants/permissions';
+
+export function FinanceTab({ permissions }: { permissions: Permissions }) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [customCategories, setCustomCategories] = useState<any>({ entrada: {}, saida: {} });
   
@@ -195,6 +197,8 @@ export function FinanceTab() {
     const numAmount = parseFloat(amount.replace(/\D/g, '')) / 100;
     
     try {
+      setIsModalOpen(false);
+      
       await addDoc(collection(db, 'finance_transactions'), {
         type: modalType,
         amount: numAmount,
@@ -225,7 +229,6 @@ export function FinanceTab() {
         `Adicionou ${formattedAmount} em ${category}${subCategory ? ` - ${subCategory}` : ''}`
       );
 
-      setIsModalOpen(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'finance_transactions');
     }
@@ -274,18 +277,22 @@ export function FinanceTab() {
           <p className="text-sm lg:text-base text-gray-500 font-medium">Gestão de contas, receitas, despesas e comissões.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button 
-            onClick={() => handleOpenModal('entrada')}
-            className="px-5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Nova Entrada
-          </button>
-          <button 
-            onClick={() => handleOpenModal('saida')}
-            className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
-          >
-            <Minus className="w-4 h-4" /> Nova Saída
-          </button>
+          {permissions.canViewFinance && (
+            <>
+              <button 
+                onClick={() => handleOpenModal('entrada')}
+                className="px-5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Nova Entrada
+              </button>
+              <button 
+                onClick={() => handleOpenModal('saida')}
+                className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+              >
+                <Minus className="w-4 h-4" /> Nova Saída
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -437,16 +444,18 @@ export function FinanceTab() {
                         </button>
                       </div>
                     ) : (
-                      <button 
-                        onClick={() => {
-                          playAlertSound();
-                          setTransactionToDelete(t.id);
-                        }}
-                        className="p-1.5 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                        title="Remover transação"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      permissions.canViewFinance && (
+                        <button 
+                          onClick={() => {
+                            playAlertSound();
+                            setTransactionToDelete(t.id);
+                          }}
+                          className="p-1.5 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title="Remover transação"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
