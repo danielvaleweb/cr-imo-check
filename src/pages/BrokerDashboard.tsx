@@ -13,7 +13,9 @@ import {
   sendEmailVerification,
   signInWithEmailAndPassword,
   signInWithPopup,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
 import { 
   collection, 
@@ -137,7 +139,8 @@ import {
   Lock,
   LogIn,
   KeyRound,
-  ArrowRight
+  ArrowRight,
+  UserPlus
 } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import { 
@@ -263,6 +266,13 @@ export default function BrokerDashboard() {
   const [authStatus, setAuthStatus] = useState<'pending' | 'rejected' | 'approved' | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    phone: '',
+    creci: '',
+    confirmPassword: ''
+  });
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agendaEvents, setAgendaEvents] = useState<any[]>([]);
@@ -1563,6 +1573,52 @@ export default function BrokerDashboard() {
     }
   };
 
+  const handleDashboardRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginPassword !== registerData.confirmPassword) {
+      setLoginError('As senhas não coincidem.');
+      return;
+    }
+    if (loginPassword.length < 6) {
+      setLoginError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setLoginError(null);
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
+      
+      await updateProfile(userCredential.user, {
+        displayName: registerData.name.trim()
+      });
+
+      const userEmail = loginEmail.toLowerCase();
+      const registrationData = {
+        name: registerData.name.trim(),
+        phone: registerData.phone.trim(),
+        creci: registerData.creci.trim(),
+        email: userEmail,
+        status: 'pending',
+        role: 'corretor',
+        createdAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'users', userCredential.user.uid), registrationData);
+      setAuthStatus('pending');
+    } catch (err: any) {
+      console.error("Dashboard Register Error:", err);
+      if (err.code === 'auth/email-already-in-use') {
+        setLoginError('Este e-mail já está em uso.');
+      } else {
+        setLoginError('Ocorreu um erro ao tentar cadastrar.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDashboardGoogleLogin = async () => {
     setIsSubmitting(true);
     setLoginError(null);
@@ -1579,21 +1635,32 @@ export default function BrokerDashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans py-12">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md bg-white rounded-[40px] shadow-2xl overflow-hidden border border-gray-100"
         >
-          <div className="p-10 pt-12 text-center bg-gray-50/50 border-b border-gray-100">
+          <div className="p-10 pt-12 text-center bg-gray-50/50 border-b border-gray-100 relative">
+             <button 
+                onClick={() => navigate('/')}
+                className="absolute top-8 left-8 p-2 text-gray-400 hover:text-[#617964] transition-colors"
+                title="Voltar ao site"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
             <div className="w-20 h-20 bg-[#617964] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-[#617964]/20">
-              <Lock className="w-10 h-10 text-white" />
+              {isRegisterMode ? <UserPlus className="w-10 h-10 text-white" /> : <Lock className="w-10 h-10 text-white" />}
             </div>
-            <h1 className="text-2xl font-black text-gray-900 mb-2 font-display">Painel do Corretor</h1>
-            <p className="text-sm text-gray-500 font-medium">Acesse sua conta para gerenciar seus imóveis.</p>
+            <h1 className="text-2xl font-black text-gray-900 mb-2 font-display">
+              {isRegisterMode ? 'Seja um Parceiro' : 'Painel do Corretor'}
+            </h1>
+            <p className="text-sm text-gray-500 font-medium">
+              {isRegisterMode ? 'Preencha os dados para solicitar seu acesso.' : 'Acesse sua conta para gerenciar seus imóveis.'}
+            </p>
           </div>
 
-          <form onSubmit={handleDashboardEmailLogin} className="p-10 space-y-6">
+          <form onSubmit={isRegisterMode ? handleDashboardRegister : handleDashboardEmailLogin} className="p-10 space-y-6">
             {loginError && (
               <div className="p-4 bg-red-50 rounded-2xl flex items-center gap-3 border border-red-100">
                 <AlertCircle className="w-5 h-5 text-red-500" />
@@ -1602,6 +1669,56 @@ export default function BrokerDashboard() {
             )}
 
             <div className="space-y-4">
+              {isRegisterMode && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <div className="relative">
+                      <User className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input 
+                        type="text"
+                        required
+                        value={registerData.name}
+                        onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
+                        className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                        placeholder="Seu nome"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Telefone</label>
+                      <div className="relative">
+                        <Phone className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                          type="tel"
+                          required
+                          value={registerData.phone}
+                          onChange={(e) => setRegisterData({...registerData, phone: e.target.value})}
+                          className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                          placeholder="(00) 00000-0000"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">CRECI</label>
+                      <div className="relative">
+                        <ShieldCheck className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                          type="text"
+                          required
+                          value={registerData.creci}
+                          onChange={(e) => setRegisterData({...registerData, creci: e.target.value})}
+                          className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                          placeholder="00.000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">E-mail</label>
                 <div className="relative">
@@ -1631,6 +1748,23 @@ export default function BrokerDashboard() {
                   />
                 </div>
               </div>
+
+              {isRegisterMode && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Confirmar Senha</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="password"
+                      required
+                      value={registerData.confirmPassword}
+                      onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
+                      className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <button 
@@ -1638,32 +1772,45 @@ export default function BrokerDashboard() {
               disabled={isSubmitting}
               className="w-full py-4 bg-[#617964] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-wait"
             >
-              {isSubmitting ? 'Entrando...' : 'Entrar no Painel'}
+              {isSubmitting ? (isRegisterMode ? 'Enviando...' : 'Entrando...') : (isRegisterMode ? 'Solicitar Acesso' : 'Entrar no Painel')}
               {!isSubmitting && <ArrowRight className="w-5 h-5" />}
             </button>
 
-            <div className="relative py-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-100"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-white px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Ou continue com</span>
-              </div>
-            </div>
+            {!isRegisterMode && (
+              <>
+                <div className="relative py-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-100"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Ou continue com</span>
+                  </div>
+                </div>
 
-            <button 
-              type="button"
-              onClick={handleDashboardGoogleLogin}
-              disabled={isSubmitting}
-              className="w-full py-4 bg-white border border-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-3 shadow-sm"
-            >
-              <img src="https://www.google.com/favicon.ico" className="w-4 h-4" />
-              Google Login
-            </button>
+                <button 
+                  type="button"
+                  onClick={handleDashboardGoogleLogin}
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-white border border-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-3 shadow-sm"
+                >
+                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4" />
+                  Google Login
+                </button>
+              </>
+            )}
             
-            <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-6">
-              Acesso restrito a corretores autorizados
-            </p>
+            <div className="text-center mt-6">
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsRegisterMode(!isRegisterMode);
+                  setLoginError(null);
+                }}
+                className="text-xs font-black text-[#617964] uppercase tracking-widest hover:underline px-4 py-2"
+              >
+                {isRegisterMode ? 'Já tenho uma conta? Entrar' : 'Não tem conta? Me associar'}
+              </button>
+            </div>
           </form>
         </motion.div>
       </div>
