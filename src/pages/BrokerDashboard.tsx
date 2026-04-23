@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProperties } from '../context/PropertyContext';
 import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
+import { ExclusivityModal } from '../components/ExclusivityModal';
 import { ROLE_GROUPS } from '../constants/roles';
 import { auth, db } from '../firebase';
 import { 
@@ -26,6 +27,7 @@ import {
   deleteDoc, 
   doc,
   getDoc,
+  setDoc,
   addDoc,
   getDocs,
   where,
@@ -107,6 +109,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  FileSignature,
   Menu,
   GripVertical,
   X,
@@ -140,8 +143,12 @@ import {
   LogIn,
   KeyRound,
   ArrowRight,
-  UserPlus
+  UserPlus,
+  CircleDollarSign,
+  Wallet,
+  TrendingDown
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { CATEGORIES } from '../constants/categories';
 import { 
   XAxis, 
@@ -176,6 +183,8 @@ const HORIZONTAL_CONVENIENCES = [
 ];
 
 import { AgendaTab } from '../components/AgendaTab';
+import { FichasCadastraisTab } from '../components/FichasCadastraisTab';
+import { FinanceTab } from '../components/FinanceTab';
 
 export default function BrokerDashboard() {
   const navigate = useNavigate();
@@ -251,6 +260,7 @@ export default function BrokerDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isExclusivityModalOpen, setIsExclusivityModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingPropertyId, setEditingPropertyId] = useState<string | number | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -317,6 +327,8 @@ export default function BrokerDashboard() {
     { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
     { id: 'brokers', label: 'Corretores', icon: Users },
     { id: 'leads', label: 'Captações', icon: Users },
+    { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
+    { id: 'finance', label: 'Financeiro', icon: CircleDollarSign },
     { id: 'calendar', label: 'Agenda', icon: Calendar },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp },
     { id: 'users_approval', label: 'Aprovar login', icon: Users, adminOnly: true },
@@ -790,9 +802,51 @@ export default function BrokerDashboard() {
     broker: 'Daniel CEO',
     category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
     categorySlug: CATEGORIES[0].slug,
+    matricula: '',
+    inscricaoIptu: '',
     ownerName: '',
     ownerPhone: '',
+    ownerPhone2: '',
+    ownerEmail: '',
+    ownerCpf: '',
+    ownerRg: '',
+    ownerRgOrg: '',
+    ownerMaritalStatus: '',
+    ownerProfession: '',
+    ownerNationality: '',
     ownerAddress: '',
+    ownerNumber: '',
+    ownerComplement: '',
+    ownerBairro: '',
+    ownerCity: '',
+    ownerState: '',
+    ownerCep: '',
+    propertyStreet: '',
+    propertyNumber: '',
+    propertyComplement: '',
+    propertyNeighborhood: '',
+    propertyCity: '',
+    propertyState: '',
+    propertyCep: '',
+    matrixNumber: '',
+    landArea: '',
+    vendaPrice: '',
+    locacaoPrice: '',
+    isExclusive: false,
+    exclusivityConditions: 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
+    exclusivityDays: '90',
+    duringDays: '30',
+    commissionPercentage: '6',
+    minimumPrice: '',
+    signatureDate: new Date().toISOString().split('T')[0],
+    signatureType: 'digital' as 'digital' | 'physical',
+    witness1Name: '',
+    witness1Cpf: '',
+    witness1Rg: '',
+    witness2Name: '',
+    witness2Cpf: '',
+    witness2Rg: '',
+    additionalPdfUrl: '',
     additionalInfo: '',
     image: 'https://i.imgur.com/pe07Ikg.png',
     images: [''],
@@ -869,6 +923,275 @@ export default function BrokerDashboard() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
+  };
+
+  const generatePropertyPDF = (property: any) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let y = 15;
+
+    // Helper functions for PDF styling
+    const drawSectionHeader = (title: string, num: string, currentY: number) => {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 30);
+      doc.text(`${num}. ${title.toUpperCase()}`, 25, currentY + 5.5);
+      return currentY + 12;
+    };
+
+    const addField = (label: string, value: string | number, x: number, currentY: number, labelWidthOffset: number = 0) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text(`${label}:`, x, currentY);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      const labelWidth = doc.getTextWidth(`${label}: `) + labelWidthOffset;
+      doc.text(`${value || '---'}`, x + labelWidth, currentY);
+    };
+
+    const drawBox = (currentY: number, height: number) => {
+      doc.setDrawColor(230, 230, 230);
+      doc.rect(20, currentY, pageWidth - 40, height);
+    };
+
+    const drawWatermark = () => {
+      // Semi-transparent brand color for watermark
+      doc.setTextColor(220, 235, 222);
+      doc.setFontSize(60);
+      doc.setFont('helvetica', 'bold');
+      doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2 + 20, { angle: 45, align: 'center', renderingMode: 'fill' });
+      // Reset color
+      doc.setTextColor(30, 30, 30);
+    };
+
+    drawWatermark();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(97, 121, 100); // #617964 - Brand Color
+    doc.setFont('helvetica', 'bold');
+    doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO | CRECI/MG 9469', pageWidth / 2, y, { align: 'center' });
+    y += 10;
+    
+    doc.setFontSize(11);
+    doc.setTextColor(40, 40, 40);
+    doc.text('FICHA DE CADASTRO E AUTORIZAÇÃO EXCLUSIVA DE INTERMEDIAÇÃO', pageWidth / 2, y, { align: 'center' });
+    y += 3;
+    doc.setDrawColor(97, 121, 100);
+    doc.setLineWidth(0.8);
+    doc.line(pageWidth/2 - 40, y, pageWidth/2 + 40, y);
+    y += 12;
+
+    // 1. DADOS DO PROPRIETÁRIO
+    y = drawSectionHeader('Dados do Proprietário', '1', y);
+    doc.setFontSize(8);
+    addField('NOME COMPLETO', property.ownerName, 25, y);
+    y += 6;
+    addField('CPF', property.ownerCpf, 25, y);
+    addField('RG', property.ownerRg, 90, y);
+    addField('ÓRGÃO', property.ownerRgOrg, 140, y);
+    y += 6;
+    addField('ESTADO CIVIL', property.ownerMaritalStatus, 25, y);
+    addField('PROFISSÃO', property.ownerProfession, 90, y);
+    addField('NACIONALIDADE', property.ownerNationality, 140, y);
+    y += 6;
+    addField('TELEFONE (WHATSAPP)', property.ownerPhone || property.ownerPhone2, 25, y);
+    addField('E-MAIL', property.ownerEmail, 110, y);
+    y += 6;
+    addField('ENDEREÇO RESIDENCIAL', `${property.ownerAddress}, No ${property.ownerNumber}`, 25, y);
+    y += 6;
+    addField('BAIRRO', property.ownerBairro, 25, y);
+    addField('CIDADE/UF', `${property.ownerCity} - ${property.ownerState}`, 90, y);
+    addField('CEP', property.ownerCep, 160, y);
+    y += 12;
+
+    // 2. DADOS DO IMÓVEL OBJETO DA INTERMEDIAÇÃO
+    y = drawSectionHeader('Dados do Imóvel', '2', y);
+    addField('LOGRADOURO', property.propertyStreet, 25, y);
+    addField('NÚMERO', property.propertyNumber, 160, y);
+    y += 6;
+    addField('COMPLEMENTO', property.propertyComplement, 25, y);
+    y += 6;
+    addField('BAIRRO', property.propertyNeighborhood, 25, y);
+    addField('CIDADE/UF', `${property.propertyCity} - ${property.propertyState}`, 90, y);
+    addField('CEP', property.propertyCep, 160, y);
+    y += 6;
+    addField('MATRÍCULA Nº', property.matricula || '---', 25, y);
+    addField('INSCRIÇÃO IPTU', property.inscricaoIptu || '---', 90, y);
+    y += 6;
+    addField('ÁREA CONSTRUÍDA', `${property.area} m²`, 25, y);
+    addField('ÁREA DO TERRENO', `${property.landArea || '---'} m²`, 90, y);
+    y += 6;
+    addField('VALOR IPTU (ANUAL)', property.iptu, 25, y);
+    addField('CONDOMÍNIO (MENSAL)', property.condoFee, 90, y);
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('DESCRIÇÃO DO IMÓVEL:', 25, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    const splitDesc = doc.splitTextToSize(property.description || '---', pageWidth - 50);
+    doc.text(splitDesc, 25, y);
+    y += (splitDesc.length * 4) + 6;
+    addField('VALOR PARA VENDA', property.vendaPrice || property.price, 25, y);
+    addField('VALOR PARA LOCAÇÃO', property.locacaoPrice || '---', 110, y);
+    y += 12;
+
+    // 3. CONDIÇÕES DA EXCLUSIVIDADE E REMUNERAÇÃO
+    y = drawSectionHeader('Condições da Exclusividade e Remuneração', '3', y);
+    
+    addField('COMISSÃO PACTUADA', `${property.commissionPercentage}%`, 25, y);
+    y += 8;
+
+    doc.setFontSize(8);
+    const bullets = [
+      `O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.`,
+      `PRAZO DE EXCLUSIVIDADE: ${property.exclusivityDays} DIAS CORRIDOS, contados da data da assinatura desta ficha.`,
+      `Durante o prazo de exclusividade, o proprietário não realizará anúncios, negociações ou intermediações por conta própria ou por terceiros.`,
+      `Caso a venda/locação seja realizada diretamente pelo proprietário ou por terceiros durante o período de exclusividade, a comissão será devida integralmente à corretora.`,
+      `Após o término do prazo de exclusividade, permanece devido à corretora a comissão caso a venda/locação seja efetivada com cliente apresentado por ela durante a vigência desta autorização, dentro do prazo de 180 (cento e oitenta) dias após o encerramento do contrato.`,
+      `O proprietário autoriza a corretora a divulgar o imóvel em todos os meios de comunicação, inclusive internet, redes sociais, placas, materiais impressos e imprensa, bem como a compartilhar com outras imobiliárias e corretores.`,
+      `As informações fornecidas sobre o imóvel são de inteira responsabilidade do proprietário, que responde por sua veracidade e regularidade documental.`
+    ];
+
+    bullets.forEach(bullet => {
+      // Split text leaving room for the bullet
+      const splitBullet = doc.splitTextToSize(bullet, pageWidth - 55);
+      doc.text("•", 25, y);
+      doc.text(splitBullet, 28, y);
+      y += (splitBullet.length * 3.5) + 3;
+    });
+
+    y += 4;
+    
+    // 4. DECLARAÇÃO DO PROPRIETÁRIO
+    y = drawSectionHeader('Declaração do Proprietário', '4', y);
+    const decText = "Declaro que as informações acima prestadas são verdadeiras e que o imóvel objeto desta autorização encontra-se em condições de ser comercializado, livre e desembaraçado de quaisquer ônus judiciais ou extrajudiciais, salvo se mencionado em campo de observações adicionais.";
+    const splitDec = doc.splitTextToSize(decText, pageWidth - 45);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(splitDec, 25, y);
+    y += (splitDec.length * 4) + 8;
+
+    // 5. FUNDAMENTAÇÃO LEGAL
+    y = drawSectionHeader('Fundamentação Legal', '5', y);
+    doc.setFontSize(7.5);
+    const legalBase = "Esta autorização é regida pelos termos da Lei Federal nº 6.530/1978, Decreto nº 81.871/1978 e Resoluções COFECI. O descumprimento da exclusividade durante a vigência deste instrumento ensejará o pagamento da comissão integral pactuada no item 3.";
+    const splitLegal = doc.splitTextToSize(legalBase, pageWidth - 45);
+    doc.text(splitLegal, 25, y);
+    
+    // Page Footer
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text('Página 1 de 2', pageWidth - 30, pageHeight - 10);
+    
+    // PAGE 2
+    doc.addPage();
+    drawWatermark();
+    
+    y = 20;
+
+    // 6. TESTEMUNHAS / SIGNATÁRIOS
+    y = drawSectionHeader('Signatários e Testemunhas', '6', y);
+    
+    // Testimony boxes
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TESTEMUNHA 1', 25, y);
+    y += 5;
+    addField('NOME', property.witness1Name, 25, y);
+    y += 5;
+    addField('CPF', property.witness1Cpf, 25, y);
+    addField('RG', property.witness1Rg, 110, y);
+    y += 10;
+    doc.setLineWidth(0.1);
+    doc.line(25, y, 100, y);
+    doc.text('ASSINATURA TESTEMUNHA 1', 25, y + 4);
+    
+    y += 15;
+    doc.setFont('helvetica', 'bold');
+    doc.text('TESTEMUNHA 2', 25, y);
+    y += 5;
+    addField('NOME', property.witness2Name, 25, y);
+    y += 5;
+    addField('CPF', property.witness2Cpf, 25, y);
+    addField('RG', property.witness2Rg, 110, y);
+    y += 10;
+    doc.line(25, y, 100, y);
+    doc.text('ASSINATURA TESTEMUNHA 2', 25, y + 4);
+    
+    y += 20;
+
+    // 7. CORRETORA RESPONSÁVEL
+    y = drawSectionHeader('Corretora Responsável', '7', y);
+    addField('IMOBILIÁRIA', 'CR IMÓVEIS DE LUXO', 25, y);
+    addField('CRECI/MG', '9469', 110, y);
+    y += 6;
+    addField('GESTOR RESPONSÁVEL', property.broker || 'Daniel Vale', 25, y);
+    y += 15;
+
+    // 8. FORO
+    y = drawSectionHeader('Foro', '8', y);
+    const foroText = "As partes elegem o foro da Comarca de Juiz de Fora/MG para dirimir eventuais dúvidas oriundas deste instrumento.";
+    const splitForo = doc.splitTextToSize(foroText, pageWidth - 45);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(splitForo, 25, y);
+    y += (splitForo.length * 4) + 15;
+
+    // Signature Area
+    const sigBaseY = y + 20;
+    doc.setLineWidth(0.5);
+    
+    // Calculate 3 columns for signatures
+    const startX = 20;
+    const lineW = 45;
+    const gap = (pageWidth - 40 - (lineW * 3)) / 2;
+    
+    const x1 = startX;
+    const cx1 = x1 + (lineW / 2);
+    const x2 = x1 + lineW + gap;
+    const cx2 = x2 + (lineW / 2);
+    const x3 = x2 + lineW + gap;
+    const cx3 = x3 + (lineW / 2);
+
+    doc.line(x1, sigBaseY, x1 + lineW, sigBaseY);
+    doc.line(x2, sigBaseY, x2 + lineW, sigBaseY);
+    doc.line(x3, sigBaseY, x3 + lineW, sigBaseY);
+    
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROPRIETÁRIO', cx1, sigBaseY + 5, { align: 'center' });
+    doc.text('CORRETOR', cx2, sigBaseY + 5, { align: 'center' });
+    doc.text('IMOBILIÁRIA', cx3, sigBaseY + 5, { align: 'center' });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.text(property.ownerName || '---', cx1, sigBaseY + 9, { align: 'center' });
+    doc.text(property.broker || 'Daniel Vale', cx2, sigBaseY + 9, { align: 'center' });
+    doc.text('CR IMÓVEIS DE LUXO', cx3, sigBaseY + 9, { align: 'center' });
+
+    y = sigBaseY + 25;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(60, 60, 60);
+    const locationDate = `Juiz de Fora/MG, ${new Date(property.signatureDate).toLocaleDateString('pt-BR')}`;
+    doc.text(locationDate, pageWidth / 2, y, { align: 'center' });
+
+    // Footer
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text('Página 2 de 2', pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+
+    doc.save(`FICHA_CURADORIA_${property.code || 'DOC'}.pdf`);
   };
 
   const handlePriceChange = (value: string, type?: 'venda' | 'aluguel' | 'permuta' | 'lançamento') => {
@@ -1065,14 +1388,56 @@ export default function BrokerDashboard() {
       parking: 0,
       area: '',
       description: '',
-      broker: 'Daniel Vale',
+      broker: currentBroker?.name || 'Daniel Vale',
       category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
       categorySlug: CATEGORIES[0].slug,
-      ownerName: '',
-      ownerPhone: '',
-      ownerAddress: '',
-      additionalInfo: '',
-      image: 'https://i.imgur.com/pe07Ikg.png',
+      matricula: '',
+      inscricaoIptu: '',
+    ownerName: '',
+    ownerPhone: '',
+    ownerPhone2: '',
+    ownerEmail: '',
+    ownerCpf: '',
+    ownerRg: '',
+    ownerRgOrg: '',
+    ownerMaritalStatus: '',
+    ownerProfession: '',
+    ownerNationality: '',
+    ownerAddress: '',
+    ownerNumber: '',
+    ownerComplement: '',
+    ownerBairro: '',
+    ownerCity: '',
+    ownerState: '',
+    ownerCep: '',
+    propertyStreet: '',
+    propertyNumber: '',
+    propertyComplement: '',
+    propertyNeighborhood: '',
+    propertyCity: '',
+    propertyState: '',
+    propertyCep: '',
+    matrixNumber: '',
+    landArea: '',
+    vendaPrice: '',
+    locacaoPrice: '',
+    isExclusive: false,
+    exclusivityConditions: 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
+    exclusivityDays: '90',
+    duringDays: '30',
+    commissionPercentage: '6',
+    minimumPrice: '',
+    signatureDate: new Date().toISOString().split('T')[0],
+    signatureType: 'digital' as 'digital' | 'physical',
+    witness1Name: '',
+    witness1Cpf: '',
+    witness1Rg: '',
+    witness2Name: '',
+    witness2Cpf: '',
+    witness2Rg: '',
+    additionalPdfUrl: '',
+    additionalInfo: '',
+    image: 'https://i.imgur.com/pe07Ikg.png',
       images: [''],
       videoUrl: '',
       pdfUrl: '',
@@ -1121,9 +1486,51 @@ export default function BrokerDashboard() {
       broker: property.broker || 'Daniel Vale',
       category: property.category,
       categorySlug: property.categorySlug,
+      matricula: property.matricula || '',
+      inscricaoIptu: property.inscricaoIptu || '',
       ownerName: property.ownerName || '',
       ownerPhone: property.ownerPhone || '',
+      ownerPhone2: property.ownerPhone2 || '',
+      ownerEmail: property.ownerEmail || '',
+      ownerCpf: property.ownerCpf || '',
+      ownerRg: property.ownerRg || '',
+      ownerRgOrg: property.ownerRgOrg || '',
+      ownerMaritalStatus: property.ownerMaritalStatus || '',
+      ownerProfession: property.ownerProfession || '',
+      ownerNationality: property.ownerNationality || '',
       ownerAddress: property.ownerAddress || '',
+      ownerNumber: property.ownerNumber || '',
+      ownerComplement: property.ownerComplement || '',
+      ownerBairro: property.ownerBairro || '',
+      ownerCity: property.ownerCity || '',
+      ownerState: property.ownerState || '',
+      ownerCep: property.ownerCep || '',
+      propertyStreet: property.propertyStreet || '',
+      propertyNumber: property.propertyNumber || '',
+      propertyComplement: property.propertyComplement || '',
+      propertyNeighborhood: property.propertyNeighborhood || '',
+      propertyCity: property.propertyCity || '',
+      propertyState: property.propertyState || '',
+      propertyCep: property.propertyCep || '',
+      matrixNumber: property.matrixNumber || '',
+      landArea: property.landArea || '',
+      vendaPrice: property.vendaPrice || '',
+      locacaoPrice: property.locacaoPrice || '',
+      isExclusive: property.isExclusive || false,
+      exclusivityConditions: property.exclusivityConditions || 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
+      exclusivityDays: property.exclusivityDays || '90',
+      duringDays: property.duringDays || '30',
+      commissionPercentage: property.commissionPercentage || '6',
+      minimumPrice: property.minimumPrice || '',
+      signatureDate: property.signatureDate || new Date().toISOString().split('T')[0],
+      signatureType: property.signatureType || 'digital',
+      witness1Name: property.witness1Name || '',
+      witness1Cpf: property.witness1Cpf || '',
+      witness1Rg: property.witness1Rg || '',
+      witness2Name: property.witness2Name || '',
+      witness2Cpf: property.witness2Cpf || '',
+      witness2Rg: property.witness2Rg || '',
+      additionalPdfUrl: property.additionalPdfUrl || '',
       additionalInfo: property.additionalInfo || '',
       image: property.image,
       images: property.images || [property.image],
@@ -1208,12 +1615,54 @@ export default function BrokerDashboard() {
         parking: 0,
         area: '',
         description: '',
-        broker: 'Daniel Vale',
+        broker: currentBroker?.name || 'Daniel Vale',
         category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
         categorySlug: CATEGORIES[0].slug,
+        matricula: '',
+        inscricaoIptu: '',
         ownerName: '',
         ownerPhone: '',
+        ownerPhone2: '',
+        ownerEmail: '',
+        ownerCpf: '',
+        ownerRg: '',
+        ownerRgOrg: '',
+        ownerMaritalStatus: '',
+        ownerProfession: '',
+        ownerNationality: '',
         ownerAddress: '',
+        ownerNumber: '',
+        ownerComplement: '',
+        ownerBairro: '',
+        ownerCity: '',
+        ownerState: '',
+        ownerCep: '',
+        propertyStreet: '',
+        propertyNumber: '',
+        propertyComplement: '',
+        propertyNeighborhood: '',
+        propertyCity: '',
+        propertyState: '',
+        propertyCep: '',
+        matrixNumber: '',
+        landArea: '',
+        vendaPrice: '',
+        locacaoPrice: '',
+        isExclusive: false,
+        exclusivityConditions: 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
+        exclusivityDays: '90',
+        duringDays: '30',
+        commissionPercentage: '6',
+        minimumPrice: '',
+        signatureDate: new Date().toISOString().split('T')[0],
+        signatureType: 'digital' as 'digital' | 'physical',
+        witness1Name: '',
+        witness1Cpf: '',
+        witness1Rg: '',
+        witness2Name: '',
+        witness2Cpf: '',
+        witness2Rg: '',
+        additionalPdfUrl: '',
         additionalInfo: '',
         image: 'https://i.imgur.com/pe07Ikg.png',
         images: [''],
@@ -2607,28 +3056,122 @@ export default function BrokerDashboard() {
                                 <option key={c.id} value={c.id}>{c.name}</option>
                               ))}
                             </select>
-                            
-
-
-
-
-
-
-
                           </div>
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Endereço (Bairro, Cidade, Estado)</label>
-                          <div className="relative">
-                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input 
-                              required
-                              type="text" 
-                              value={newPropertyData.location}
-                              onChange={(e) => setNewPropertyData({...newPropertyData, location: e.target.value})}
-                              placeholder="Ex: AlphaVille, Juiz de Fora - MG"
-                              className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
-                            />
+
+                        {/* Matrícula e IPTU */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Matrícula Nº</label>
+                          <input 
+                            type="text" 
+                            value={newPropertyData.matricula || ''}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, matricula: e.target.value})}
+                            placeholder="Ex: 123456"
+                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Inscrição IPTU</label>
+                          <input 
+                            type="text" 
+                            value={newPropertyData.inscricaoIptu || ''}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, inscricaoIptu: e.target.value})}
+                            placeholder="Ex: 001.002.003-4"
+                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-4 md:col-span-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
+                             <MapPin className="w-4 h-4 text-[#617964]" /> Localização do Imóvel
+                          </label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2 space-y-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Rua / Logradouro</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.propertyStreet}
+                                onChange={(e) => setNewPropertyData({
+                                  ...newPropertyData, 
+                                  propertyStreet: e.target.value,
+                                  location: `${e.target.value}, ${newPropertyData.propertyNeighborhood}, ${newPropertyData.propertyCity} - ${newPropertyData.propertyState}`
+                                })}
+                                placeholder="Ex: Rua das Flores"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Número</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.propertyNumber}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, propertyNumber: e.target.value})}
+                                placeholder="Ex: 123"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Bairro</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.propertyNeighborhood}
+                                onChange={(e) => setNewPropertyData({
+                                  ...newPropertyData, 
+                                  propertyNeighborhood: e.target.value,
+                                  location: `${newPropertyData.propertyStreet}, ${e.target.value}, ${newPropertyData.propertyCity} - ${newPropertyData.propertyState}`
+                                })}
+                                placeholder="Ex: Centro"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Cidade</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.propertyCity}
+                                onChange={(e) => setNewPropertyData({
+                                  ...newPropertyData, 
+                                  propertyCity: e.target.value,
+                                  location: `${newPropertyData.propertyStreet}, ${newPropertyData.propertyNeighborhood}, ${e.target.value} - ${newPropertyData.propertyState}`
+                                })}
+                                placeholder="Ex: Juiz de Fora"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Estado (UF)</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.propertyState}
+                                onChange={(e) => setNewPropertyData({
+                                  ...newPropertyData, 
+                                  propertyState: e.target.value,
+                                  location: `${newPropertyData.propertyStreet}, ${newPropertyData.propertyNeighborhood}, ${newPropertyData.propertyCity} - ${e.target.value}`
+                                })}
+                                placeholder="Ex: MG"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">CEP</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.propertyCep}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, propertyCep: e.target.value})}
+                                placeholder="Ex: 36000-000"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-1">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Complemento</label>
+                              <input 
+                                type="text" 
+                                value={newPropertyData.propertyComplement}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, propertyComplement: e.target.value})}
+                                placeholder="Ex: Apt 402"
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2675,12 +3218,22 @@ export default function BrokerDashboard() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Maximize className="w-3 h-3" /> m²</label>
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Maximize className="w-3 h-3" /> Área Const. (m²)</label>
                           <input 
                             type="text" 
                             value={newPropertyData.area}
                             onChange={(e) => handleAreaChange(e.target.value)}
                             placeholder="Ex: 850m²"
+                            className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Maximize className="w-3 h-3" /> Área Terreno (m²)</label>
+                          <input 
+                            type="text" 
+                            value={newPropertyData.landArea}
+                            onChange={(e) => setNewPropertyData({...newPropertyData, landArea: e.target.value})}
+                            placeholder="Ex: 1000m²"
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
@@ -3062,55 +3615,162 @@ export default function BrokerDashboard() {
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
-                      className="space-y-6"
+                      className="space-y-8"
                     >
-                      <div className="p-8 bg-gray-50 rounded-[32px] space-y-6 border border-gray-100">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                            <Users className="w-4 h-4" /> Informações Internas (Não aparecem no site)
-                          </h4>
-                          <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black rounded-full uppercase">Privado</span>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
+                          <Lock className="w-4 h-4" /> Informações Internas (Sigiloso)
+                        </h4>
+                      </div>
+
+                      {/* Owner Details */}
+                      <div className="p-8 bg-gray-50 rounded-[32px] border border-gray-100 space-y-6">
+                        <h3 className="text-sm font-black text-[#617964] flex items-center gap-2 uppercase tracking-widest border-b border-gray-100 pb-2">
+                          <User className="w-4 h-4" /> Qualificação do Proprietário
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><User className="w-3 h-3" /> Nome do Proprietário</label>
-                            <input 
-                              type="text" 
-                              value={newPropertyData.ownerName}
-                              onChange={(e) => setNewPropertyData({...newPropertyData, ownerName: e.target.value})}
-                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm"
-                            />
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Nome Completo</label>
+                            <input type="text" value={newPropertyData.ownerName || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerName: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><Phone className="w-3 h-3" /> Telefone</label>
-                            <input 
-                              type="text" 
-                              value={newPropertyData.ownerPhone}
-                              onChange={(e) => setNewPropertyData({...newPropertyData, ownerPhone: formatPhone(e.target.value)})}
-                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm"
-                              placeholder="(32) 99999-9999"
-                            />
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Nacionalidade</label>
+                            <input type="text" value={newPropertyData.ownerNationality || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerNationality: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-1"><MapPin className="w-3 h-3" /> Endereço Atual</label>
-                            <input 
-                              type="text" 
-                              value={newPropertyData.ownerAddress}
-                              onChange={(e) => setNewPropertyData({...newPropertyData, ownerAddress: e.target.value})}
-                              className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm"
-                            />
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Estado Civil</label>
+                            <input type="text" value={newPropertyData.ownerMaritalStatus || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerMaritalStatus: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Profissão</label>
+                            <input type="text" value={newPropertyData.ownerProfession || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerProfession: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">CPF</label>
+                            <input type="text" value={newPropertyData.ownerCpf || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerCpf: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
+                          </div>
+                           <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">RG</label>
+                            <input type="text" value={newPropertyData.ownerRg || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerRg: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
+                          </div>
+                           <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Órgão Emissor</label>
+                            <input type="text" value={newPropertyData.ownerRgOrg || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerRgOrg: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Email</label>
+                            <input type="email" value={newPropertyData.ownerEmail || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerEmail: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Telefone Principal</label>
+                            <input type="text" value={newPropertyData.ownerPhone || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerPhone: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
+                          </div>
+                           <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Telefone Secundário</label>
+                            <input type="text" value={newPropertyData.ownerPhone2 || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerPhone2: e.target.value})} className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all shadow-sm" />
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Informações Adicionais</label>
-                          <textarea 
-                            rows={3}
-                            value={newPropertyData.additionalInfo}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, additionalInfo: e.target.value})}
-                            placeholder="Notas internas sobre o proprietário ou negociação..."
-                            className="w-full bg-white border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none shadow-sm"
-                          />
+
+                        <div className="p-4 bg-white border border-gray-100 rounded-2xl space-y-4">
+                           <h4 className="text-xs font-black text-gray-600 uppercase">Endereço do Proprietário</h4>
+                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">CEP</label>
+                                <input type="text" value={newPropertyData.ownerCep || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerCep: e.target.value})} className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all" />
+                              </div>
+                               <div className="space-y-2 lg:col-span-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Logradouro / Rua</label>
+                                <input type="text" value={newPropertyData.ownerAddress || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerAddress: e.target.value})} className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all" />
+                              </div>
+                               <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Número</label>
+                                <input type="text" value={newPropertyData.ownerNumber || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerNumber: e.target.value})} className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all" />
+                              </div>
+                               <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Complemento</label>
+                                <input type="text" value={newPropertyData.ownerComplement || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerComplement: e.target.value})} className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all" />
+                              </div>
+                               <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Bairro</label>
+                                <input type="text" value={newPropertyData.ownerBairro || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerBairro: e.target.value})} className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all" />
+                              </div>
+                               <div className="space-y-2 lg:col-span-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Cidade</label>
+                                <input type="text" value={newPropertyData.ownerCity || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerCity: e.target.value})} className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all" />
+                              </div>
+                               <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Estado (UF)</label>
+                                <input type="text" value={newPropertyData.ownerState || ''} onChange={e => setNewPropertyData({...newPropertyData, ownerState: e.target.value})} className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all" />
+                              </div>
+                           </div>
                         </div>
+                      </div>
+
+                      {/* Exclusividade */}
+                      <div className={`p-8 rounded-[32px] border transition-all ${newPropertyData.isExclusive ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-100'}`}>
+                        <div className="flex items-center justify-between mb-8">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${newPropertyData.isExclusive ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-gray-200 text-gray-400'}`}>
+                              <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                               <h5 className="text-sm font-black text-gray-900 uppercase tracking-widest">Curadoria Exclusiva?</h5>
+                               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Ative para preencher a ficha de captação</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextVal = !newPropertyData.isExclusive;
+                              setNewPropertyData({...newPropertyData, isExclusive: nextVal});
+                              if (nextVal) setIsExclusivityModalOpen(true);
+                            }}
+                            className={`w-14 h-8 rounded-full relative p-1 transition-all ${newPropertyData.isExclusive ? 'bg-amber-500' : 'bg-gray-300'}`}
+                          >
+                             <div className={`w-6 h-6 bg-white rounded-full shadow-sm transition-all absolute top-1 ${newPropertyData.isExclusive ? 'right-1' : 'left-1'}`} />
+                          </button>
+                        </div>
+
+                        {newPropertyData.isExclusive && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: -10 }} 
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-4 pt-4 border-t border-amber-200/50"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setIsExclusivityModalOpen(true)}
+                              className="w-full py-4 bg-white border-2 border-amber-200 text-amber-700 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-amber-100 transition-all flex items-center justify-center gap-3 shadow-sm group"
+                            >
+                              <Edit className="w-5 h-5 group-hover:scale-110 transition-all" /> Preencher Ficha de Exclusividade
+                            </button>
+                          </motion.div>
+                        )}
+                      </div>
+
+                      <div className="space-y-4 p-8 bg-gray-50 rounded-[32px] border border-gray-100">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1 flex items-center gap-2">
+                           <FileText className="w-4 h-4" /> Anexo Adicional (Documentação em PDF URL)
+                        </label>
+                        <input 
+                          type="text" 
+                          value={newPropertyData.additionalPdfUrl}
+                          onChange={(e) => setNewPropertyData({...newPropertyData, additionalPdfUrl: e.target.value})}
+                          placeholder="https://exemplo.com/documento.pdf"
+                          className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                        />
+                      </div>
+
+                      <div className="space-y-4 p-8 bg-gray-50 rounded-[32px] border border-gray-100">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Notas Adicionais do Corretor</label>
+                        <textarea 
+                          rows={3}
+                          value={newPropertyData.additionalInfo}
+                          onChange={(e) => setNewPropertyData({...newPropertyData, additionalInfo: e.target.value})}
+                          placeholder="Observações complementares sobre o imóvel ou proprietário..."
+                          className="w-full bg-white border border-gray-200 rounded-[24px] py-4 px-6 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none shadow-sm"
+                        />
                       </div>
                     </motion.div>
                   )}
@@ -3476,6 +4136,14 @@ export default function BrokerDashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      <ExclusivityModal
+        isOpen={isExclusivityModalOpen}
+        onClose={() => setIsExclusivityModalOpen(false)}
+        data={newPropertyData}
+        onChange={setNewPropertyData}
+        generatePDF={generatePropertyPDF}
+      />
 
       {/* Logout Confirmation Modal */}
       <AnimatePresence>
@@ -5271,6 +5939,10 @@ export default function BrokerDashboard() {
             </div>
           ) : activeTab === 'calendar' ? (
             <AgendaTab />
+          ) : activeTab === 'fichas' ? (
+            <FichasCadastraisTab />
+          ) : activeTab === 'finance' ? (
+            <FinanceTab />
           ) : activeTab === 'reports' ? (
             <div className="space-y-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -5326,6 +5998,7 @@ export default function BrokerDashboard() {
                                 log.type === 'property' ? 'bg-emerald-50 text-emerald-600' :
                                 log.type === 'proposal' ? 'bg-purple-50 text-purple-600' :
                                 log.type === 'broker' ? 'bg-amber-50 text-amber-600' :
+                                log.type === 'finance' ? 'bg-[#617964]/20 text-[#617964]' :
                                 'bg-gray-100 text-gray-600'
                               }`}>
                                 {log.action}

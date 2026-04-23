@@ -3,7 +3,7 @@ import { db, auth } from '../firebase';
 
 export interface SystemLog {
   id?: string;
-  type: 'lead' | 'property' | 'broker' | 'agenda' | 'proposal' | 'system' | 'condo' | 'user';
+  type: 'lead' | 'property' | 'broker' | 'agenda' | 'proposal' | 'system' | 'condo' | 'user' | 'finance';
   action: string;
   details: string;
   userId: string | null;
