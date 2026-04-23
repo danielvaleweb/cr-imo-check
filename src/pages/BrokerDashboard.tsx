@@ -317,6 +317,11 @@ export default function BrokerDashboard() {
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
   const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<string | null>(null);
 
+  const currentBroker = useMemo(() => {
+    if (!user) return null;
+    return brokers.find(b => b.email?.toLowerCase() === user.email?.toLowerCase());
+  }, [brokers, user]);
+
   const todaysTasks = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return agendaEvents.filter(event => event.data === today);
@@ -516,7 +521,7 @@ export default function BrokerDashboard() {
 
   useEffect(() => {
     if (isMessagesOpen && selectedChatBroker && auth.currentUser) {
-      const myId = auth.currentUser.uid;
+      const myId = currentBroker?.id?.toString() || auth.currentUser.uid;
       const otherId = selectedChatBroker.id.toString();
       
       const q = query(
@@ -538,7 +543,7 @@ export default function BrokerDashboard() {
       });
       return () => unsubscribe();
     }
-  }, [isMessagesOpen, selectedChatBroker]);
+  }, [isMessagesOpen, selectedChatBroker, currentBroker]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -546,7 +551,7 @@ export default function BrokerDashboard() {
 
     try {
       const text = newMessageText;
-      const myId = auth.currentUser.uid;
+      const myId = currentBroker?.id?.toString() || auth.currentUser.uid;
       const otherId = selectedChatBroker.id.toString();
       
       setNewMessageText('');
@@ -556,13 +561,13 @@ export default function BrokerDashboard() {
         room: `${myId}_${otherId}`,
         text,
         createdAt: serverTimestamp(),
-        senderName: auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Usuário'
+        senderName: currentBroker?.name || auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Usuário'
       });
       
       await addDoc(collection(db, 'notificacoes'), {
         userId: otherId,
         title: 'Nova Mensagem',
-        message: `${auth.currentUser.displayName || 'Alguém'} enviou uma mensagem para você.`,
+        message: `${currentBroker?.name || auth.currentUser.displayName || 'Alguém'} enviou uma mensagem para você.`,
         type: 'message',
         read: false,
         createdAt: serverTimestamp()
@@ -883,10 +888,7 @@ export default function BrokerDashboard() {
     instagram: ''
   });
 
-  const currentBroker = useMemo(() => {
-    if (!user) return null;
-    return brokers.find(b => b.email?.toLowerCase() === user.email?.toLowerCase());
-  }, [brokers, user]);
+
 
   const handleEditBroker = (broker: any) => {
     setNewBrokerData({ ...broker });
@@ -2690,25 +2692,28 @@ export default function BrokerDashboard() {
                       <p className="text-xs font-bold uppercase tracking-widest">Comece uma conversa</p>
                     </div>
                   ) : (
-                    chatMessages.map((msg) => (
+                    chatMessages.map((msg) => {
+                      const myId = currentBroker?.id?.toString() || auth.currentUser?.uid;
+                      const isMe = msg.from === myId;
+                      return (
                       <div 
                         key={msg.id}
-                        className={`flex ${msg.from === auth.currentUser?.uid ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                       >
                         <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                          msg.from === auth.currentUser?.uid 
+                          isMe 
                             ? 'bg-[#617964] text-white rounded-tr-none shadow-lg shadow-[#617964]/10' 
                             : msg.type === 'system'
                               ? 'bg-amber-50 text-amber-800 border border-amber-100 italic rounded-tl-none text-xs'
                               : 'bg-gray-100 text-gray-800 rounded-tl-none'
                         }`}>
                           {msg.text}
-                          <p className={`text-[8px] mt-1 opacity-50 font-bold uppercase ${msg.from === auth.currentUser?.uid ? 'text-white' : 'text-gray-500'}`}>
+                          <p className={`text-[8px] mt-1 opacity-50 font-bold uppercase ${isMe ? 'text-white' : 'text-gray-500'}`}>
                             {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Agora'}
                           </p>
                         </div>
                       </div>
-                    ))
+                    )})
                   )}
                 </div>
 
