@@ -18,6 +18,7 @@ import { collection, onSnapshot, addDoc, query, orderBy, serverTimestamp, getDoc
 import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { addLog } from '../services/logService';
+import { playAlertSound } from '../lib/audio';
 
 const DEFAULT_CATEGORIES = {
   entrada: {
@@ -233,6 +234,8 @@ export function FinanceTab() {
   const handleDeleteTransaction = async (id: string) => {
     try {
       const docRef = doc(db, 'finance_transactions', id);
+      setTransactionToDelete(null); // Close confirmation immediately
+      
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -245,7 +248,6 @@ export function FinanceTab() {
       }
       
       await deleteDoc(docRef);
-      setTransactionToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'finance_transactions');
     }
@@ -436,7 +438,10 @@ export function FinanceTab() {
                       </div>
                     ) : (
                       <button 
-                        onClick={() => setTransactionToDelete(t.id)}
+                        onClick={() => {
+                          playAlertSound();
+                          setTransactionToDelete(t.id);
+                        }}
                         className="p-1.5 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                         title="Remover transação"
                       >

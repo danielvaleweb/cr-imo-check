@@ -150,6 +150,7 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { CATEGORIES } from '../constants/categories';
+import { playAlertSound } from '../lib/audio';
 import { 
   XAxis, 
   YAxis, 
@@ -768,16 +769,18 @@ export default function BrokerDashboard() {
   };
 
   const handleDeleteBroker = (id: string | number) => {
+    playAlertSound();
     setBrokerToDelete(id);
   };
 
   const confirmDeleteBroker = async () => {
     if (brokerToDelete !== null) {
+      const id = brokerToDelete;
+      setBrokerToDelete(null);
       try {
-        const broker = brokers.find(b => b.id === brokerToDelete);
-        await removeBroker(brokerToDelete);
-        await addLog('broker', 'Excluiu corretor', `Corretor: ${broker?.name || brokerToDelete}`);
-        setBrokerToDelete(null);
+        const broker = brokers.find(b => b.id === id);
+        await removeBroker(id);
+        await addLog('broker', 'Excluiu corretor', `Corretor: ${broker?.name || id}`);
       } catch (error) {
         console.error('Error deleting broker:', error);
       }
@@ -1355,6 +1358,7 @@ export default function BrokerDashboard() {
   };
 
   const handleDeleteCustomOption = async (id: string) => {
+    playAlertSound();
     try {
       await deleteDoc(doc(db, 'condo_options', id));
     } catch (error) {
@@ -1363,15 +1367,21 @@ export default function BrokerDashboard() {
   };
 
   const handleDeleteProperty = (id: string | number) => {
+    playAlertSound();
     setPropertyToDelete(id);
   };
 
   const confirmDelete = async () => {
     if (propertyToDelete !== null) {
-      const prop = properties.find(p => p.id === propertyToDelete);
-      await removeProperty(propertyToDelete);
-      await addLog('property', 'Excluiu imóvel', `Imóvel: ${prop?.title || propertyToDelete} (Cód: ${prop?.code})`);
+      const id = propertyToDelete;
       setPropertyToDelete(null);
+      try {
+        const prop = properties.find(p => p.id === id);
+        await removeProperty(id);
+        await addLog('property', 'Excluiu imóvel', `Imóvel: ${prop?.title || id} (Cód: ${prop?.code})`);
+      } catch (error) {
+        console.error(error);
+      }
     }
   };
 
@@ -1758,16 +1768,18 @@ export default function BrokerDashboard() {
   };
 
   const handleDeleteCondo = (id: string | number) => {
+    playAlertSound();
     setCondoToDelete(id);
   };
 
   const confirmDeleteCondo = async () => {
     if (condoToDelete !== null) {
+      const id = condoToDelete;
+      setCondoToDelete(null);
       try {
-        const condo = condos.find(c => c.id === condoToDelete);
-        await removeCondo(condoToDelete);
-        await addLog('condo', 'Excluiu condomínio', `Condomínio: ${condo?.name || condoToDelete}`);
-        setCondoToDelete(null);
+        const condo = condos.find(c => c.id === id);
+        await removeCondo(id);
+        await addLog('condo', 'Excluiu condomínio', `Condomínio: ${condo?.name || id}`);
       } catch (error) {
         console.error("Erro ao excluir condomínio:", error);
         alert("Erro ao excluir o condomínio. Verifique suas permissões.");
@@ -1777,27 +1789,29 @@ export default function BrokerDashboard() {
 
   const confirmDeleteLead = async () => {
     if (leadToDelete !== null) {
+      const id = leadToDelete;
+      setLeadToDelete(null);
       try {
-        const lead = leads.find(l => l.id === leadToDelete);
-        await deleteDoc(doc(db, 'property_leads', leadToDelete));
+        const lead = leads.find(l => l.id === id);
+        await deleteDoc(doc(db, 'property_leads', id));
         await addLog('lead', 'Excluiu captação', `Proprietário: ${lead?.ownerName}, Imóvel: ${lead?.propertyType}`);
       } catch (error) {
         console.error('Error deleting lead:', error);
-        handleFirestoreError(error, OperationType.DELETE, `property_leads/${leadToDelete}`);
+        // handleFirestoreError(error, OperationType.DELETE, `property_leads/${id}`);
       }
-      setLeadToDelete(null);
     }
   };
 
   const confirmDeleteProposal = async () => {
     if (proposalToDelete !== null) {
+      const id = proposalToDelete;
+      setProposalToDelete(null);
       try {
-        const proposal = proposals.find(p => p.id === proposalToDelete);
-        await deleteDoc(doc(db, 'proposals', proposalToDelete));
+        const proposal = proposals.find(p => p.id === id);
+        await deleteDoc(doc(db, 'proposals', id));
         await addLog('proposal', 'Excluiu proposta', `Cliente: ${proposal?.userName}, Imóvel: ${proposal?.propertyName}`);
-        setProposalToDelete(null);
       } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `proposals/${proposalToDelete}`);
+        // handleFirestoreError(error, OperationType.DELETE, `proposals/${id}`);
       }
     }
   };
@@ -1841,18 +1855,20 @@ export default function BrokerDashboard() {
   };
 
   const handleDeleteUser = (userId: string) => {
+    playAlertSound();
     setUserToDelete(userId);
   };
 
   const confirmDeleteUser = async () => {
     if (userToDelete !== null) {
+      const id = userToDelete;
+      setUserToDelete(null);
       try {
-        const userToDel = usersToApprove.find(u => u.id === userToDelete);
-        await deleteDoc(doc(db, 'users', userToDelete));
+        const userToDel = usersToApprove.find(u => u.id === id);
+        await deleteDoc(doc(db, 'users', id));
         await addLog('user', 'Excluiu solicitação', `Usuário: ${userToDel?.name || userToDel?.email}`);
-        setUserToDelete(null);
       } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `users/${userToDelete}`);
+        handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
       }
     }
   };
@@ -1970,7 +1986,10 @@ export default function BrokerDashboard() {
                 </button>
             )}
             <button 
-              onClick={() => setProposalToDelete(proposal.id)}
+              onClick={() => {
+                playAlertSound();
+                setProposalToDelete(proposal.id);
+              }}
               className="p-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
               title="Excluir Proposta"
             >
@@ -5922,7 +5941,10 @@ export default function BrokerDashboard() {
                             </td>
                             <td className="p-6 text-right">
                               <button
-                                onClick={() => setLeadToDelete(lead.id)}
+                                onClick={() => {
+                                  playAlertSound();
+                                  setLeadToDelete(lead.id);
+                                }}
                                 className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-xl transition-all"
                                 title="Excluir captação"
                               >

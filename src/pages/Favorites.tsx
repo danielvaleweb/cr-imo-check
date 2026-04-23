@@ -6,6 +6,8 @@ import { useProperties } from '../context/PropertyContext';
 import { useCondos } from '../context/CondoContext';
 import PropertyCard from '../components/PropertyCard';
 
+import { playAlertSound } from '../lib/audio';
+
 export default function Favorites() {
   const navigate = useNavigate();
   const { properties } = useProperties();
@@ -22,6 +24,7 @@ export default function Favorites() {
   const [isTrashAnimating, setIsTrashAnimating] = useState(false);
 
   const handleClear = () => {
+    playAlertSound();
     setIsTrashAnimating(true);
     clearFavorites();
     setTimeout(() => setIsTrashAnimating(false), 1000);

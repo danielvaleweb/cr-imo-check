@@ -6,6 +6,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, orderBy, query, doc, u
 import { db, auth } from '../firebase';
 import { addLog } from '../services/logService';
 import { Trash, Edit2, Eye, User } from 'lucide-react';
+import { playAlertSound } from '../lib/audio';
 
 interface AgendaTabProps {
   calendarOnly?: boolean;
@@ -215,19 +216,23 @@ export function AgendaTab({ calendarOnly = false }: AgendaTabProps) {
   };
 
   const handleDelete = (id: string) => {
+    playAlertSound();
     setDeleteConfirmId(id);
   };
 
   const confirmDelete = async () => {
     if (!deleteConfirmId) return;
+    const id = deleteConfirmId;
+    setDeleteConfirmId(null); // Close immediately for responsive UI
+    
     try {
-      const event = events.find(e => e.id === deleteConfirmId);
-      await deleteDoc(doc(db, 'agenda_events', deleteConfirmId));
+      const event = events.find(e => e.id === id);
+      await deleteDoc(doc(db, 'agenda_events', id));
       await addLog('agenda', 'Excluiu compromisso', `${event?.type === 'visita' ? 'Visita' : 'Tarefa'}: ${event?.type === 'visita' ? event?.nomeCliente : event?.tituloTarefa}`);
-      setDeleteConfirmId(null);
     } catch (err) {
       console.error(err);
       alert('Erro ao excluir compromisso.');
+      // Optionally restore id if failed? Usually not worth the complexity unless critical
     }
   };
 
