@@ -20,7 +20,8 @@ import {
   addDoc,
   getDocs,
   where,
-  serverTimestamp 
+  serverTimestamp,
+  writeBatch 
 } from 'firebase/firestore';
 
 enum OperationType {
@@ -460,9 +461,11 @@ export default function BrokerDashboard() {
 
   // Notifications filtering
   useEffect(() => {
+    if (!auth.currentUser) return;
+    
     const q = query(
       collection(db, 'notificacoes'),
-      where('userId', '==', auth.currentUser?.uid),
+      where('userId', '==', auth.currentUser.uid),
       orderBy('createdAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -470,9 +473,11 @@ export default function BrokerDashboard() {
       setFilteredNotifications(data.filter((n: any) => 
         n.type === 'tarefa' || n.type === 'commitment' || n.type === 'lead' || n.type === 'system'
       ));
+    }, (error) => {
+      console.warn("Notifications read error:", error);
     });
     return () => unsubscribe();
-  }, []);
+  }, [auth.currentUser]);
 
   const [customOptions, setCustomOptions] = useState<{
     leisure: { id: string; label: string }[];
@@ -628,14 +633,19 @@ export default function BrokerDashboard() {
   }, [isLoading]);
 
   useEffect(() => {
+    console.log('Dashboard: Auth listener starting...');
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Dashboard: Auth state changed:', user?.email);
       setUser(user);
       if (!user) {
+        console.log('Dashboard: No user, redirecting to home...');
         navigate('/');
+        setIsLoading(false); // Clear loading even on redirect
       } else {
         // Exceção imediata para o administrador
         const adminEmail = 'danielvaleweb@gmail.com';
         if (user.email?.toLowerCase() === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2') {
+          console.log('Dashboard: Admin detected via email/uid');
           setIsAdmin(true);
           setIsLoading(false);
           return;
@@ -643,27 +653,31 @@ export default function BrokerDashboard() {
 
         // Check if admin or approved
         try {
+          console.log('Dashboard: Checking user status in Firestore...');
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            console.log('Dashboard: User data found:', userData.status, userData.role);
             
-        // Allow admin or approved users
-        const isDaniel = user.email?.toLowerCase() === 'danielvaleweb@gmail.com';
-        if (userData.role === 'admin' || isDaniel) {
-          setIsAdmin(true);
-        } else if (userData.status !== 'approved') {
-          // Not approved, just go to home but stay logged in
-          navigate('/');
-          return;
-        }
-      } else if (user.email?.toLowerCase() !== 'danielvaleweb@gmail.com') {
-         // Not in Firestore and not admin, go to home
-         navigate('/');
-         return;
-      } else {
-         // Not in Firestore but is the explicit admin email
-         setIsAdmin(true);
-      }
+            // Allow admin or approved users
+            const isDaniel = user.email?.toLowerCase() === 'danielvaleweb@gmail.com';
+            if (userData.role === 'admin' || isDaniel) {
+              setIsAdmin(true);
+            } else if (userData.status !== 'approved') {
+              console.log('Dashboard: User not approved, redirecting...');
+              navigate('/');
+              setIsLoading(false);
+              return;
+            }
+          } else if (user.email?.toLowerCase() !== 'danielvaleweb@gmail.com') {
+             console.log('Dashboard: No user profile found, redirecting...');
+             navigate('/');
+             setIsLoading(false);
+             return;
+          } else {
+             console.log('Dashboard: No profile but admin email used');
+             setIsAdmin(true);
+          }
           setIsLoading(false);
         } catch (error) {
           console.error("Dashboard auth check error:", error);
@@ -695,8 +709,13 @@ export default function BrokerDashboard() {
     instagram: ''
   });
 
+  const currentBroker = useMemo(() => {
+    if (!user) return null;
+    return brokers.find(b => b.email?.toLowerCase() === user.email?.toLowerCase());
+  }, [brokers, user]);
+
   const handleEditBroker = (broker: any) => {
-    setNewBrokerData(broker);
+    setNewBrokerData({ ...broker });
     setEditingBrokerId(broker.id);
     setIsEditingBroker(true);
     setIsBrokerModalOpen(true);
@@ -704,17 +723,22 @@ export default function BrokerDashboard() {
 
   const handleSaveBroker = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEditingBroker && editingBrokerId !== null) {
-      await updateBroker(editingBrokerId, newBrokerData);
-      await addLog('broker', 'Editou corretor', `Corretor: ${newBrokerData.name}`);
-    } else {
-      await addBroker(newBrokerData);
-      await addLog('broker', 'Cadastrou corretor', `Corretor: ${newBrokerData.name}`);
+    try {
+      if (isEditingBroker && editingBrokerId !== null) {
+        await updateBroker(editingBrokerId, newBrokerData);
+        await addLog('broker', 'Editou corretor', `Corretor: ${newBrokerData.name}`);
+      } else {
+        await addBroker(newBrokerData);
+        await addLog('broker', 'Cadastrou corretor', `Corretor: ${newBrokerData.name}`);
+      }
+      setIsBrokerModalOpen(false);
+      setIsEditingBroker(false);
+      setEditingBrokerId(null);
+      setNewBrokerData({ name: '', role: '', photo: '', phone: '', email: '', bio: '', creci: '', instagram: '' });
+    } catch (error: any) {
+      console.error("Error saving broker:", error);
+      alert("Erro ao salvar: " + error.message);
     }
-    setIsBrokerModalOpen(false);
-    setIsEditingBroker(false);
-    setEditingBrokerId(null);
-    setNewBrokerData({ name: '', role: '', photo: '', phone: '', email: '', bio: '', creci: '', instagram: '' });
   };
 
   const handleDeleteBroker = (id: string | number) => {
@@ -737,6 +761,8 @@ export default function BrokerDashboard() {
   const [condoToDelete, setCondoToDelete] = useState<string | number | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
   const [proposalToDelete, setProposalToDelete] = useState<string | null>(null);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [usersToClearStatus, setUsersToClearStatus] = useState<'pending' | 'rejected' | null>(null);
   const [brokerToDelete, setBrokerToDelete] = useState<string | number | null>(null);
   const [newPropertyData, setNewPropertyData] = useState({
     title: '',
@@ -1350,6 +1376,159 @@ export default function BrokerDashboard() {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
+
+  const handleDeleteUser = (userId: string) => {
+    setUserToDelete(userId);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (userToDelete !== null) {
+      try {
+        const userToDel = usersToApprove.find(u => u.id === userToDelete);
+        await deleteDoc(doc(db, 'users', userToDelete));
+        await addLog('user', 'Excluiu solicitação', `Usuário: ${userToDel?.name || userToDel?.email}`);
+        setUserToDelete(null);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `users/${userToDelete}`);
+      }
+    }
+  };
+
+  const confirmClearUsers = async () => {
+    if (usersToClearStatus !== null) {
+      try {
+        const batch = writeBatch(db);
+        const usersToDelete = usersToApprove.filter(u => u.status === usersToClearStatus);
+        
+        usersToDelete.forEach(u => {
+          batch.delete(doc(db, 'users', u.id));
+        });
+
+        await batch.commit();
+        await addLog('user', 'Limpou lista de usuários', `Status: ${usersToClearStatus}, Qtd: ${usersToDelete.length}`);
+        setUsersToClearStatus(null);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `users/batch-clear-${usersToClearStatus}`);
+      }
+    }
+  };
+
+  const handleUpdateProposalStatus = async (proposalId: string, status: 'pending' | 'accepted' | 'rejected') => {
+    try {
+      const proposalRef = doc(db, 'proposals', proposalId);
+      const proposal = proposals.find(p => p.id === proposalId);
+      await updateDoc(proposalRef, { 
+        status,
+        updatedAt: serverTimestamp()
+      });
+      await addLog('proposal', status === 'accepted' ? 'Aceitou proposta' : 'Recusou proposta', `Cliente: ${proposal?.userName}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `proposals/${proposalId}`);
+    }
+  };
+
+  const renderProposalCard = (proposal: any) => (
+    <div 
+      key={proposal.id}
+      className="bg-white p-6 lg:p-8 rounded-[32px] lg:rounded-[40px] shadow-sm border border-gray-100 hover:shadow-md transition-all group"
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex items-start gap-6">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${
+            proposal.status === 'accepted' ? 'bg-emerald-50 text-emerald-600' :
+            proposal.status === 'rejected' ? 'bg-red-50 text-red-600' :
+            'bg-blue-50 text-blue-600'
+          }`}>
+            <DollarSign className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="text-lg font-black text-gray-900">{proposal.userName}</h3>
+              <span className="px-3 py-1 bg-gray-100 text-gray-600 text-[10px] font-black rounded-full uppercase tracking-wider">
+                {proposal.paymentMethod}
+              </span>
+              <span className="px-3 py-1 bg-[#617964]/10 text-[#617964] text-[10px] font-black rounded-full uppercase tracking-wider">
+                {proposal.proposalValue}
+              </span>
+            </div>
+            <p className="text-sm text-gray-500 font-medium flex items-center gap-2">
+              <Home className="w-4 h-4" /> {proposal.propertyName}
+            </p>
+            <div className="flex items-center gap-4 pt-2">
+              <span className="text-xs text-gray-400 font-bold flex items-center gap-1">
+                <Mail className="w-3 h-3" /> {proposal.userEmail}
+              </span>
+              <span className="text-xs text-gray-400 font-bold flex items-center gap-1">
+                <Phone className="w-3 h-3" /> {proposal.userPhone}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="text-right sm:mr-4">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Data do Envio</p>
+            <p className="text-sm font-black text-gray-900">
+              {proposal.createdAt?.toDate ? proposal.createdAt.toDate().toLocaleDateString('pt-BR') : 'Recentemente'}
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {(!proposal.status || proposal.status === 'pending') && (
+              <>
+                <button
+                  onClick={() => handleUpdateProposalStatus(proposal.id, 'accepted')}
+                  className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all flex items-center gap-2 text-xs font-black uppercase tracking-wider"
+                >
+                  <Check className="w-4 h-4" /> Aceitar
+                </button>
+                <button
+                  onClick={() => handleUpdateProposalStatus(proposal.id, 'rejected')}
+                  className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all flex items-center gap-2 text-xs font-black uppercase tracking-wider"
+                >
+                  <X className="w-4 h-4" /> Recusar
+                </button>
+              </>
+            )}
+            {proposal.status === 'rejected' && (
+               <button
+                  onClick={() => handleUpdateProposalStatus(proposal.id, 'accepted')}
+                  className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all text-xs font-black uppercase tracking-wider"
+                >
+                  Aprovar Agora
+                </button>
+            )}
+            {proposal.status === 'accepted' && (
+               <button
+                  onClick={() => handleUpdateProposalStatus(proposal.id, 'rejected')}
+                  className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all text-xs font-black uppercase tracking-wider"
+                >
+                  Recusar Agora
+                </button>
+            )}
+            <button 
+              onClick={() => setProposalToDelete(proposal.id)}
+              className="p-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+              title="Excluir Proposta"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {proposal.observations && (
+        <div className="mt-6 p-6 bg-gray-50 rounded-3xl border border-gray-100">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+            <MessageSquare className="w-3 h-3" /> Observações do Cliente
+          </p>
+          <p className="text-sm text-gray-600 font-medium leading-relaxed italic">
+            "{proposal.observations}"
+          </p>
+        </div>
+      )}
+    </div>
+  );
 
   const handleLogout = async () => {
     try {
@@ -2741,6 +2920,94 @@ export default function BrokerDashboard() {
         )}
       </AnimatePresence>
 
+      {/* User Delete Confirmation Modal */}
+      <AnimatePresence>
+        {userToDelete !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setUserToDelete(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 text-center mb-2">Excluir Solicitação?</h3>
+              <p className="text-gray-500 text-center font-medium mb-8">
+                Esta ação não pode ser desfeita. A solicitação de acesso será removida permanentemente.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setUserToDelete(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDeleteUser}
+                  className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Clear Users Confirmation Modal */}
+      <AnimatePresence>
+        {usersToClearStatus !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setUsersToClearStatus(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 text-center mb-2">
+                Limpar Todas as {usersToClearStatus === 'pending' ? 'Solicitações' : 'Recusas'}?
+              </h3>
+              <p className="text-gray-500 text-center font-medium mb-8">
+                Esta ação excluirá permanentemente todos os registros desta lista. Deseja continuar?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setUsersToClearStatus(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmClearUsers}
+                  className="flex-1 py-3.5 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Limpar Todos
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Broker Delete Confirmation Modal */}
       <AnimatePresence>
         {brokerToDelete !== null && (
@@ -3420,6 +3687,19 @@ export default function BrokerDashboard() {
                     </div>
 
                     <button 
+                      onClick={() => {
+                        setActiveTab('profile');
+                        setIsUserDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-[#617964] transition-all text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#617964]/10 group-hover:text-[#617964] transition-all">
+                        <User className="w-4 h-4" />
+                      </div>
+                      Meu Perfil
+                    </button>
+
+                    <button 
                       onClick={() => navigate('/')}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-[#617964] transition-all text-left"
                     >
@@ -3883,95 +4163,252 @@ export default function BrokerDashboard() {
               </div>
             </div>
             ) : activeTab === 'users_approval' ? (
-            <div className="space-y-8">
+            <div className="space-y-12">
               <div>
-                <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Aprovação de Usuários</h1>
-                <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie o acesso dos corretores que se cadastraram no sistema.</p>
+                <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Controle de Acessos</h1>
+                <p className="text-sm lg:text-base text-gray-500 font-medium">Visualize solicitações pendentes e o histórico de aprovações.</p>
               </div>
 
-              <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 border-b border-gray-100">
-                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Usuário</th>
-                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">CRECI</th>
-                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Contato</th>
-                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
-                        <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {usersToApprove.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="p-12 text-center">
-                            <div className="flex flex-col items-center justify-center gap-3">
-                              <Users className="w-10 h-10 text-gray-300" />
-                              <p className="text-gray-500 font-medium">Nenhum usuário cadastrado.</p>
-                            </div>
-                          </td>
+              {/* Pendentes */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
+                    <h2 className="text-xl font-black text-gray-900">Solicitações Pendentes</h2>
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full">
+                      {usersToApprove.filter(u => u.status === 'pending').length}
+                    </span>
+                  </div>
+                  {usersToApprove.filter(u => u.status === 'pending').length > 0 && (
+                    <button
+                      onClick={() => setUsersToClearStatus('pending')}
+                      className="text-xs font-black text-red-500 hover:text-red-600 bg-red-50 px-4 py-2 rounded-xl transition-all flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" /> Limpar Todos
+                    </button>
+                  )}
+                </div>
+                
+                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Usuário</th>
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">CRECI</th>
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Contato</th>
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
                         </tr>
-                      ) : (
-                        usersToApprove.map((u) => (
-                          <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="p-6">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-700 font-black text-xs uppercase tracking-widest">
-                                  {u.name?.charAt(0) || u.email?.charAt(0) || 'U'}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-black text-gray-900 text-sm truncate">{u.name || 'Sem nome'}</p>
-                                  <p className="text-xs text-gray-500 font-medium truncate">{u.email}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-6">
-                              <div className="text-sm font-bold text-gray-900">{u.creci || 'Não informado'}</div>
-                            </td>
-                            <td className="p-6">
-                              <div className="text-sm font-bold text-gray-900">{u.phone || 'Não informado'}</div>
-                            </td>
-                            <td className="p-6">
-                              <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 w-fit ${
-                                u.status === 'pending' ? 'bg-blue-50 text-blue-600' :
-                                u.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                                'bg-red-50 text-red-600'
-                              }`}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${
-                                  u.status === 'pending' ? 'bg-blue-600' :
-                                  u.status === 'approved' ? 'bg-emerald-600' :
-                                  'bg-red-600'
-                                }`}></div>
-                                {u.status === 'pending' ? 'Pendente' : u.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
-                              </div>
-                            </td>
-                            <td className="p-6 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                {u.status !== 'approved' && (
-                                  <button
-                                    onClick={() => handleUpdateUserStatus(u.id, 'approved')}
-                                    className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all"
-                                    title="Aprovar Usuário"
-                                  >
-                                    <Check className="w-4 h-4" />
-                                  </button>
-                                )}
-                                {u.status !== 'rejected' && (
-                                  <button
-                                    onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
-                                    className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all"
-                                    title="Rejeitar Usuário"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                )}
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {usersToApprove.filter(u => u.status === 'pending').length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-12 text-center">
+                              <div className="flex flex-col items-center justify-center gap-3">
+                                <Users className="w-10 h-10 text-gray-200" />
+                                <p className="text-gray-400 font-bold text-sm">Não há solicitações aguardando aprovação.</p>
                               </div>
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          usersToApprove.filter(u => u.status === 'pending').map((u) => (
+                            <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="p-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xs uppercase tracking-widest">
+                                    {u.name?.charAt(0) || u.email?.charAt(0) || 'U'}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-black text-gray-900 text-sm truncate">{u.name || 'Sem nome'}</p>
+                                    <p className="text-xs text-gray-500 font-medium truncate">{u.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-6">
+                                <div className="text-sm font-bold text-gray-900">{u.creci || 'Não informado'}</div>
+                              </td>
+                              <td className="p-6">
+                                <div className="text-sm font-bold text-gray-900">{u.phone || 'Não informado'}</div>
+                              </td>
+                              <td className="p-6 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleUpdateUserStatus(u.id, 'approved')}
+                                    className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all flex items-center gap-2 text-xs font-black"
+                                    title="Aprovar Usuário"
+                                  >
+                                    <Check className="w-4 h-4" /> Aprovar
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
+                                    className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all flex items-center gap-2 text-xs font-black"
+                                    title="Rejeitar Usuário"
+                                  >
+                                    <X className="w-4 h-4" /> Recusar
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all"
+                                    title="Excluir Usuário"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aprovados */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-2 h-8 bg-emerald-500 rounded-full"></div>
+                  <h2 className="text-xl font-black text-gray-900">Corretores Aprovados</h2>
+                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full">
+                    {usersToApprove.filter(u => u.status === 'approved').length}
+                  </span>
+                </div>
+                
+                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Usuário</th>
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">CRECI</th>
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {usersToApprove.filter(u => u.status === 'approved').length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="p-12 text-center text-gray-400 font-bold text-sm">
+                              Nenhum corretor aprovado ainda.
+                            </td>
+                          </tr>
+                        ) : (
+                          usersToApprove.filter(u => u.status === 'approved').map((u) => (
+                            <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="p-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs uppercase tracking-widest">
+                                    {u.name?.charAt(0) || u.email?.charAt(0) || 'U'}
+                                  </div>
+                                  <div>
+                                    <p className="font-black text-gray-900 text-sm">{u.name || 'Sem nome'}</p>
+                                    <p className="text-xs text-gray-500 font-medium">{u.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-6">
+                                <div className="text-sm font-bold text-gray-900">{u.creci || '-'}</div>
+                              </td>
+                              <td className="p-6 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleUpdateUserStatus(u.id, 'rejected')}
+                                    className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all font-black text-[10px] uppercase tracking-wider flex items-center gap-2"
+                                    title="Revogar Acesso"
+                                  >
+                                    <X className="w-4 h-4" /> Revogar
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
+                                    title="Excluir"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reprovados */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-8 bg-red-500 rounded-full"></div>
+                    <h2 className="text-xl font-black text-gray-900">Solicitações Recusadas</h2>
+                    <span className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-black rounded-full">
+                      {usersToApprove.filter(u => u.status === 'rejected').length}
+                    </span>
+                  </div>
+                  {usersToApprove.filter(u => u.status === 'rejected').length > 0 && (
+                    <button
+                      onClick={() => setUsersToClearStatus('rejected')}
+                      className="text-xs font-black text-red-500 hover:text-red-600 bg-red-50 px-4 py-2 rounded-xl transition-all flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" /> Limpar Todos
+                    </button>
+                  )}
+                </div>
+                
+                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest">Usuário</th>
+                          <th className="p-6 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {usersToApprove.filter(u => u.status === 'rejected').length === 0 ? (
+                          <tr>
+                            <td colSpan={2} className="p-12 text-center text-gray-400 font-bold text-sm">
+                              Nenhuma solicitação recusada.
+                            </td>
+                          </tr>
+                        ) : (
+                          usersToApprove.filter(u => u.status === 'rejected').map((u) => (
+                            <tr key={u.id} className="hover:bg-gray-50/50 transition-colors opacity-80">
+                              <td className="p-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center font-black text-xs uppercase tracking-widest">
+                                    {u.name?.charAt(0) || u.email?.charAt(0) || 'U'}
+                                  </div>
+                                  <div>
+                                    <p className="font-black text-gray-900 text-sm">{u.name || 'Sem nome'}</p>
+                                    <p className="text-xs text-gray-500 font-medium">{u.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-6 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleUpdateUserStatus(u.id, 'approved')}
+                                    className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all font-black text-[10px] uppercase tracking-wider flex items-center gap-2"
+                                    title="Aprovar Agora"
+                                  >
+                                    <Check className="w-4 h-4" /> Aprovar
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
+                                    title="Excluir Definitivamente"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4081,88 +4518,73 @@ export default function BrokerDashboard() {
               </div>
             </div>
           ) : activeTab === 'proposals' ? (
-            <div className="space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Propostas Recebidas</h1>
-                  <p className="text-sm lg:text-base text-gray-500 font-medium">Acompanhe e gerencie as propostas de compra dos seus clientes.</p>
+            <div className="space-y-12">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Propostas Recebidas</h1>
+                <p className="text-sm lg:text-base text-gray-500 font-medium">Acompanhe e gerencie as propostas de compra dos seus clientes.</p>
+              </div>
+
+              {/* Pendentes */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
+                  <h2 className="text-xl font-black text-gray-900">Novas Propostas</h2>
+                  <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full">
+                    {proposals.filter(p => !p.status || p.status === 'pending').length}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {proposals.filter(p => !p.status || p.status === 'pending').length === 0 ? (
+                    <div className="bg-gray-50/50 p-8 rounded-[32px] border border-dashed border-gray-200 text-center">
+                      <p className="text-gray-400 font-bold text-sm">Nenhuma proposta pendente.</p>
+                    </div>
+                  ) : (
+                    proposals.filter(p => !p.status || p.status === 'pending').map((proposal) => renderProposalCard(proposal))
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-6">
-                {proposals.length === 0 ? (
-                  <div className="bg-white p-12 rounded-[40px] border border-gray-100 text-center shadow-sm">
-                    <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                      <FileText className="w-10 h-10 text-gray-300" />
+              {/* Aceitas */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-8 bg-emerald-500 rounded-full"></div>
+                  <h2 className="text-xl font-black text-gray-900">Propostas Aceitas</h2>
+                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full">
+                    {proposals.filter(p => p.status === 'accepted').length}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {proposals.filter(p => p.status === 'accepted').length === 0 ? (
+                    <div className="bg-gray-50/50 p-8 rounded-[32px] border border-dashed border-gray-200 text-center">
+                      <p className="text-gray-400 font-bold text-sm">Nenhuma proposta aceita ainda.</p>
                     </div>
-                    <h3 className="text-xl font-black text-gray-900 mb-2">Nenhuma proposta ainda</h3>
-                    <p className="text-gray-500 font-medium">As propostas enviadas pelos clientes aparecerão aqui.</p>
-                  </div>
-                ) : (
-                  proposals.map((proposal) => (
-                    <div 
-                      key={proposal.id}
-                      className="bg-white p-6 lg:p-8 rounded-[32px] lg:rounded-[40px] shadow-sm border border-gray-100 hover:shadow-md transition-all group"
-                    >
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                        <div className="flex items-start gap-6">
-                          <div className="w-16 h-16 bg-[#617964]/10 rounded-2xl flex items-center justify-center text-[#617964] shrink-0">
-                            <DollarSign className="w-8 h-8" />
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <h3 className="text-lg font-black text-gray-900">{proposal.userName}</h3>
-                              <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">
-                                {proposal.paymentMethod}
-                              </span>
-                              <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-wider">
-                                {proposal.proposalValue}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-500 font-medium flex items-center gap-2">
-                              <Home className="w-4 h-4" /> {proposal.propertyName}
-                            </p>
-                            <div className="flex items-center gap-4 pt-2">
-                              <span className="text-xs text-gray-400 font-bold flex items-center gap-1">
-                                <Mail className="w-3 h-3" /> {proposal.userEmail}
-                              </span>
-                              <span className="text-xs text-gray-400 font-bold flex items-center gap-1">
-                                <Phone className="w-3 h-3" /> {proposal.userPhone}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row items-center gap-3">
-                          <div className="text-right sm:mr-4">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Data do Envio</p>
-                            <p className="text-sm font-black text-gray-900">
-                              {proposal.createdAt?.toDate ? proposal.createdAt.toDate().toLocaleDateString('pt-BR') : 'Recentemente'}
-                            </p>
-                          </div>
-                          <button 
-                            onClick={() => setProposalToDelete(proposal.id)}
-                            className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all shadow-sm"
-                            title="Excluir Proposta"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {proposal.observations && (
-                        <div className="mt-6 p-6 bg-gray-50 rounded-3xl border border-gray-100">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <MessageSquare className="w-3 h-3" /> Observações do Cliente
-                          </p>
-                          <p className="text-sm text-gray-600 font-medium leading-relaxed italic">
-                            "{proposal.observations}"
-                          </p>
-                        </div>
-                      )}
+                  ) : (
+                    proposals.filter(p => p.status === 'accepted').map((proposal) => renderProposalCard(proposal))
+                  )}
+                </div>
+              </div>
+
+              {/* Recusadas */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-8 bg-red-500 rounded-full"></div>
+                  <h2 className="text-xl font-black text-gray-900">Propostas Recusadas</h2>
+                  <span className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-black rounded-full">
+                    {proposals.filter(p => p.status === 'rejected').length}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {proposals.filter(p => p.status === 'rejected').length === 0 ? (
+                    <div className="bg-gray-50/50 p-8 rounded-[32px] border border-dashed border-gray-200 text-center">
+                      <p className="text-gray-400 font-bold text-sm">Nenhuma proposta recusada.</p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    proposals.filter(p => p.status === 'rejected').map((proposal) => renderProposalCard(proposal))
+                  )}
+                </div>
               </div>
             </div>
           ) : activeTab === 'properties' ? (
@@ -4493,6 +4915,115 @@ export default function BrokerDashboard() {
                   </table>
                 </div>
               </div>
+            </div>
+          ) : activeTab === 'profile' ? (
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Meu Perfil</h1>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie suas informações pessoais e de acesso.</p>
+                </div>
+                {currentBroker && (
+                  <button 
+                    onClick={() => handleEditBroker(currentBroker)}
+                    className="bg-[#617964] text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center gap-2"
+                  >
+                    <Edit className="w-5 h-5" />
+                    Editar Perfil
+                  </button>
+                )}
+              </div>
+
+              {currentBroker ? (
+                <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="relative h-64 bg-[#617964]">
+                    {/* Background decoration */}
+                    <div className="absolute inset-0 opacity-10 flex items-center justify-center overflow-hidden">
+                      <LayoutDashboard className="w-[500px] h-[500px] -rotate-12" />
+                    </div>
+                  </div>
+                  
+                  <div className="px-10 pb-10">
+                    <div className="relative flex justify-between items-end -mt-20 mb-8">
+                      <div className="w-40 h-40 rounded-full border-[8px] border-white shadow-2xl overflow-hidden bg-gray-100">
+                        <img 
+                          src={currentBroker.photo} 
+                          alt={currentBroker.name} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="text-right pb-4">
+                        <h2 className="text-3xl font-black text-gray-900">{currentBroker.name}</h2>
+                        <p className="text-[#617964] font-black text-sm uppercase tracking-[0.2em]">{currentBroker.role}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-6">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-2">Informações de Contato</h3>
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-4 text-gray-700">
+                            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-[#617964]">
+                              <Mail className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">E-mail</p>
+                              <p className="font-bold text-sm tracking-tight">{currentBroker.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-gray-700">
+                            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-[#617964]">
+                              <Phone className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Telefone</p>
+                              <p className="font-bold text-sm tracking-tight">{currentBroker.phone}</p>
+                            </div>
+                          </div>
+                          {currentBroker.instagram && (
+                             <div className="flex items-center gap-4 text-gray-700">
+                              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-[#617964]">
+                                <Instagram className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Instagram</p>
+                                <p className="font-bold text-sm tracking-tight">@{currentBroker.instagram}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-2">Sobre</h3>
+                        <p className="text-sm text-gray-600 font-medium leading-relaxed bg-gray-50/50 p-6 rounded-3xl">
+                          {currentBroker.bio || 'Nenhuma biografia informada.'}
+                        </p>
+                        {currentBroker.creci && (
+                          <div className="flex items-center gap-3 px-6 py-4 bg-[#617964]/10 rounded-2xl w-fit">
+                            <ShieldCheck className="w-5 h-5 text-[#617964]" />
+                            <div>
+                              <p className="text-[10px] font-black text-[#617964]/50 uppercase tracking-widest">Número do CRECI</p>
+                              <p className="text-sm font-black text-[#617964]">{currentBroker.creci}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white p-20 rounded-[40px] border border-gray-100 text-center">
+                  <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <User className="w-10 h-10 text-gray-300" />
+                  </div>
+                  <h2 className="text-xl font-black text-gray-900 mb-2">Perfil não encontrado</h2>
+                  <p className="text-gray-500 font-medium max-w-sm mx-auto">
+                    Não conseguimos localizar seu cadastro de corretor vinculado ao e-mail {user?.email}.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center">

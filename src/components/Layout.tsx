@@ -164,7 +164,7 @@ export default function Layout() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [whatsappForm, setWhatsappForm] = useState({ name: '', message: '' });
   const location = useLocation();
-  const isDashboard = location.pathname === '/dashboard-corretor';
+  const isDashboard = location.pathname.startsWith('/admin');
 
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();

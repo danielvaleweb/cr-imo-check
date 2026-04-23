@@ -94,7 +94,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
 
   const handleUserClick = async () => {
     if (user) {
-      navigate('/dashboard-corretor');
+      navigate('/admin');
     } else {
       onLoginClick();
     }

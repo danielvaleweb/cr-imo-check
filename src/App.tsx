@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Buy from './pages/Buy';
@@ -50,7 +50,8 @@ export default function App() {
                   <Route path="categoria/:slug" element={<CategoryResults />} />
                   <Route path="favoritos" element={<Favorites />} />
                   <Route path="corretor/:id" element={<BrokerProfile />} />
-                  <Route path="dashboard-corretor" element={<BrokerDashboard />} />
+                  <Route path="admin" element={<BrokerDashboard />} />
+                  <Route path="dashboard-corretor" element={<Navigate to="/admin" replace />} />
                   <Route path="proposta-compra/:id" element={<PurchaseProposal />} />
                 </Route>
               </Routes>

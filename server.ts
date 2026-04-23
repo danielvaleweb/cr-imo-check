@@ -71,6 +71,16 @@ async function startServer() {
     res.status(204).send();
   });
 
+  // Global Error Handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('Unhandled Server Error:', err);
+    res.status(500).json({ 
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Ocorreu um erro interno no servidor.',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
