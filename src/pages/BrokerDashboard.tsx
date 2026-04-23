@@ -660,21 +660,20 @@ export default function BrokerDashboard() {
 
   useEffect(() => {
     console.log('Dashboard: Auth listener starting...');
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Dashboard: Auth state changed:', user?.email);
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log('Dashboard: Auth state changed:', currentUser?.email);
+      setUser(currentUser);
       
-      if (!user) {
-        console.log('Dashboard: No user, showing login...');
+      if (!currentUser) {
         setIsAdmin(false);
         setAuthStatus(null);
         setIsLoading(false);
       } else {
         const adminEmail = 'danielvaleweb@gmail.com';
-        const isExplicitAdmin = user.email?.toLowerCase() === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+        const isDaniel = currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
+        const isUidAdmin = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
         
-        if (isExplicitAdmin) {
-          console.log('Dashboard: Admin detected');
+        if (isDaniel || isUidAdmin) {
           setIsAdmin(true);
           setAuthStatus('approved');
           setIsLoading(false);
@@ -682,18 +681,17 @@ export default function BrokerDashboard() {
         }
 
         try {
-          console.log('Dashboard: Checking user status...');
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setAuthStatus(userData.status);
-            
-            if (userData.role === 'admin') {
-              setIsAdmin(true);
-            }
+            if (userData.role === 'admin') setIsAdmin(true);
           } else {
-            console.log('Dashboard: No user profile found');
-            setAuthStatus(null);
+            if (!isDaniel && !isUidAdmin) {
+              await signOut(auth);
+              setAuthStatus(null);
+              setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
+            }
           }
         } catch (error) {
           console.error("Dashboard auth check error:", error);
@@ -1551,6 +1549,7 @@ export default function BrokerDashboard() {
       await signOut(auth);
       setAuthStatus(null);
       setUser(null);
+      setIsAdmin(false);
     } catch (error) {
       console.error("Logout Error:", error);
     }
@@ -1561,13 +1560,44 @@ export default function BrokerDashboard() {
     if (!loginEmail || !loginPassword) return;
     setIsSubmitting(true);
     setLoginError(null);
+    
     try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      const user = userCredential.user;
+      
+      // Admin entra direto
+      const adminEmail = 'danielvaleweb@gmail.com';
+      if (user.email?.toLowerCase() === adminEmail.toLowerCase()) {
+        setIsAdmin(true);
+        setAuthStatus('approved');
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        await signOut(auth);
+        setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
+        return;
+      }
+
+      const status = userDoc.data().status;
+      if (status === 'rejected') {
+        await signOut(auth);
+        setLoginError('Seu acesso foi recusado. Entre em contato com o suporte.');
+        return;
+      }
+      
+      setAuthStatus(status);
     } catch (err: any) {
       console.error("Dashboard Login Error:", err);
-      setLoginError(err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' 
-        ? 'E-mail ou senha incorretos.' 
-        : 'Ocorreu um erro ao tentar entrar.');
+      const errorCode = err.code || err.message;
+      if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+        setLoginError('E-mail ou senha incorretos. Verifique seus dados.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setLoginError('Muitas tentativas sem sucesso. Tente novamente mais tarde.');
+      } else {
+        setLoginError('Erro ao tentar fazer login. Tente novamente.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1624,7 +1654,35 @@ export default function BrokerDashboard() {
     setLoginError(null);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // Admin entra direto
+      const adminEmail = 'danielvaleweb@gmail.com';
+      if (user.email?.toLowerCase() === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2') {
+        setIsAdmin(true);
+        setAuthStatus('approved');
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        await signOut(auth);
+        setLoginError('Este e-mail Google não está cadastrado. Por favor, preencha os dados abaixo para se associar.');
+        setRegisterData(prev => ({ ...prev, name: user.displayName || '' }));
+        setLoginEmail(user.email || '');
+        setIsRegisterMode(true);
+        return;
+      }
+
+      const status = userDoc.data().status;
+      if (status === 'rejected') {
+        await signOut(auth);
+        setLoginError('Seu acesso foi recusado por um administrador.');
+        return;
+      }
+      
+      setAuthStatus(status);
     } catch (err: any) {
       console.error("Dashboard Google Login Error:", err);
       setLoginError('Falha na autenticação com Google.');
@@ -1863,32 +1921,6 @@ export default function BrokerDashboard() {
             className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
           >
             Sair
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (user && authStatus === null && !isAdmin) {
-    return (
-       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center border border-gray-100"
-        >
-          <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
-            <Mail className="w-10 h-10 text-blue-500" />
-          </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-4">Conta Não Encontrada</h2>
-          <p className="text-gray-500 font-medium mb-8 leading-relaxed">
-            Seu e-mail não está cadastrado como corretor autorizado em nosso sistema. Por favor, volte ao site e preencha a ficha de cadastro.
-          </p>
-          <button 
-            onClick={handleLogout}
-            className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
-          >
-            Sair e Voltar ao Site
           </button>
         </motion.div>
       </div>
