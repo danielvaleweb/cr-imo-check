@@ -268,6 +268,7 @@ export default function BrokerDashboard() {
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [selectedChatBroker, setSelectedChatBroker] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState<any[]>([]);
   const [newMessageText, setNewMessageText] = useState('');
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -534,7 +535,16 @@ export default function BrokerDashboard() {
       );
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        setChatMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setChatMessages(messagesData);
+        
+        // Mark as read
+        messagesData.forEach((msg: any) => {
+          if (msg.to === myId && msg.read === false) {
+            updateDoc(doc(db, 'mensagens', msg.id), { read: true }).catch(console.error);
+          }
+        });
+
         setTimeout(() => {
           if (chatScrollRef.current) {
             chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
@@ -561,7 +571,8 @@ export default function BrokerDashboard() {
         room: `${myId}_${otherId}`,
         text,
         createdAt: serverTimestamp(),
-        senderName: currentBroker?.name || auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Usuário'
+        senderName: currentBroker?.name || auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Usuário',
+        read: false
       });
       
       await addDoc(collection(db, 'notificacoes'), {
@@ -576,6 +587,25 @@ export default function BrokerDashboard() {
       console.error("Error sending message:", error);
     }
   };
+
+  // Global Unread Messages Listener
+  useEffect(() => {
+    if (!currentBroker?.id && !auth.currentUser?.uid) return;
+    const myId = currentBroker?.id?.toString() || auth.currentUser?.uid;
+    
+    if (myId) {
+      const q = query(
+        collection(db, 'mensagens'),
+        where('to', '==', myId),
+        where('read', '==', false)
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setUnreadMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+      return () => unsubscribe();
+    }
+  }, [currentBroker, auth.currentUser]);
 
   // Search Logic moved here
   useEffect(() => {
@@ -2751,7 +2781,9 @@ export default function BrokerDashboard() {
                       <p className="text-sm">Nenhum membro cadastrado.</p>
                     </div>
                   ) : (
-                    brokers.filter(b => b.id.toString() !== auth.currentUser?.uid).map((broker) => (
+                    brokers.filter(b => b.id.toString() !== auth.currentUser?.uid).map((broker) => {
+                      const unreadCount = unreadMessages.filter(m => m.from === broker.id.toString()).length;
+                      return (
                       <button
                         key={broker.id}
                         onClick={() => setSelectedChatBroker(broker)}
@@ -2767,11 +2799,16 @@ export default function BrokerDashboard() {
                           <p className="text-sm font-black text-gray-900 truncate">{broker.name}</p>
                           <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-[#25D366] group-hover:text-white transition-all">
+                        <div className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all bg-gray-100 text-gray-400 group-hover:bg-[#25D366] group-hover:text-white">
                           <MessageCircle className="w-4 h-4" />
+                          {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                              {unreadCount}
+                            </span>
+                          )}
                         </div>
                       </button>
-                    ))
+                    )})
                   )}
                 </div>
               </>
@@ -4847,6 +4884,11 @@ export default function BrokerDashboard() {
               className={`p-2.5 rounded-xl transition-all relative ${isMessagesOpen ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               <MessageSquare className="w-5 h-5" />
+              {unreadMessages.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full shadow-lg border-2 border-white animate-bounce-short">
+                  {unreadMessages.length}
+                </span>
+              )}
             </button>
             <button 
               onClick={() => setActiveTab('notifications')}
