@@ -530,12 +530,18 @@ export default function BrokerDashboard() {
         where('room', 'in', [
           `${myId}_${otherId}`,
           `${otherId}_${myId}`
-        ]),
-        orderBy('createdAt', 'asc')
+        ])
       );
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        // Ordenar localmente para evitar composite index no firestore
+        messagesData.sort((a, b) => {
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          return timeA - timeB;
+        });
+
         setChatMessages(messagesData);
         
         // Mark as read
@@ -550,6 +556,8 @@ export default function BrokerDashboard() {
             chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
           }
         }, 100);
+      }, (error) => {
+        console.error("Error listening messages:", error);
       });
       return () => unsubscribe();
     }
@@ -596,12 +604,15 @@ export default function BrokerDashboard() {
     if (myId) {
       const q = query(
         collection(db, 'mensagens'),
-        where('to', '==', myId),
-        where('read', '==', false)
+        where('to', '==', myId)
       );
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        setUnreadMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        // Filtrar e processar read == false localmente para evitar erro de index do firestore
+        setUnreadMessages(messagesData.filter(m => m.read === false));
+      }, (error) => {
+        console.error("Error listening unread messages:", error);
       });
       return () => unsubscribe();
     }
