@@ -7,7 +7,14 @@ import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
 import { ROLE_GROUPS } from '../constants/roles';
 import { auth, db } from '../firebase';
-import { onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  signOut, 
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider
+} from 'firebase/auth';
 import { 
   collection, 
   onSnapshot, 
@@ -126,7 +133,11 @@ import {
   Map as MapIcon,
   Link,
   Instagram,
-  ArrowLeft
+  ArrowLeft,
+  Lock,
+  LogIn,
+  KeyRound,
+  ArrowRight
 } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import { 
@@ -249,6 +260,11 @@ export default function BrokerDashboard() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState<'pending' | 'rejected' | 'approved' | null>(null);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [agendaEvents, setAgendaEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -637,53 +653,41 @@ export default function BrokerDashboard() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Dashboard: Auth state changed:', user?.email);
       setUser(user);
+      
       if (!user) {
-        console.log('Dashboard: No user, redirecting to home...');
-        navigate('/');
-        setIsLoading(false); // Clear loading even on redirect
+        console.log('Dashboard: No user, showing login...');
+        setIsAdmin(false);
+        setAuthStatus(null);
+        setIsLoading(false);
       } else {
-        // Exceção imediata para o administrador
         const adminEmail = 'danielvaleweb@gmail.com';
-        if (user.email?.toLowerCase() === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2') {
-          console.log('Dashboard: Admin detected via email/uid');
+        const isExplicitAdmin = user.email?.toLowerCase() === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+        
+        if (isExplicitAdmin) {
+          console.log('Dashboard: Admin detected');
           setIsAdmin(true);
+          setAuthStatus('approved');
           setIsLoading(false);
           return;
         }
 
-        // Check if admin or approved
         try {
-          console.log('Dashboard: Checking user status in Firestore...');
+          console.log('Dashboard: Checking user status...');
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            console.log('Dashboard: User data found:', userData.status, userData.role);
+            setAuthStatus(userData.status);
             
-            // Allow admin or approved users
-            const isDaniel = user.email?.toLowerCase() === 'danielvaleweb@gmail.com';
-            if (userData.role === 'admin' || isDaniel) {
+            if (userData.role === 'admin') {
               setIsAdmin(true);
-            } else if (userData.status !== 'approved') {
-              console.log('Dashboard: User not approved, redirecting...');
-              navigate('/');
-              setIsLoading(false);
-              return;
             }
-          } else if (user.email?.toLowerCase() !== 'danielvaleweb@gmail.com') {
-             console.log('Dashboard: No user profile found, redirecting...');
-             navigate('/');
-             setIsLoading(false);
-             return;
           } else {
-             console.log('Dashboard: No profile but admin email used');
-             setIsAdmin(true);
+            console.log('Dashboard: No user profile found');
+            setAuthStatus(null);
           }
-          setIsLoading(false);
         } catch (error) {
           console.error("Dashboard auth check error:", error);
-          if (user.email === 'danielvaleweb@gmail.com') {
-            setIsAdmin(true);
-          }
+        } finally {
           setIsLoading(false);
         }
       }
@@ -1535,11 +1539,214 @@ export default function BrokerDashboard() {
       const userName = auth.currentUser?.displayName || auth.currentUser?.email;
       await addLog('system', 'Fez logout', `Usuário: ${userName}`);
       await signOut(auth);
-      navigate('/');
+      setAuthStatus(null);
+      setUser(null);
     } catch (error) {
       console.error("Logout Error:", error);
     }
   };
+
+  const handleDashboardEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) return;
+    setIsSubmitting(true);
+    setLoginError(null);
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+    } catch (err: any) {
+      console.error("Dashboard Login Error:", err);
+      setLoginError(err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' 
+        ? 'E-mail ou senha incorretos.' 
+        : 'Ocorreu um erro ao tentar entrar.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDashboardGoogleLogin = async () => {
+    setIsSubmitting(true);
+    setLoginError(null);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err: any) {
+      console.error("Dashboard Google Login Error:", err);
+      setLoginError('Falha na autenticação com Google.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl overflow-hidden border border-gray-100"
+        >
+          <div className="p-10 pt-12 text-center bg-gray-50/50 border-b border-gray-100">
+            <div className="w-20 h-20 bg-[#617964] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-[#617964]/20">
+              <Lock className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-2xl font-black text-gray-900 mb-2 font-display">Painel do Corretor</h1>
+            <p className="text-sm text-gray-500 font-medium">Acesse sua conta para gerenciar seus imóveis.</p>
+          </div>
+
+          <form onSubmit={handleDashboardEmailLogin} className="p-10 space-y-6">
+            {loginError && (
+              <div className="p-4 bg-red-50 rounded-2xl flex items-center gap-3 border border-red-100">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <p className="text-xs font-bold text-red-600">{loginError}</p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">E-mail</label>
+                <div className="relative">
+                  <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Senha</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="password"
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-4 bg-[#617964] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+            >
+              {isSubmitting ? 'Entrando...' : 'Entrar no Painel'}
+              {!isSubmitting && <ArrowRight className="w-5 h-5" />}
+            </button>
+
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-100"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-white px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Ou continue com</span>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              onClick={handleDashboardGoogleLogin}
+              disabled={isSubmitting}
+              className="w-full py-4 bg-white border border-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-3 shadow-sm"
+            >
+              <img src="https://www.google.com/favicon.ico" className="w-4 h-4" />
+              Google Login
+            </button>
+            
+            <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-6">
+              Acesso restrito a corretores autorizados
+            </p>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (user && authStatus === 'pending') {
+    return (
+       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center border border-gray-100"
+        >
+          <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-4">Aguardando Aprovação</h2>
+          <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+            Seu cadastro foi recebido com sucesso! Nossa equipe administrativa está revisando seus dados e em breve você terá acesso ao painel.
+          </p>
+          <button 
+            onClick={handleLogout}
+            className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+          >
+            Sair e Voltar ao Site
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (user && authStatus === 'rejected') {
+     return (
+       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center border border-gray-100"
+        >
+          <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <AlertCircle className="w-10 h-10 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-4">Acesso Negado</h2>
+          <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+            Infelizmente sua solicitação de acesso foi recusada. Entre em contato com a administração para mais detalhes.
+          </p>
+          <button 
+            onClick={handleLogout}
+            className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+          >
+            Sair
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (user && authStatus === null && !isAdmin) {
+    return (
+       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center border border-gray-100"
+        >
+          <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Mail className="w-10 h-10 text-blue-500" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-4">Conta Não Encontrada</h2>
+          <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+            Seu e-mail não está cadastrado como corretor autorizado em nosso sistema. Por favor, volte ao site e preencha a ficha de cadastro.
+          </p>
+          <button 
+            onClick={handleLogout}
+            className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+          >
+            Sair e Voltar ao Site
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-white flex flex-col lg:flex-row overflow-hidden">
