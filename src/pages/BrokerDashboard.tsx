@@ -727,6 +727,19 @@ export default function BrokerDashboard() {
             return getTime(b.createdAt) - getTime(a.createdAt);
           });
         
+        // Auto-sync user roles with broker roles to fix any desyncs
+        if (isAdmin) {
+          usersData.forEach((u: any) => {
+            if (u.status === 'approved') {
+              const matchedBroker = brokers.find(b => b.email?.toLowerCase() === u.email?.toLowerCase());
+              if (matchedBroker && matchedBroker.role && matchedBroker.role !== u.role) {
+                console.log(`Syncing role for ${u.email} to ${matchedBroker.role}`);
+                updateDoc(doc(db, 'users', u.id), { role: matchedBroker.role }).catch(console.error);
+              }
+            }
+          });
+        }
+        
         setUsersToApprove(usersData);
       }, (error) => {
         if (error.message.includes('permission')) {
@@ -894,6 +907,16 @@ export default function BrokerDashboard() {
       if (isEditingBroker && editingBrokerId !== null) {
         await updateBroker(editingBrokerId, capturedData);
         await addLog('broker', 'Editou corretor', `Corretor: ${capturedData.name}`);
+        
+        // Sync role to users collection if email matches an approved user
+        const matchedUser = usersToApprove.find(u => u.email?.toLowerCase() === capturedData.email?.toLowerCase());
+        if (matchedUser) {
+          try {
+            await updateDoc(doc(db, 'users', matchedUser.id), { role: capturedData.role });
+          } catch (e) {
+            console.error("Failed to sync role to user auth doc", e);
+          }
+        }
       } else {
         await addBroker(capturedData);
         await addLog('broker', 'Cadastrou corretor', `Corretor: ${capturedData.name}`);
@@ -938,7 +961,7 @@ export default function BrokerDashboard() {
     parking: 0,
     area: '',
     description: '',
-    broker: 'Daniel CEO',
+    broker: '', // Will be set dynamically when saving
     category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
     categorySlug: CATEGORIES[0].slug,
     matricula: '',
@@ -1273,7 +1296,7 @@ export default function BrokerDashboard() {
     addField('IMOBILIÁRIA', 'CR IMÓVEIS DE LUXO', 25, y);
     addField('CRECI/MG', '9469', 110, y);
     y += 6;
-    addField('GESTOR RESPONSÁVEL', property.broker || 'Daniel Vale', 25, y);
+    addField('GESTOR RESPONSÁVEL', property.broker || currentBroker?.name || 'Corretor', 25, y);
     y += 15;
 
     // 8. FORO
@@ -1314,7 +1337,7 @@ export default function BrokerDashboard() {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.text(property.ownerName || '---', cx1, sigBaseY + 9, { align: 'center' });
-    doc.text(property.broker || 'Daniel Vale', cx2, sigBaseY + 9, { align: 'center' });
+    doc.text(property.broker || currentBroker?.name || 'Corretor', cx2, sigBaseY + 9, { align: 'center' });
     doc.text('CR IMÓVEIS DE LUXO', cx3, sigBaseY + 9, { align: 'center' });
 
     y = sigBaseY + 25;
@@ -1534,7 +1557,7 @@ export default function BrokerDashboard() {
       parking: 0,
       area: '',
       description: '',
-      broker: currentBroker?.name || 'Daniel Vale',
+      broker: currentBroker?.name || auth.currentUser?.displayName?.split(' ')[0] || 'Corretor',
       category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
       categorySlug: CATEGORIES[0].slug,
       matricula: '',
@@ -1629,7 +1652,7 @@ export default function BrokerDashboard() {
       parking: property.parking,
       area: property.area,
       description: property.description || '',
-      broker: property.broker || 'Daniel Vale',
+      broker: property.broker || currentBroker?.name || 'Corretor',
       category: property.category,
       categorySlug: property.categorySlug,
       matricula: property.matricula || '',
@@ -1762,7 +1785,7 @@ export default function BrokerDashboard() {
         parking: 0,
         area: '',
         description: '',
-        broker: currentBroker?.name || 'Daniel Vale',
+        broker: currentBroker?.name || auth.currentUser?.displayName?.split(' ')[0] || 'Corretor',
         category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
         categorySlug: CATEGORIES[0].slug,
         matricula: '',
@@ -1981,10 +2004,16 @@ export default function BrokerDashboard() {
     try {
       const userRef = doc(db, 'users', userId);
       const userToUpd = usersToApprove.find(u => u.id === userId);
-      await updateDoc(userRef, { 
+      const updateData: any = { 
         status,
         updatedAt: serverTimestamp()
-      });
+      };
+      
+      if (status === 'approved') {
+        updateData.role = 'Membro';
+      }
+
+      await updateDoc(userRef, updateData);
 
       // If approved, also add to brokers (Team/Equipe) if not already there
       if (status === 'approved' && userToUpd) {
@@ -4912,7 +4941,7 @@ export default function BrokerDashboard() {
             <>
               {/* Welcome Section */}
               <div className="mb-8 lg:mb-10">
-                <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Olá, Daniel Vale! 👋</h1>
+                <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Olá, {currentBroker?.name || auth.currentUser?.displayName?.split(' ')[0] || 'Usuário'}! 👋</h1>
                 <p className="text-sm lg:text-base text-gray-500 font-medium">Aqui está o que está acontecendo com seus imóveis hoje.</p>
               </div>
 
@@ -5982,7 +6011,7 @@ export default function BrokerDashboard() {
                       )}
                       <div className="absolute top-4 right-4">
                         <span className="px-3 py-1.5 bg-white/20 backdrop-blur-md border border-white/30 rounded-full text-[10px] font-black uppercase tracking-wider text-white shadow-xl">
-                          {property.broker || 'Daniel CEO'}
+                          {property.broker || 'Não atribuído'}
                         </span>
                       </div>
                     </div>
