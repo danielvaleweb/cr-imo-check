@@ -857,6 +857,7 @@ export default function BrokerDashboard() {
         if (userEmail === adminEmail || currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2') {
           setIsAdmin(true);
           setAuthStatus('approved');
+          setIsLoading(false);
         }
       }
     });
@@ -2692,6 +2693,16 @@ export default function BrokerDashboard() {
 
   // Garantir que corretores comuns só entrem se aprovados
   if (user && !isAdmin && authStatus !== 'approved' && !isLoading) {
+    // Se ainda não temos status (null), mostramos um spinner em vez do card de verificação
+    // para evitar flashes visuais durante a transição de autenticação.
+    if (authStatus === null) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="w-12 h-12 border-4 border-[#617964] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+
     return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
