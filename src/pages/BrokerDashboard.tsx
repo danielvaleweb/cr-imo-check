@@ -4934,12 +4934,14 @@ export default function BrokerDashboard() {
                 <span className={`absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 ${activeTab === 'notifications' ? 'border-[#617964]' : 'border-white'}`}></span>
               )}
             </button>
-            <button 
-              onClick={() => setActiveTab('settings')}
-              className={`hidden sm:flex p-2.5 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
-            >
-              <Settings className="w-5 h-5" />
-            </button>
+            {userPermissions?.canManageSystem && (
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className={`hidden sm:flex p-2.5 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            )}
             
             <div className="flex items-center gap-3 pl-4 border-l border-gray-100 relative" ref={userDropdownRef}>
               <button 
@@ -6491,7 +6493,7 @@ export default function BrokerDashboard() {
                 </div>
               )}
             </div>
-          ) : activeTab === 'settings' ? (
+          ) : activeTab === 'settings' && userPermissions?.canManageSystem ? (
             <div className="space-y-8">
                <div>
                   <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Configurações do Sistema</h1>
