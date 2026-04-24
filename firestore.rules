@@ -22,12 +22,10 @@ service cloud.firestore {
 
     match /property_leads/{id} { 
       allow create: if true; 
-      allow update: if request.auth != null;
     }
 
     match /proposals/{id} { 
       allow create: if true; 
-      allow update: if request.auth != null;
     }
   }
 }

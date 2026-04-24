@@ -6,7 +6,6 @@ import {
   Mail, 
   Instagram, 
   ShieldCheck, 
-  User, 
   ArrowLeft, 
   Home, 
   MapPin, 
@@ -83,20 +82,13 @@ export default function BrokerProfile() {
               <div className="absolute top-0 left-0 right-0 h-32 bg-white/5" />
               
               <div className="relative z-10 mb-6">
-                <div className="w-40 h-40 rounded-full border-[8px] border-white/10 shadow-2xl mx-auto overflow-hidden bg-white/5 flex items-center justify-center">
-                  {broker.photo ? (
-                    <img 
-                      src={broker.photo} 
-                      alt={broker.name} 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (broker.name || 'User') + '&background=617964&color=fff';
-                      }}
-                    />
-                  ) : (
-                    <User className="w-16 h-16 text-white/20" />
-                  )}
+                <div className="w-40 h-40 rounded-full border-[8px] border-white/10 shadow-2xl mx-auto overflow-hidden">
+                  <img 
+                    src={broker.photo} 
+                    alt={broker.name} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
               </div>
 

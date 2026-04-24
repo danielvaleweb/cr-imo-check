@@ -14,7 +14,6 @@ import Contact from './pages/Contact';
 import PropertyDetail from './pages/PropertyDetail';
 import Favorites from './pages/Favorites';
 import CategoryResults from './pages/CategoryResults';
-import Login from './pages/Login';
 import BrokerDashboard from './pages/BrokerDashboard';
 import BrokerProfile from './pages/BrokerProfile';
 import PurchaseProposal from './pages/PurchaseProposal';
@@ -50,7 +49,6 @@ export default function App() {
                   <Route path="imovel/:id" element={<PropertyDetail />} />
                   <Route path="categoria/:slug" element={<CategoryResults />} />
                   <Route path="favoritos" element={<Favorites />} />
-                  <Route path="login" element={<Login />} />
                   <Route path="corretor/:id" element={<BrokerProfile />} />
                   <Route path="admin" element={<BrokerDashboard />} />
                   <Route path="dashboard-corretor" element={<Navigate to="/admin" replace />} />

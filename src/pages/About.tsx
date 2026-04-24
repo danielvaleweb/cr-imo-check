@@ -114,20 +114,13 @@ export default function About() {
 
                   {/* Broker Image in Circle - "Leaving the canvas" */}
                   <div className="relative flex justify-center -mt-32 mb-6">
-                    <div className="w-44 h-44 rounded-full border-[12px] border-white shadow-2xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105 flex items-center justify-center bg-gray-100">
-                      {broker.photo ? (
-                        <img 
-                          src={broker.photo} 
-                          alt={broker.name}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (broker.name || 'User') + '&background=617964&color=fff';
-                          }}
-                        />
-                      ) : (
-                        <Award className="w-16 h-16 text-gray-300" />
-                      )}
+                    <div className="w-44 h-44 rounded-full border-[12px] border-white shadow-2xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105">
+                      <img 
+                        src={broker.photo} 
+                        alt={broker.name}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   </div>
 

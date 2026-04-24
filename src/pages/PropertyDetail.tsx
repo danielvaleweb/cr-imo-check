@@ -1256,21 +1256,12 @@ export default function PropertyDetail() {
                   </div>
                 </motion.div>
 
-                <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-                  {property.agent.image ? (
-                    <img 
-                      src={property.agent.image} 
-                      alt={property.agent.name} 
-                      className="w-full h-full object-cover rounded-full"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (property.agent.name || 'User') + '&background=617964&color=fff';
-                      }}
-                    />
-                  ) : (
-                    <User className="w-8 h-8 text-gray-300" />
-                  )}
-                </div>
+                <img 
+                  src={property.agent.image} 
+                  alt={property.agent.name} 
+                  className="w-full h-full object-cover rounded-full"
+                  referrerPolicy="no-referrer"
+                />
                 <div className="absolute bottom-0 right-0 w-6 h-6">
                   {!offline && <div className="absolute inset-0 bg-[#25D366] rounded-full animate-ping opacity-75"></div>}
                   <div className={`relative w-full h-full ${offline ? 'bg-gray-400' : 'bg-[#25D366]'} rounded-full border-4 border-white ${offline ? '' : 'shadow-[0_0_10px_rgba(37,211,102,0.5)]'}`}></div>

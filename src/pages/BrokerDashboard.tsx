@@ -272,14 +272,21 @@ export default function BrokerDashboard() {
   const [newMessageText, setNewMessageText] = useState('');
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleSearchQuery, setRoleSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const adminEmail = 'danielvaleweb@gmail.com';
-  const adminUid = 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-
   const [authStatus, setAuthStatus] = useState<'pending' | 'rejected' | 'approved' | null>(null);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    phone: '',
+    creci: '',
+    confirmPassword: ''
+  });
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [agendaEvents, setAgendaEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -305,11 +312,6 @@ export default function BrokerDashboard() {
   };
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const isActuallyAdmin = user && (
-    user.email?.toLowerCase() === adminEmail || 
-    user.uid === adminUid || 
-    isAdmin
-  );
   const [userRole, setUserRole] = useState<string>('');
   const [userPermissions, setUserPermissions] = useState<Permissions>(DEFAULT_PERMISSIONS);
   const [rolePermissions, setRolePermissions] = useState<Record<string, Permissions>>({});
@@ -680,8 +682,7 @@ export default function BrokerDashboard() {
   });
 
   useEffect(() => {
-    if (isLoading) return;
-    if (!isAdmin && !userPermissions?.canHandleProposals) return;
+    if (isLoading || !isAdmin) return;
 
     const q = query(collection(db, 'proposals'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -701,11 +702,10 @@ export default function BrokerDashboard() {
       }
     });
     return () => unsubscribe();
-  }, [isLoading, isAdmin, userPermissions?.canHandleProposals]);
+  }, [isLoading, isAdmin]);
 
   useEffect(() => {
-    if (isLoading) return;
-    if (!isAdmin && !userPermissions?.canEditProperties) return;
+    if (isLoading || !isAdmin) return;
     
     const leadsCollection = collection(db, 'property_leads');
     const q = query(leadsCollection, orderBy('createdAt', 'desc'));
@@ -729,7 +729,7 @@ export default function BrokerDashboard() {
     });
 
     return () => unsubscribe();
-  }, [isLoading, isAdmin, userPermissions?.canEditProperties]);
+  }, [isLoading, isAdmin]);
 
   useEffect(() => {
     const currentEmail = auth.currentUser?.email?.toLowerCase();
@@ -842,74 +842,86 @@ export default function BrokerDashboard() {
   }, [isLoading]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    console.log('Dashboard: Auth listener starting...');
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('Dashboard: Auth state changed:', currentUser?.email);
       setUser(currentUser);
-      
       if (!currentUser) {
         setIsAdmin(false);
         setAuthStatus(null);
         setIsLoading(false);
-        return;
-      }
-
-      // Fast path for admin to prevent flashes
-      const adminEmail = 'danielvaleweb@gmail.com';
-      const adminUid = 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-      const userEmail = currentUser.email?.toLowerCase();
-      const isActuallyAdmin = userEmail === adminEmail.toLowerCase() || currentUser.uid === adminUid;
-
-      if (isActuallyAdmin) {
-        setIsAdmin(true);
-        setAuthStatus('approved');
-        setUserRole('CEO Diretor criativo');
-        setUserPermissions(getPermissions('CEO Diretor criativo'));
-        setIsLoading(false);
-        
-        // Background sync for admin profile
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (!userDoc.exists()) {
-            await setDoc(userDocRef, {
-              name: 'Daniel Vale',
-              email: adminEmail,
-              role: 'admin',
-              status: 'approved',
-              photo: 'https://i.imgur.com/2mOeELD.jpeg',
-              createdAt: serverTimestamp()
-            });
-          }
-        } catch (e) {
-          console.warn("Background admin sync failed", e);
-        }
-      } else {
-        // Regular user check
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setAuthStatus(userData.status || 'pending');
-            const role = userData.role || 'Corretor de Imóveis';
-            setUserRole(role);
-            setUserPermissions(getPermissions(role));
-            if (role === 'admin' || role.includes('Diretor') || role.includes('CEO') || role.includes('Gerente')) {
-              setIsAdmin(true);
-           }
-          } else {
-            setAuthStatus('pending');
-          }
-        } catch (err: any) {
-          handleFirestoreError(err, OperationType.GET, `users/${currentUser.uid}`);
-        } finally {
-          setIsLoading(false);
-        }
       }
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, []);
+
+  // Separate effect for syncing and loading user data to avoid stale closures
+  useEffect(() => {
+    const checkUserAndSync = async () => {
+      if (!user) return;
+      
+      setIsLoading(true);
+      const adminEmail = 'danielvaleweb@gmail.com';
+      const userEmail = user.email?.toLowerCase();
+      const isDaniel = userEmail === adminEmail.toLowerCase();
+      const isUidAdmin = user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+
+      if (isDaniel || isUidAdmin) {
+        setIsAdmin(true);
+        setAuthStatus('approved');
+        setUserRole('CEO Diretor criativo');
+        setUserPermissions(getPermissions('CEO Diretor criativo'));
+        
+        // Auto-sync Daniel's broker record if needed
+        const existingDanielBroker = brokers.find(b => b.email?.toLowerCase() === userEmail);
+        
+        if (existingDanielBroker) {
+          if (existingDanielBroker.role !== 'CEO Diretor criativo') {
+            updateBroker(existingDanielBroker.id, { role: 'CEO Diretor criativo' });
+          }
+        } else if (userEmail === 'danielvaleweb@gmail.com') {
+          // Only add if we're sure it's not in the list yet
+          addBroker({
+            name: 'Daniel Vale',
+            role: 'CEO Diretor criativo',
+            photo: 'https://i.imgur.com/5l1CO1t.png',
+            phone: '(32) 98888-8888',
+            email: userEmail,
+            bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
+            creci: '54.321-F',
+            instagram: 'daniel_crimoveis'
+          });
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setAuthStatus(userData.status);
+          const role = userData.role || 'Corretor de Imóveis';
+          setUserRole(role);
+          setUserPermissions(getPermissions(role));
+          if (role === 'admin' || role.includes('Diretor') || role.includes('CEO') || role.includes('Gerente')) {
+             setIsAdmin(true);
+          }
+        } else {
+          await signOut(auth);
+          setAuthStatus(null);
+          setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
+        }
+      } catch (error) {
+        console.error("Dashboard auth data check error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkUserAndSync();
+  }, [user, brokers, navigate, updateBroker, addBroker]);
 
   // Broker Management
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
@@ -1517,19 +1529,8 @@ export default function BrokerDashboard() {
     }
   }, [user, isAdmin, isLoading]);
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!isLoading && !user) {
-      navigate('/login');
-    }
-  }, [user, isLoading, navigate]);
-
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-12 h-12 border-4 border-[#617964] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Carregando...</div>;
   }
 
   const handleAddCustomCondoItem = async (type: 'leisure' | 'verticalConveniencies' | 'horizontalConveniencies', value: string) => {
@@ -2076,7 +2077,7 @@ export default function BrokerDashboard() {
             await addBroker({
               name: userToUpd.name || 'Novo Membro',
               role: 'Membro',
-              photo: userToUpd.photoURL || 'https://i.imgur.com/2mOeELD.jpeg',
+              photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
               phone: userToUpd.phone || '',
               email: userToUpd.email || '',
               bio: 'Novo membro da equipe CR Imóveis.',
@@ -2298,12 +2299,338 @@ export default function BrokerDashboard() {
     }
   };
 
-  // Remove internal login forms logic as it's now in /login
-  if (!user) {
-    return null; // Will redirect via useEffect
+  const handleDashboardEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) return;
+    setIsSubmitting(true);
+    setLoginError(null);
+    
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      const user = userCredential.user;
+      
+      // Admin entra direto
+      const adminEmail = 'danielvaleweb@gmail.com';
+      if (user.email?.toLowerCase() === adminEmail.toLowerCase()) {
+        setIsAdmin(true);
+        setAuthStatus('approved');
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        await signOut(auth);
+        setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
+        return;
+      }
+
+      const status = userDoc.data().status;
+      if (status === 'rejected') {
+        await signOut(auth);
+        setLoginError('Seu acesso foi recusado. Entre em contato com o suporte.');
+        return;
+      }
+      
+      setAuthStatus(status);
+    } catch (err: any) {
+      console.error("Dashboard Login Error:", err);
+      const errorCode = err.code || err.message;
+      if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+        setLoginError('E-mail ou senha incorretos. Verifique seus dados.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setLoginError('Muitas tentativas sem sucesso. Tente novamente mais tarde.');
+      } else {
+        setLoginError('Erro ao tentar fazer login. Tente novamente.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDashboardRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginPassword !== registerData.confirmPassword) {
+      setLoginError('As senhas não coincidem.');
+      return;
+    }
+    if (loginPassword.length < 6) {
+      setLoginError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setIsLoading(true); // Bloquear a UI enquanto processa e Auth state muda
+    setLoginError(null);
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
+      
+      await updateProfile(userCredential.user, {
+        displayName: registerData.name.trim()
+      });
+
+      const userEmail = loginEmail.toLowerCase();
+      const registrationData = {
+        name: registerData.name.trim(),
+        phone: registerData.phone.trim(),
+        creci: registerData.creci.trim(),
+        email: userEmail,
+        status: 'pending',
+        role: 'corretor',
+        createdAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'users', userCredential.user.uid), registrationData);
+      setAuthStatus('pending');
+      setIsLoading(false);
+    } catch (err: any) {
+      console.error("Dashboard Register Error:", err);
+      setIsLoading(false);
+      if (err.code === 'auth/email-already-in-use') {
+        setLoginError('Este e-mail já está em uso.');
+      } else {
+        setLoginError('Ocorreu um erro ao tentar cadastrar.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDashboardGoogleLogin = async () => {
+    setIsSubmitting(true);
+    setLoginError(null);
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // Admin entra direto
+      const adminEmail = 'danielvaleweb@gmail.com';
+      if (user.email?.toLowerCase() === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2') {
+        setIsAdmin(true);
+        setAuthStatus('approved');
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        await signOut(auth);
+        setLoginError('Este e-mail Google não está cadastrado. Por favor, preencha os dados abaixo para se associar.');
+        setRegisterData(prev => ({ ...prev, name: user.displayName || '' }));
+        setLoginEmail(user.email || '');
+        setIsRegisterMode(true);
+        return;
+      }
+
+      const status = userDoc.data().status;
+      if (status === 'rejected') {
+        await signOut(auth);
+        setLoginError('Seu acesso foi recusado por um administrador.');
+        return;
+      }
+      
+      setAuthStatus(status);
+    } catch (err: any) {
+      console.error("Dashboard Google Login Error:", err);
+      setLoginError('Falha na autenticação com Google.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-12 h-12 border-4 border-[#617964] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
-  if (user && authStatus === 'pending' && !isLoading && !isActuallyAdmin) {
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans py-12">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl overflow-hidden border border-gray-100"
+        >
+          <div className="p-10 pt-12 text-center bg-gray-50/50 border-b border-gray-100 relative">
+             <button 
+                onClick={() => navigate('/')}
+                className="absolute top-8 left-8 p-2 text-gray-400 hover:text-[#617964] transition-colors"
+                title="Voltar ao site"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            <div className="w-20 h-20 bg-[#617964] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-[#617964]/20">
+              {isRegisterMode ? <UserPlus className="w-10 h-10 text-white" /> : <Lock className="w-10 h-10 text-white" />}
+            </div>
+            <h1 className="text-2xl font-black text-gray-900 mb-2 font-display">
+              {isRegisterMode ? 'Seja um Parceiro' : 'Painel do Corretor'}
+            </h1>
+            <p className="text-sm text-gray-500 font-medium">
+              {isRegisterMode ? 'Preencha os dados para solicitar seu acesso.' : 'Acesse sua conta para gerenciar seus imóveis.'}
+            </p>
+          </div>
+
+          <form onSubmit={isRegisterMode ? handleDashboardRegister : handleDashboardEmailLogin} className="p-10 space-y-6">
+            {loginError && (
+              <div className="p-4 bg-red-50 rounded-2xl flex items-center gap-3 border border-red-100">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <p className="text-xs font-bold text-red-600">{loginError}</p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {isRegisterMode && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <div className="relative">
+                      <User className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input 
+                        type="text"
+                        required
+                        value={registerData.name}
+                        onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
+                        className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                        placeholder="Seu nome"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Telefone</label>
+                      <div className="relative">
+                        <Phone className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                          type="tel"
+                          required
+                          value={registerData.phone}
+                          onChange={(e) => setRegisterData({...registerData, phone: e.target.value})}
+                          className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                          placeholder="(00) 00000-0000"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">CRECI</label>
+                      <div className="relative">
+                        <ShieldCheck className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                          type="text"
+                          required
+                          value={registerData.creci}
+                          onChange={(e) => setRegisterData({...registerData, creci: e.target.value})}
+                          className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                          placeholder="00.000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">E-mail</label>
+                <div className="relative">
+                  <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Senha</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="password"
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              {isRegisterMode && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Confirmar Senha</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="password"
+                      required
+                      value={registerData.confirmPassword}
+                      onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
+                      className="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button 
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-4 bg-[#617964] text-white rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+            >
+              {isSubmitting ? (isRegisterMode ? 'Enviando...' : 'Entrando...') : (isRegisterMode ? 'Solicitar Acesso' : 'Entrar no Painel')}
+              {!isSubmitting && <ArrowRight className="w-5 h-5" />}
+            </button>
+
+            {!isRegisterMode && (
+              <>
+                <div className="relative py-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-100"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Ou continue com</span>
+                  </div>
+                </div>
+
+                <button 
+                  type="button"
+                  onClick={handleDashboardGoogleLogin}
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-white border border-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-3 shadow-sm"
+                >
+                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4" />
+                  Google Login
+                </button>
+              </>
+            )}
+            
+            <div className="text-center mt-6">
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsRegisterMode(!isRegisterMode);
+                  setLoginError(null);
+                }}
+                className="text-xs font-black text-[#617964] uppercase tracking-widest hover:underline px-4 py-2"
+              >
+                {isRegisterMode ? 'Já tenho uma conta? Entrar' : 'Não tem conta? Me associar'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (user && authStatus === 'pending') {
     return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
@@ -2329,7 +2656,7 @@ export default function BrokerDashboard() {
     );
   }
 
-  if (user && authStatus === 'rejected' && !isLoading && !isActuallyAdmin) {
+  if (user && authStatus === 'rejected') {
      return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
@@ -2349,6 +2676,33 @@ export default function BrokerDashboard() {
             className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
           >
             Sair
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Garantir que corretores comuns só entrem se aprovados
+  if (user && !isAdmin && authStatus !== 'approved') {
+    return (
+       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center border border-gray-100"
+        >
+          <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-4">Verificando Perfil</h2>
+          <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+            Aguarde enquanto verificamos suas permissões de acesso...
+          </p>
+          <button 
+            onClick={handleLogout}
+            className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+          >
+            Sair e Voltar ao Site
           </button>
         </motion.div>
       </div>
@@ -2377,19 +2731,7 @@ export default function BrokerDashboard() {
                     <ChevronLeft className="w-5 h-5 text-gray-500" />
                   </button>
                   <div className="flex items-center gap-3">
-                    {selectedChatBroker.photo ? (
-                      <img 
-                        src={selectedChatBroker.photo} 
-                        className="w-10 h-10 rounded-xl object-cover" 
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (selectedChatBroker.name || 'User') + '&background=617964&color=fff';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl bg-[#617964] flex items-center justify-center text-white font-bold">
-                        {selectedChatBroker.name?.charAt(0) || 'U'}
-                      </div>
-                    )}
+                    <img src={selectedChatBroker.photo || "https://i.imgur.com/5l1CO1t.png"} className="w-10 h-10 rounded-xl object-cover" />
                     <div>
                       <h3 className="text-sm font-black text-gray-900">{selectedChatBroker.name}</h3>
                       <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
@@ -2482,19 +2824,8 @@ export default function BrokerDashboard() {
                          className={`w-full flex items-center gap-4 p-4 hover:bg-[#617964]/5 rounded-2xl transition-all group ${unreadCount > 0 ? 'bg-red-50 hover:bg-red-100/50' : ''}`}
                       >
                         <div className="relative">
-                          <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 shadow-sm transition-transform group-hover:scale-105 ${unreadCount > 0 ? 'border-red-200' : 'border-white'} flex items-center justify-center bg-gray-50`}>
-                            {broker.photo ? (
-                              <img 
-                                src={broker.photo} 
-                                alt={broker.name} 
-                                className="w-full h-full object-cover" 
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (broker.name || 'User') + '&background=617964&color=fff';
-                                }}
-                              />
-                            ) : (
-                               <User className="w-6 h-6 text-gray-300" />
-                            )}
+                          <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 shadow-sm transition-transform group-hover:scale-105 ${unreadCount > 0 ? 'border-red-200' : 'border-white'}`}>
+                            <img src={broker.photo || "https://i.imgur.com/5l1CO1t.png"} alt={broker.name} className="w-full h-full object-cover" />
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
                         </div>
@@ -4630,20 +4961,13 @@ export default function BrokerDashboard() {
                     {currentBroker?.role || userRole || 'CORRETOR PARCEIRO'}
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white bg-gray-50 flex items-center justify-center">
-                  {(currentBroker?.photo || auth.currentUser?.photoURL) ? (
-                    <img 
-                      src={currentBroker?.photo || auth.currentUser?.photoURL || ""} 
-                      alt={currentBroker?.name || auth.currentUser?.displayName || "Perfil"} 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (currentBroker?.name || auth.currentUser?.displayName || 'User') + '&background=617964&color=fff';
-                      }}
-                    />
-                  ) : (
-                    <User className="w-5 h-5 text-gray-300" />
-                  )}
+                <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white">
+                  <img 
+                    src={currentBroker?.photo || auth.currentUser?.photoURL || "https://i.imgur.com/5l1CO1t.png"} 
+                    alt={currentBroker?.name || auth.currentUser?.displayName || "Perfil"} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
                 <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isUserDropdownOpen ? 'rotate-90' : ''}`} />
               </button>
@@ -5106,24 +5430,17 @@ export default function BrokerDashboard() {
                                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-white" />
                                 </div>
 
-                                  {/* Broker Image in Circle - "Leaving the canvas" */}
-                                  <div className="relative flex justify-center -mt-28 mb-4">
-                                    <div className="w-36 h-36 rounded-full border-[10px] border-white shadow-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105 bg-gray-100 flex items-center justify-center">
-                                      {broker.photo ? (
-                                        <img 
-                                          src={broker.photo} 
-                                          alt={broker.name}
-                                          className="w-full h-full object-cover"
-                                          referrerPolicy="no-referrer"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (broker.name || 'User') + '&background=617964&color=fff';
-                                          }}
-                                        />
-                                      ) : (
-                                        <User className="w-12 h-12 text-gray-300" />
-                                      )}
-                                    </div>
+                                {/* Broker Image in Circle - "Leaving the canvas" */}
+                                <div className="relative flex justify-center -mt-28 mb-4">
+                                  <div className="w-36 h-36 rounded-full border-[10px] border-white shadow-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105">
+                                    <img 
+                                      src={broker.photo} 
+                                      alt={broker.name}
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
                                   </div>
+                                </div>
 
                                 <div className="p-6 relative z-20">
                                   <div className="text-center mb-6">
@@ -6203,22 +6520,8 @@ export default function BrokerDashboard() {
                       <div className="space-y-6">
                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 block">1. Escolha o cargo para gerenciar</label>
-                          <div className="mb-4">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                              <input 
-                                type="text"
-                                placeholder="Pesquisar cargo..."
-                                value={roleSearchQuery}
-                                onChange={(e) => setRoleSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
-                              />
-                            </div>
-                          </div>
                           <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2">
-                            {allAvailableRoles
-                              .filter(role => role.toLowerCase().includes(roleSearchQuery.toLowerCase()))
-                              .map(role => (
+                            {allAvailableRoles.map(role => (
                               <button
                                 key={role}
                                 onClick={() => setSelectedRoleForEdit(role)}
@@ -6414,31 +6717,12 @@ export default function BrokerDashboard() {
                                 Concluído
                               </button>
                             </div>
-                            <div className="mb-4">
-                              <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input 
-                                  type="text"
-                                  placeholder="Pesquisar função..."
-                                  value={roleSearchQuery}
-                                  onChange={(e) => setRoleSearchQuery(e.target.value)}
-                                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
-                                />
-                              </div>
-                            </div>
-                            <div className="space-y-6 max-h-[60vh] overflow-y-auto">
-                              {ROLE_GROUPS.map((group) => {
-                                const filteredRoles = group.roles.filter(role => 
-                                  role.toLowerCase().includes(roleSearchQuery.toLowerCase())
-                                );
-                                
-                                if (filteredRoles.length === 0) return null;
-
-                                return (
-                                  <div key={group.label} className="space-y-2">
-                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.label}</h4>
-                                    <div className="space-y-1">
-                                      {filteredRoles.map((role) => {
+                            <div className="space-y-6">
+                              {ROLE_GROUPS.map((group) => (
+                                <div key={group.label} className="space-y-2">
+                                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.label}</h4>
+                                  <div className="space-y-1">
+                                    {group.roles.map((role) => {
                                       // Normalize role names for comparison to handle legacy formats
                                       const normalize = (r: string) => r.replace(/CEO \(Diretor Executivo\)/g, 'CEO Diretor Executivo').replace(/\((.*?)\)/g, '$1').trim();
                                       const selectedRoles = newBrokerData.role ? newBrokerData.role.split(', ').map(r => normalize(r)) : [];
@@ -6474,10 +6758,9 @@ export default function BrokerDashboard() {
                                     })}
                                   </div>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        </motion.div>
+                              ))}
+                            </div>
+                          </motion.div>
                         )}
                       </AnimatePresence>
                     </div>
