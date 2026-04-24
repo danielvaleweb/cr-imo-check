@@ -6,12 +6,12 @@ import Header from './Header';
 import Footer from './Footer';
 import SearchMenu from './SearchMenu';
 import MobileNav from './MobileNav';
-import LoginModal from './LoginModal';
 import { useProperties } from '../context/PropertyContext';
 import { useCondos } from '../context/CondoContext';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 
 enum OperationType {
   CREATE = 'create',
@@ -161,9 +161,9 @@ export default function Layout() {
   };
 
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [whatsappForm, setWhatsappForm] = useState({ name: '', message: '' });
   const location = useLocation();
+  const navigate = useNavigate();
   const isDashboard = location.pathname.startsWith('/admin');
 
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
@@ -234,7 +234,7 @@ export default function Layout() {
             isMobileNavOpen={isMobileNavOpen}
             setIsMobileNavOpen={setIsMobileNavOpen}
             favoritesCount={activeFavorites.length}
-            onLoginClick={() => setIsLoginModalOpen(true)}
+            onLoginClick={() => navigate('/login')}
           />
           
           <SearchMenu 
@@ -280,11 +280,6 @@ export default function Layout() {
       </AnimatePresence>
 
       {!isDashboard && <Footer />}
-
-      <LoginModal 
-        isOpen={isLoginModalOpen} 
-        onClose={() => setIsLoginModalOpen(false)} 
-      />
 
       {/* WhatsApp Modal */}
       <AnimatePresence>
