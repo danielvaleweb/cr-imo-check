@@ -6,6 +6,7 @@ import Header from './Header';
 import Footer from './Footer';
 import SearchMenu from './SearchMenu';
 import MobileNav from './MobileNav';
+import AuthModal from './AuthModal';
 import { useProperties } from '../context/PropertyContext';
 import { useCondos } from '../context/CondoContext';
 import { auth, db } from '../firebase';
@@ -162,11 +163,11 @@ export default function Layout() {
 
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [whatsappForm, setWhatsappForm] = useState({ name: '', message: '' });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const isDashboard = location.pathname.startsWith('/admin');
-  const isLogin = location.pathname === '/login';
-  const hideNavigation = isDashboard || isLogin;
+  const hideNavigation = isDashboard;
 
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,7 +237,7 @@ export default function Layout() {
             isMobileNavOpen={isMobileNavOpen}
             setIsMobileNavOpen={setIsMobileNavOpen}
             favoritesCount={activeFavorites.length}
-            onLoginClick={() => navigate('/login')}
+            onLoginClick={() => setIsAuthModalOpen(true)}
           />
           
           <SearchMenu 
@@ -359,6 +360,8 @@ export default function Layout() {
           </div>
         )}
       </AnimatePresence>
+
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
       {/* Floating WhatsApp Button */}
       {!hideNavigation && (

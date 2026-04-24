@@ -272,6 +272,7 @@ export default function BrokerDashboard() {
   const [newMessageText, setNewMessageText] = useState('');
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleSearchQuery, setRoleSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -6200,8 +6201,22 @@ export default function BrokerDashboard() {
                       <div className="space-y-6">
                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 block">1. Escolha o cargo para gerenciar</label>
+                          <div className="mb-4">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input 
+                                type="text"
+                                placeholder="Pesquisar cargo..."
+                                value={roleSearchQuery}
+                                onChange={(e) => setRoleSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                          </div>
                           <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2">
-                            {allAvailableRoles.map(role => (
+                            {allAvailableRoles
+                              .filter(role => role.toLowerCase().includes(roleSearchQuery.toLowerCase()))
+                              .map(role => (
                               <button
                                 key={role}
                                 onClick={() => setSelectedRoleForEdit(role)}
@@ -6397,12 +6412,31 @@ export default function BrokerDashboard() {
                                 Concluído
                               </button>
                             </div>
-                            <div className="space-y-6">
-                              {ROLE_GROUPS.map((group) => (
-                                <div key={group.label} className="space-y-2">
-                                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.label}</h4>
-                                  <div className="space-y-1">
-                                    {group.roles.map((role) => {
+                            <div className="mb-4">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input 
+                                  type="text"
+                                  placeholder="Pesquisar função..."
+                                  value={roleSearchQuery}
+                                  onChange={(e) => setRoleSearchQuery(e.target.value)}
+                                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+                              {ROLE_GROUPS.map((group) => {
+                                const filteredRoles = group.roles.filter(role => 
+                                  role.toLowerCase().includes(roleSearchQuery.toLowerCase())
+                                );
+                                
+                                if (filteredRoles.length === 0) return null;
+
+                                return (
+                                  <div key={group.label} className="space-y-2">
+                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.label}</h4>
+                                    <div className="space-y-1">
+                                      {filteredRoles.map((role) => {
                                       // Normalize role names for comparison to handle legacy formats
                                       const normalize = (r: string) => r.replace(/CEO \(Diretor Executivo\)/g, 'CEO Diretor Executivo').replace(/\((.*?)\)/g, '$1').trim();
                                       const selectedRoles = newBrokerData.role ? newBrokerData.role.split(', ').map(r => normalize(r)) : [];
@@ -6438,9 +6472,10 @@ export default function BrokerDashboard() {
                                     })}
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                          </motion.div>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
                         )}
                       </AnimatePresence>
                     </div>
