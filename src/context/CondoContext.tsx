@@ -108,7 +108,6 @@ export function CondoProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubscribe = onSnapshot(collection(db, 'condos'), (snapshot) => {
-      console.log('Condo Snapshot received. Count:', snapshot.size);
       const condosData: Condo[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
@@ -120,7 +119,12 @@ export function CondoProvider({ children }: { children: React.ReactNode }) {
         return idA - idB;
       }));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'condos');
+      if (error.message?.includes('Quota exceeded')) {
+        console.warn('Firestore Quota exceeded for condos. Falling back to initial data.');
+        setCondos(INITIAL_CONDOS);
+      } else {
+        handleFirestoreError(error, OperationType.LIST, 'condos');
+      }
     });
 
     return () => {

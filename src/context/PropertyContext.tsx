@@ -133,14 +133,11 @@ export function PropertyProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubscribe = onSnapshot(collection(db, 'properties'), (snapshot) => {
-      console.log('Property Snapshot received. Count:', snapshot.size);
       const propertiesData: Property[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        console.log('Property document data:', doc.id, data);
         propertiesData.push({ ...data, id: isNaN(Number(doc.id)) ? doc.id : Number(doc.id) } as any);
       });
-      console.log('Processed properties:', propertiesData.length);
       setProperties(propertiesData.sort((a, b) => {
         const idA = typeof a.id === 'number' ? a.id : 0;
         const idB = typeof b.id === 'number' ? b.id : 0;
@@ -148,7 +145,12 @@ export function PropertyProvider({ children }: { children: React.ReactNode }) {
       }));
     }, (error) => {
       console.error('Error fetching properties:', error);
-      handleFirestoreError(error, OperationType.LIST, 'properties');
+      if (error.message?.includes('Quota exceeded')) {
+        console.warn('Firestore Quota exceeded. Falling back to local data.');
+        setProperties(initialData as Property[]);
+      } else {
+        handleFirestoreError(error, OperationType.LIST, 'properties');
+      }
     });
 
     return () => {

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, getDocs, getDoc, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, getDocs, getDoc, addDoc, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
@@ -96,7 +96,6 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubscribe = onSnapshot(collection(db, 'brokers'), (snapshot) => {
-      console.log('Broker Snapshot received. Count:', snapshot.size);
       if (snapshot.empty) {
         setBrokers(INITIAL_BROKERS);
         return;
@@ -104,7 +103,21 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
       const brokersData: Broker[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        brokersData.push({ ...data, id: isNaN(Number(doc.id)) ? doc.id : Number(doc.id) } as any);
+        
+        // Clean roles to avoid duplicates and normalize specific formats
+        const cleanRole = (roleStr: string) => {
+          if (!roleStr) return '';
+          // Fix specific legacy format and deduplicate
+          const fixedStr = roleStr.replace(/CEO \(Diretor Executivo\)/g, 'CEO Diretor Executivo');
+          const rolesList = fixedStr.split(', ').map(r => r.trim());
+          return Array.from(new Set(rolesList.filter(Boolean))).join(', ');
+        };
+
+        brokersData.push({ 
+          ...data, 
+          role: cleanRole(data.role),
+          id: isNaN(Number(doc.id)) ? doc.id : Number(doc.id) 
+        } as any);
       });
       setBrokers(brokersData.sort((a, b) => {
         const idA = typeof a.id === 'number' ? a.id : 0;
@@ -112,7 +125,12 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
         return idA - idB;
       }));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'brokers');
+      if (error.message?.includes('Quota exceeded')) {
+        console.warn('Firestore Quota exceeded for brokers. Falling back to initial data.');
+        setBrokers(INITIAL_BROKERS);
+      } else {
+        handleFirestoreError(error, OperationType.LIST, 'brokers');
+      }
     });
 
     return () => {
@@ -123,11 +141,27 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
 
   const addBroker = async (newBroker: Omit<Broker, 'id'>) => {
     try {
+      // Check if broker already exists by email to prevent duplicates
+      if (newBroker.email) {
+        const brokersRef = collection(db, 'brokers');
+        const q = query(brokersRef, where('email', '==', newBroker.email.toLowerCase()));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          console.log('Broker with this email already exists, skipping creation.');
+          return;
+        }
+      }
+
       await addDoc(collection(db, 'brokers'), {
         ...newBroker,
+        email: newBroker.email?.toLowerCase(),
         createdAt: new Date().toISOString()
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('already exists')) {
+        console.warn('Broker already exists (collision in addDoc or rule restriction).');
+        return;
+      }
       handleFirestoreError(error, OperationType.CREATE, 'brokers');
     }
   };

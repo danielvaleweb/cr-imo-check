@@ -19,16 +19,5 @@ export const auth = getAuth(app);
 
 console.log('Firestore initialized for database:', databaseId, 'in project:', firebaseConfig.projectId);
 
-// Test connection
-async function testConnection() {
-  try {
-    console.log('Testing Firestore connection to database:', databaseId);
-    // Use 'properties' which is allowed for public read in our rules
-    await getDocFromServer(doc(db, 'properties', 'connection_test'));
-    console.log('Firestore connection test successful');
-  } catch (error) {
-    console.error('Firestore connection test failed:', error);
-  }
-}
-
-testConnection();
+// Test connection removed to save on quota calls. 
+// It was used for initial setup verification but is no longer needed in production.

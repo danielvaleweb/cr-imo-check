@@ -3,7 +3,7 @@ export const ROLE_GROUPS = [
     label: "Diretoria / Estratégico",
     roles: [
       "CEO Diretor criativo",
-      "CEO (Diretor Executivo)",
+      "CEO Diretor Executivo",
       "Diretor Comercial",
       "Diretor de Operações",
       "Diretor Financeiro (CFO)",

@@ -384,14 +384,14 @@ export default function BrokerDashboard() {
 
   const [sidebarItems, setSidebarItems] = useState([
     { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
-    { id: 'properties', label: 'Todos Imóveis', icon: Home },
+    { id: 'properties', label: 'Todos Imóveis', icon: Home, permission: 'canEditProperties' },
     { id: 'proposals', label: 'Propostas', icon: FileText, permission: 'canHandleProposals' },
-    { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
+    { id: 'condos', label: 'Condomínios', icon: ShieldCheck, permission: 'canEditCondos' },
     { id: 'brokers', label: 'Equipe', icon: Users, permission: 'canViewTeam' },
-    { id: 'leads', label: 'Captações', icon: Users },
+    { id: 'leads', label: 'Captações', icon: Users, permission: 'canEditProperties' },
     { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
     { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
-    { id: 'calendar', label: 'Agenda', icon: Calendar },
+    { id: 'calendar', label: 'Agenda', icon: Calendar, permission: 'canManageAgenda' },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, permission: 'canViewReports' },
     { id: 'users_approval', label: 'Aprovar login', icon: Users, permission: 'canApproveUsers' },
   ]);
@@ -695,6 +695,8 @@ export default function BrokerDashboard() {
       // Graceful error for admin during pathing/syncing
       if (error.message.includes('permission')) {
         console.warn('Proposals permission sync in progress...');
+      } else if (error.message.includes('Quota exceeded')) {
+        console.warn('Proposals fetch failed: Quota exceeded.');
       } else {
         handleFirestoreError(error, OperationType.LIST, 'proposals');
       }
@@ -718,6 +720,8 @@ export default function BrokerDashboard() {
       // Graceful handling for admin leads sync
       if (error.message.includes('permission')) {
         console.warn('Leads permission sync in progress (Admin):', error);
+      } else if (error.message.includes('Quota exceeded')) {
+        console.warn('Leads fetch failed: Quota exceeded.');
       } else {
         console.error('Error fetching leads snapshot:', error);
         handleFirestoreError(error, OperationType.LIST, 'property_leads');
@@ -839,78 +843,93 @@ export default function BrokerDashboard() {
 
   useEffect(() => {
     console.log('Dashboard: Auth listener starting...');
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       console.log('Dashboard: Auth state changed:', currentUser?.email);
-      
+      setUser(currentUser);
       if (!currentUser) {
-        setUser(null);
         setIsAdmin(false);
         setAuthStatus(null);
         setIsLoading(false);
       } else {
-        setUser(currentUser);
-        setIsLoading(true);
+        // Fast path check for known admin to minimize "Verificando Perfil" flash
         const adminEmail = 'danielvaleweb@gmail.com';
-        const isDaniel = currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
-        const isUidAdmin = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-        
-        if (isDaniel || isUidAdmin) {
+        const userEmail = currentUser.email?.toLowerCase();
+        if (userEmail === adminEmail || currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2') {
           setIsAdmin(true);
           setAuthStatus('approved');
-          setUserRole('CEO Diretor criativo');
-          setUserPermissions(getPermissions('CEO Diretor criativo'));
-          
-          // Auto-sync Daniel's broker record if needed
-          const danielEmail = currentUser.email?.toLowerCase();
-          const existingDanielBroker = brokers.find(b => b.email?.toLowerCase() === danielEmail);
-          if (existingDanielBroker && existingDanielBroker.role !== 'CEO Diretor criativo') {
-            updateBroker(existingDanielBroker.id, { role: 'CEO Diretor criativo' });
-          } else if (!existingDanielBroker && danielEmail === 'danielvaleweb@gmail.com') {
-            // If Daniel doesn't have a broker profile under this email yet, create one
-            addBroker({
-              name: 'Daniel Vale',
-              role: 'CEO Diretor criativo',
-              photo: 'https://i.imgur.com/5l1CO1t.png',
-              phone: '(32) 98888-8888',
-              email: danielEmail,
-              bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
-              creci: '54.321-F',
-              instagram: 'daniel_crimoveis'
-            });
-          }
-
-          setIsLoading(false);
-          return;
-        }
-
-        try {
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setAuthStatus(userData.status);
-            const role = userData.role || 'Corretor de Imóveis';
-            setUserRole(role);
-            setUserPermissions(getPermissions(role));
-            if (role === 'admin' || role.includes('Diretor') || role.includes('CEO') || role.includes('Gerente')) {
-               setIsAdmin(true);
-            }
-          } else {
-            if (!isDaniel && !isUidAdmin) {
-              await signOut(auth);
-              setAuthStatus(null);
-              setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
-            }
-          }
-        } catch (error) {
-          console.error("Dashboard auth check error:", error);
-        } finally {
-          setIsLoading(false);
         }
       }
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, []);
+
+  // Separate effect for syncing and loading user data to avoid stale closures
+  useEffect(() => {
+    const checkUserAndSync = async () => {
+      if (!user) return;
+      
+      setIsLoading(true);
+      const adminEmail = 'danielvaleweb@gmail.com';
+      const userEmail = user.email?.toLowerCase();
+      const isDaniel = userEmail === adminEmail.toLowerCase();
+      const isUidAdmin = user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+
+      if (isDaniel || isUidAdmin) {
+        setIsAdmin(true);
+        setAuthStatus('approved');
+        setUserRole('CEO Diretor criativo');
+        setUserPermissions(getPermissions('CEO Diretor criativo'));
+        
+        // Auto-sync Daniel's broker record if needed
+        const existingDanielBroker = brokers.find(b => b.email?.toLowerCase() === userEmail);
+        
+        if (existingDanielBroker) {
+          if (existingDanielBroker.role !== 'CEO Diretor criativo') {
+            updateBroker(existingDanielBroker.id, { role: 'CEO Diretor criativo' });
+          }
+        } else if (userEmail === 'danielvaleweb@gmail.com') {
+          // Only add if we're sure it's not in the list yet
+          addBroker({
+            name: 'Daniel Vale',
+            role: 'CEO Diretor criativo',
+            photo: 'https://i.imgur.com/5l1CO1t.png',
+            phone: '(32) 98888-8888',
+            email: userEmail,
+            bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
+            creci: '54.321-F',
+            instagram: 'daniel_crimoveis'
+          });
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setAuthStatus(userData.status);
+          const role = userData.role || 'Corretor de Imóveis';
+          setUserRole(role);
+          setUserPermissions(getPermissions(role));
+          if (role === 'admin' || role.includes('Diretor') || role.includes('CEO') || role.includes('Gerente')) {
+             setIsAdmin(true);
+          }
+        } else {
+          await signOut(auth);
+          setAuthStatus(null);
+          setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
+        }
+      } catch (error) {
+        console.error("Dashboard auth data check error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkUserAndSync();
+  }, [user, brokers, navigate, updateBroker, addBroker]);
 
   // Broker Management
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
@@ -2060,18 +2079,23 @@ export default function BrokerDashboard() {
 
       // If approved, also add to brokers (Team/Equipe) if not already there
       if (status === 'approved' && userToUpd) {
-        const alreadyBroker = brokers.some(b => b.email?.toLowerCase() === userToUpd.email?.toLowerCase());
-        if (!alreadyBroker) {
-          await addBroker({
-            name: userToUpd.name || 'Novo Membro',
-            role: 'Membro',
-            photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
-            phone: userToUpd.phone || '',
-            email: userToUpd.email || '',
-            bio: 'Novo membro da equipe CR Imóveis.',
-            creci: userToUpd.creci || '',
-            instagram: ''
-          });
+        try {
+          const alreadyBroker = brokers.some(b => b.email?.toLowerCase() === userToUpd.email?.toLowerCase());
+          if (!alreadyBroker) {
+            await addBroker({
+              name: userToUpd.name || 'Novo Membro',
+              role: 'Membro',
+              photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
+              phone: userToUpd.phone || '',
+              email: userToUpd.email || '',
+              bio: 'Novo membro da equipe CR Imóveis.',
+              creci: userToUpd.creci || '',
+              instagram: ''
+            });
+          }
+        } catch (brokerError) {
+          console.error("Secondary error adding broker during approval:", brokerError);
+          // Don't fail the user status update if broker creation fails (likely already exists or quota)
         }
       }
 
@@ -2614,7 +2638,7 @@ export default function BrokerDashboard() {
     );
   }
 
-  if (user && authStatus === 'pending') {
+  if (user && authStatus === 'pending' && !isLoading) {
     return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
@@ -2640,7 +2664,7 @@ export default function BrokerDashboard() {
     );
   }
 
-  if (user && authStatus === 'rejected') {
+  if (user && authStatus === 'rejected' && !isLoading) {
      return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
@@ -2667,7 +2691,7 @@ export default function BrokerDashboard() {
   }
 
   // Garantir que corretores comuns só entrem se aprovados
-  if (user && !isAdmin && authStatus !== 'approved') {
+  if (user && !isAdmin && authStatus !== 'approved' && !isLoading) {
     return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
@@ -2792,28 +2816,41 @@ export default function BrokerDashboard() {
                       <p className="text-sm">Nenhum membro cadastrado.</p>
                     </div>
                   ) : (
-                    brokers.filter(b => b.id.toString() !== auth.currentUser?.uid).map((broker) => {
+                    [...brokers]
+                      .filter(b => b.id.toString() !== auth.currentUser?.uid)
+                      .sort((a, b) => {
+                         const countA = unreadMessages.filter(m => m.from === a.id.toString()).length;
+                         const countB = unreadMessages.filter(m => m.from === b.id.toString()).length;
+                         return countB - countA;
+                      })
+                      .map((broker) => {
                       const unreadCount = unreadMessages.filter(m => m.from === broker.id.toString()).length;
                       return (
                       <button
                         key={broker.id}
                         onClick={() => setSelectedChatBroker(broker)}
-                        className="w-full flex items-center gap-4 p-4 hover:bg-[#617964]/5 rounded-2xl transition-all group"
+                         className={`w-full flex items-center gap-4 p-4 hover:bg-[#617964]/5 rounded-2xl transition-all group ${unreadCount > 0 ? 'bg-red-50 hover:bg-red-100/50' : ''}`}
                       >
                         <div className="relative">
-                          <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm transition-transform group-hover:scale-105">
+                          <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 shadow-sm transition-transform group-hover:scale-105 ${unreadCount > 0 ? 'border-red-200' : 'border-white'}`}>
                             <img src={broker.photo || "https://i.imgur.com/5l1CO1t.png"} alt={broker.name} className="w-full h-full object-cover" />
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
                         </div>
                         <div className="text-left flex-1 min-w-0">
-                          <p className="text-sm font-black text-gray-900 truncate">{broker.name}</p>
-                          <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
+                          <p className={`text-sm font-black truncate ${unreadCount > 0 ? 'text-red-900' : 'text-gray-900'}`}>{broker.name}</p>
+                          {unreadCount > 0 ? (
+                             <p className="text-[10px] text-red-500 font-bold uppercase truncate animate-pulse tracking-wider">
+                               {unreadCount} nova{unreadCount > 1 ? 's' : ''} mensagem{unreadCount > 1 ? 'ns' : ''}
+                             </p>
+                          ) : (
+                             <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
+                          )}
                         </div>
-                        <div className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all bg-gray-100 text-gray-400 group-hover:bg-[#25D366] group-hover:text-white">
+                        <div className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-all ${unreadCount > 0 ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-[#25D366] group-hover:text-white'}`}>
                           <MessageCircle className="w-4 h-4" />
                           {unreadCount > 0 && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white">
                               {unreadCount}
                             </span>
                           )}
@@ -4891,7 +4928,11 @@ export default function BrokerDashboard() {
 
           <div className="flex items-center gap-2 sm:gap-4 ml-4">
             <button 
-              onClick={() => setIsMessagesOpen(!isMessagesOpen)}
+              onClick={() => {
+                setIsMessagesOpen(!isMessagesOpen);
+                if (!isMessagesOpen) setSelectedChatBroker(null);
+                else setSelectedChatBroker(null);
+              }}
               className={`p-2.5 rounded-xl transition-all relative ${isMessagesOpen ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               <MessageSquare className="w-5 h-5" />
@@ -5412,7 +5453,9 @@ export default function BrokerDashboard() {
                                 <div className="p-6 relative z-20">
                                   <div className="text-center mb-6">
                                     <h3 className="font-black text-gray-900 text-lg leading-tight">{broker.name}</h3>
-                                    <p className="text-[#617964] font-bold text-xs uppercase tracking-widest">{broker.role}</p>
+                                    <p className="text-[#617964] font-bold text-xs uppercase tracking-widest">
+                                      {Array.from(new Set(broker.role.split(', ').map(r => r.replace(/CEO \(Diretor Executivo\)/g, 'CEO Diretor Executivo').replace(/\((.*?)\)/g, '$1').trim()))).join(', ')}
+                                    </p>
                                   </div>
 
                                   <div className="space-y-3 mb-6 bg-gray-50/50 p-4 rounded-2xl text-left">
@@ -6688,8 +6731,10 @@ export default function BrokerDashboard() {
                                   <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.label}</h4>
                                   <div className="space-y-1">
                                     {group.roles.map((role) => {
-                                      const selectedRoles = newBrokerData.role ? newBrokerData.role.split(', ') : [];
-                                      const isSelected = selectedRoles.includes(role);
+                                      // Normalize role names for comparison to handle legacy formats
+                                      const normalize = (r: string) => r.replace(/CEO \(Diretor Executivo\)/g, 'CEO Diretor Executivo').replace(/\((.*?)\)/g, '$1').trim();
+                                      const selectedRoles = newBrokerData.role ? newBrokerData.role.split(', ').map(r => normalize(r)) : [];
+                                      const isSelected = selectedRoles.includes(normalize(role));
                                       
                                       return (
                                         <label key={role} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors">
@@ -6706,11 +6751,14 @@ export default function BrokerDashboard() {
                                             onChange={(e) => {
                                               let newRoles;
                                               if (e.target.checked) {
+                                                if (isSelected) return;
                                                 newRoles = [...selectedRoles, role];
                                               } else {
-                                                newRoles = selectedRoles.filter(r => r !== role);
+                                                newRoles = selectedRoles.filter(r => normalize(r) !== normalize(role));
                                               }
-                                              setNewBrokerData({...newBrokerData, role: newRoles.join(', ')});
+                                              // Deduplicate and ensure clean strings are used
+                                              const uniqueRoles = Array.from(new Set(newRoles.map(r => normalize(r))));
+                                              setNewBrokerData({...newBrokerData, role: uniqueRoles.join(', ')});
                                             }}
                                           />
                                         </label>
