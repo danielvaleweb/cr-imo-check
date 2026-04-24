@@ -317,6 +317,7 @@ export default function BrokerDashboard() {
   const [rolePermissions, setRolePermissions] = useState<Record<string, Permissions>>({});
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
   const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<string | null>(null);
+  const [roleSearchTerm, setRoleSearchTerm] = useState('');
 
   const currentBroker = useMemo(() => {
     if (!user) return null;
@@ -6508,8 +6509,20 @@ export default function BrokerDashboard() {
                       <div className="space-y-6">
                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 block">1. Escolha o cargo para gerenciar</label>
+                          <div className="mb-4 relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Buscar cargo..."
+                              value={roleSearchTerm}
+                              onChange={(e) => setRoleSearchTerm(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:border-[#617964] focus:ring-1 focus:ring-[#617964]/20 transition-all text-gray-700 font-medium"
+                            />
+                          </div>
                           <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2">
-                            {allAvailableRoles.map(role => (
+                            {allAvailableRoles
+                              .filter(role => role.toLowerCase().includes(roleSearchTerm.toLowerCase()))
+                              .map(role => (
                               <button
                                 key={role}
                                 onClick={() => setSelectedRoleForEdit(role)}

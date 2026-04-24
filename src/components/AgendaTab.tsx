@@ -586,13 +586,15 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                     <p className="text-sm font-bold text-[#617964]"><Calendar className="w-4 h-4 inline mr-1 -mt-0.5" />{event.data ? new Date(event.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''} às {event.horario}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleApprove(event.id)}
-                  className="w-full bg-[#617964] hover:bg-[#374001] text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <Check className="w-4 h-4" />
-                  Aprovar Consulta
-                </button>
+                {permissions?.canManageAgenda && (
+                  <button
+                    onClick={() => handleApprove(event.id)}
+                    className="w-full bg-[#617964] hover:bg-[#374001] text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    Aprovar Consulta
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -660,16 +662,18 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                             return (
                               <div key={event.id} className="relative bg-gray-50 rounded-3xl p-5 border border-gray-100 hover:border-[#617964]/30 transition-all group overflow-hidden">
                                 <div className="absolute top-3 right-3 flex gap-2">
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleDone(event.id, !!event.done);
-                                    }}
-                                    className={`p-1.5 rounded-lg shadow-sm border transition-all ${event.done ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-400 border-gray-100 hover:bg-emerald-50 hover:text-emerald-500'}`}
-                                    title={event.done ? 'Marcar como pendente' : 'Marcar como concluído'}
-                                  >
-                                    <Check className="w-3.5 h-3.5" />
-                                  </button>
+                                  {permissions?.canManageAgenda && (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleDone(event.id, !!event.done);
+                                      }}
+                                      className={`p-1.5 rounded-lg shadow-sm border transition-all ${event.done ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-400 border-gray-100 hover:bg-emerald-50 hover:text-emerald-500'}`}
+                                      title={event.done ? 'Marcar como pendente' : 'Marcar como concluído'}
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                   {permissions?.canManageAgenda && (
                                     <button 
                                       onClick={(e) => {
