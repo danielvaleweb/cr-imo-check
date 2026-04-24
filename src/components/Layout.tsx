@@ -165,6 +165,8 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isDashboard = location.pathname.startsWith('/admin');
+  const isLogin = location.pathname === '/login';
+  const hideNavigation = isDashboard || isLogin;
 
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,7 +227,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen selection:bg-brand-rust/20 font-sans overflow-x-hidden">
-      {!isDashboard && (
+      {!hideNavigation && (
         <>
           <Header 
             isScrolled={isScrolled} 
@@ -279,7 +281,7 @@ export default function Layout() {
         )}
       </AnimatePresence>
 
-      {!isDashboard && <Footer />}
+      {!hideNavigation && <Footer />}
 
       {/* WhatsApp Modal */}
       <AnimatePresence>
@@ -359,7 +361,7 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Floating WhatsApp Button */}
-      {!isDashboard && (
+      {!hideNavigation && (
         <motion.button
           onClick={() => setIsWhatsAppModalOpen(true)}
           initial={{ scale: 0, opacity: 0 }}
