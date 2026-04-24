@@ -455,7 +455,7 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
             <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Agenda</h1>
             <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie suas captações, visitas e reuniões.</p>
           </div>
-          {permissions?.canEditProperties && (
+          {permissions?.canManageAgenda && (
             <button 
               onClick={() => setIsModalOpen(true)}
               className="bg-[#617964] text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 flex items-center justify-center gap-2"
@@ -670,7 +670,7 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                                   >
                                     <Check className="w-3.5 h-3.5" />
                                   </button>
-                                  {(permissions?.canEditProperties || event.createdBy?.uid === auth.currentUser?.uid) && (
+                                  {permissions?.canManageAgenda && (
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -682,7 +682,7 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                                       <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                   )}
-                                  {(permissions?.canDeleteProperties || event.createdBy?.uid === auth.currentUser?.uid) && (
+                                  {permissions?.canDeleteAgenda && (
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1212,13 +1212,15 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                   <p className="text-sm text-[#617964] font-bold uppercase tracking-tight">{selectedDayLabel}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={handleDayCreate}
-                        className="w-10 h-10 bg-[#617964] text-white rounded-full flex items-center justify-center hover:bg-[#374001] transition-all shadow-md"
-                        title="Adicionar compromisso este dia"
-                    >
-                        <Plus className="w-5 h-5" />
-                    </button>
+                    {permissions?.canManageAgenda && (
+                      <button
+                          onClick={handleDayCreate}
+                          className="w-10 h-10 bg-[#617964] text-white rounded-full flex items-center justify-center hover:bg-[#374001] transition-all shadow-md"
+                          title="Adicionar compromisso este dia"
+                      >
+                          <Plus className="w-5 h-5" />
+                      </button>
+                    )}
                     <button
                         onClick={() => setIsDayModalOpen(false)}
                         className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-100 transition-all"
@@ -1234,23 +1236,27 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                 ) : currentDayEvents.map(event => (
                   <div key={event.id} className="p-6 bg-gray-50 rounded-[32px] border border-gray-200 relative group overflow-hidden">
                     <div className="absolute top-6 right-6 flex gap-2">
-                       <button 
-                        onClick={() => {
-                          setIsDayModalOpen(false);
-                          handleEditRequest(event);
-                        }}
-                        className="p-2 bg-white rounded-xl text-[#617964] shadow-sm border border-gray-100 hover:bg-gray-50 transition-all font-bold"
-                        title="Editar"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(event.id)}
-                        className="p-2 bg-white rounded-xl text-red-500 shadow-sm border border-gray-100 hover:bg-red-50 transition-all font-bold"
-                        title="Excluir"
-                      >
-                        <Trash className="w-5 h-5" />
-                      </button>
+                      {permissions?.canManageAgenda && (
+                        <button 
+                          onClick={() => {
+                            setIsDayModalOpen(false);
+                            handleEditRequest(event);
+                          }}
+                          className="p-2 bg-white rounded-xl text-[#617964] shadow-sm border border-gray-100 hover:bg-gray-50 transition-all font-bold"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                      )}
+                      {permissions?.canDeleteAgenda && (
+                        <button 
+                          onClick={() => handleDelete(event.id)}
+                          className="p-2 bg-white rounded-xl text-red-500 shadow-sm border border-gray-100 hover:bg-red-50 transition-all font-bold"
+                          title="Excluir"
+                        >
+                          <Trash className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3 mb-4">
