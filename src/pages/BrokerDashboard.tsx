@@ -329,9 +329,14 @@ export default function BrokerDashboard() {
     return agendaEvents.filter(event => event.data === today);
   }, [agendaEvents]);
 
+  const dailySummaryCheckedRef = React.useRef(false);
+
   // Daily Summary Notification Logic
   useEffect(() => {
     if (!auth.currentUser || todaysTasks.length === 0 || !isAdmin) return;
+    
+    // Prevent concurrent checks in the same session
+    if (dailySummaryCheckedRef.current) return;
 
     const checkDailySummary = async () => {
       try {
@@ -344,6 +349,7 @@ export default function BrokerDashboard() {
           where('dateString', '==', todayString)
         );
 
+        dailySummaryCheckedRef.current = true;
         const snap = await getDocs(q);
         if (snap.empty) {
           const captacoes = todaysTasks.filter(t => t.type === 'captacao');
@@ -372,6 +378,7 @@ export default function BrokerDashboard() {
         }
       } catch (error) {
         console.error("Daily summary check error:", error);
+        dailySummaryCheckedRef.current = false;
       }
     };
 
@@ -2276,7 +2283,13 @@ export default function BrokerDashboard() {
       if (!notif.read) {
         await updateDoc(doc(db, 'notificacoes', notif.id), { read: true });
       }
-      if (notif.clickAction) {
+      
+      if (notif.actionLink === 'agenda-pending') {
+        setActiveTab('calendar');
+        setTimeout(() => {
+          document.getElementById('solicitacoes-pendentes')?.scrollIntoView({ behavior: 'smooth' });
+        }, 500);
+      } else if (notif.clickAction) {
         setActiveTab(notif.clickAction);
       } else if (['tarefa', 'visita', 'captacao', 'reuniao', 'daily_summary', 'commitment'].includes(notif.type)) {
         setActiveTab('calendar');

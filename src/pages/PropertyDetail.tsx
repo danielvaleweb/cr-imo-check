@@ -48,7 +48,7 @@ import { useProperties } from '../context/PropertyContext';
 import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
 import PropertyCard from '../components/PropertyCard';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { addLog } from '../services/logService';
 import { db } from '../firebase';
 
@@ -266,9 +266,17 @@ export default function PropertyDetail() {
       }
 
       const prop = property as any;
-      const fullAddress = `${prop.street ? prop.street + ', ' : ''}${prop.neighborhood || prop.location?.split(',')[0] || ''}, ${prop.city || ''} - ${prop.state || prop.location?.split('-')[1]?.trim() || ''}`;
+      const safeLocation = typeof prop.location === 'string' ? prop.location : (prop.location?.address || '');
+      const hasDetailedAddress = !!(prop.propertyStreet || prop.propertyNeighborhood || prop.propertyCity);
+      const parts = [];
+      if (prop.propertyStreet) parts.push(prop.propertyStreet);
+      if (prop.propertyNumber) parts.push(prop.propertyNumber);
+      if (prop.propertyNeighborhood) parts.push(prop.propertyNeighborhood);
+      if (prop.propertyCity) parts.push(prop.propertyCity);
+      if (prop.propertyState) parts.push(prop.propertyState);
+      const fullAddress = hasDetailedAddress ? parts.join(', ') : safeLocation;
 
-      await addDoc(collection(db, 'agenda_events'), {
+      const scheduleDataDoc = {
         type: 'visita',
         status: 'pending',
         createdAt: serverTimestamp(),
@@ -280,12 +288,54 @@ export default function PropertyDetail() {
         local: `${property.title} | ${fullAddress}`,
         data: scheduleData.date,
         horario: scheduleData.time,
+        propertyId: property.id,
+        propertyTitle: property.title,
+        ownerName: prop.ownerName || '',
+        ownerPhone: prop.ownerPhone || prop.ownerPhone2 || '',
+        corretorResponsavel: prop.broker || '',
+        quemVai: [],
         createdBy: {
           name: 'Cliente (Site)',
           type: 'client'
         }
-      });
+      };
+
+      await addDoc(collection(db, 'agenda_events'), scheduleDataDoc);
       await addLog('agenda', 'Agendou visita (Site)', `Cliente: ${scheduleData.name}, Imóvel: ${property.title}`);
+      
+      // Notify responsible broker and CEOs
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const usersToNotify: any[] = [];
+        usersSnap.forEach(doc => {
+          const uData = doc.data();
+          if (uData.role === 'CEO Diretor criativo' || uData.role === 'CEO (Diretor Executivo)' || uData.role === 'Diretor de Operações' || uData.role === 'Diretor Comercial') {
+            usersToNotify.push({ id: doc.id, ...uData });
+          } else if (prop.broker && uData.name === prop.broker) {
+            usersToNotify.push({ id: doc.id, ...uData });
+          }
+        });
+
+        // Deduplicate users to notify in case a CEO is also the responsible broker
+        const uniqueUsersToNotify = Array.from(new Map(usersToNotify.map(item => [item.id, item])).values());
+
+        const formattedDate = new Date(scheduleData.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        
+        for (const u of uniqueUsersToNotify) {
+          await addDoc(collection(db, 'notificacoes'), {
+             userId: u.id,
+             title: 'Nova Visita Solicitada (Site)',
+             message: `Uma nova visita foi solicitada! Data: ${formattedDate} às ${scheduleData.time}. Imóvel: ${property.title}. Cliente: ${scheduleData.name}.`,
+             type: 'visita',
+             read: false,
+             actionLink: 'agenda-pending',
+             createdAt: serverTimestamp()
+          });
+        }
+      } catch (notifErr) {
+        console.error("Error sending notifications:", notifErr);
+      }
+
       setVisitRequested(true);
       console.log('Agendamento confirmado:', scheduleData);
     } catch (err) {

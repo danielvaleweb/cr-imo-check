@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Plus, MapPin, Video, Users, Clock, AlertCircle, Phone, Mail, Link as LinkIcon, Download, Check, ExternalLink, X, MessageCircle, ChevronDown, ChevronUp, ChevronRight, Building } from 'lucide-react';
 import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
-import { collection, onSnapshot, addDoc, serverTimestamp, orderBy, query, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, orderBy, query, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { addLog } from '../services/logService';
 import { Trash, Edit2, Eye, User } from 'lucide-react';
@@ -178,8 +178,9 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
         await addLog('agenda', 'Agendou compromisso', `${finalData.type === 'visita' ? 'Visita' : 'Tarefa'}: ${finalData.type === 'visita' ? finalData.nomeCliente : finalData.tituloTarefa}`);
 
         // Notify participants
-        const participants = eventType === 'captacao' ? quemVai : 
+        const participantsRaw = eventType === 'captacao' ? quemVai : 
                             (eventType === 'visita' ? quemVai : envolveQuem); // Visita also uses quemVai for brokers
+        const participants = Array.from(new Set(participantsRaw || []));
         if (participants && participants.length > 0) {
            for (const memberName of participants) {
              const broker = brokers.find(b => b.name === memberName);
@@ -346,17 +347,75 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
 
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Function to approve pending visit requests
-  const handleApprove = async (eventId: string) => {
+  const handleApprove = async (event: any) => {
     try {
+      const currentUserObj = brokers.find(b => b.email === auth.currentUser?.email);
+      const currentUserName = currentUserObj?.name || auth.currentUser?.displayName || 'Desconhecido';
+      const currentUserRole = currentUserObj?.role || '';
+      const isCEO = currentUserRole.includes('CEO') || currentUserRole.includes('Diretor');
+      
+      if (!isCEO && event.corretorResponsavel && currentUserName !== event.corretorResponsavel) {
+        alert("Apenas o corretor responsável ou a diretoria podem aprovar esta visita.");
+        return;
+      }
+
+      const existingQuemVai = event.quemVai || [];
+      const updatedQuemVai = [...new Set([...existingQuemVai, currentUserName])];
+
       const { doc, updateDoc } = await import('firebase/firestore');
-      const eventRef = doc(db, 'agenda_events', eventId);
+      const eventRef = doc(db, 'agenda_events', event.id);
       await updateDoc(eventRef, {
-        status: 'confirmed'
+        status: 'confirmed',
+        quemVai: updatedQuemVai,
+        assumidoPor: currentUserName
       });
+      
+      // Notify only those present
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const usersToNotify: any[] = [];
+        usersSnap.forEach(userDoc => {
+          const uData = userDoc.data();
+          if (updatedQuemVai.includes(uData.name)) {
+            usersToNotify.push({ id: userDoc.id, ...uData });
+          }
+        });
+        
+        for (const u of usersToNotify) {
+          if (u.email !== auth.currentUser?.email) {
+            await addDoc(collection(db, 'notificacoes'), {
+               userId: u.id,
+               title: 'Visita Aprovada',
+               message: `${currentUserName} assumiu e aprovou a visita para o imóvel: ${event.propertyTitle || 'Desconhecido'} no dia ${event.data ? new Date(event.data).toLocaleDateString('pt-BR', {timeZone:'UTC'}) : ''} às ${event.horario}.`,
+               type: 'visita',
+               read: false,
+               actionLink: 'calendar',
+               createdAt: serverTimestamp()
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Notifiaction error:", err);
+      }
+      
     } catch(err) {
       console.error(err);
       alert('Erro ao aprovar.');
+    }
+  };
+
+  const handleConfirmPresence = async (eventId: string, currentQuemVai: string[]) => {
+    const currentUserObj = brokers.find(b => b.email === auth.currentUser?.email);
+    const currentUserName = currentUserObj?.name || auth.currentUser?.displayName || 'Desconhecido';
+    
+    if (currentQuemVai.includes(currentUserName)) return;
+    
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const eventRef = doc(db, 'agenda_events', eventId);
+      await updateDoc(eventRef, { quemVai: [...currentQuemVai, currentUserName] });
+    } catch(err) {
+      console.error('Error confirming presence', err);
     }
   };
 
@@ -588,11 +647,11 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                 </div>
                 {permissions?.canManageAgenda && (
                   <button
-                    onClick={() => handleApprove(event.id)}
+                    onClick={() => handleApprove(event)}
                     className="w-full bg-[#617964] hover:bg-[#374001] text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
                   >
                     <Check className="w-4 h-4" />
-                    Aprovar Consulta
+                    Aprovar Visita!
                   </button>
                 )}
               </div>
@@ -791,6 +850,40 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                                           <p className={`font-medium ${event.termoAssinado ? 'text-green-600' : 'text-amber-600'}`}>
                                             {event.termoAssinado ? 'Termo Assinado' : 'Termo Pendente'}
                                           </p>
+
+                                          {event.assumidoPor && (
+                                            <p className="font-bold text-[#617964]">Assumido por: {event.assumidoPor}</p>
+                                          )}
+                                          <p><strong>Confirmados:</strong> {event.quemVai?.join(', ') || 'Nenhum'}</p>
+
+                                          {event.ownerName && (
+                                            <div className="mt-2 p-3 bg-gray-100 rounded-xl space-y-2">
+                                              <p><strong>Proprietário do Imóvel:</strong> {event.ownerName}</p>
+                                              {event.ownerPhone && (
+                                                <div className="flex items-center gap-2">
+                                                  <p><strong>Tel:</strong> {event.ownerPhone}</p>
+                                                  <a 
+                                                    href={`https://wa.me/55${event.ownerPhone.replace(/\D/g, '')}`} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center justify-center p-1.5 bg-[#25D366]/10 text-[#25D366] rounded-lg hover:bg-[#25D366]/20 transition-all"
+                                                    title="Falar no WhatsApp"
+                                                  >
+                                                    <MessageCircle className="w-3.5 h-3.5 fill-[#25D366]/20" />
+                                                  </a>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {!event.quemVai?.includes(brokers.find(b => b.email === auth.currentUser?.email)?.name || auth.currentUser?.displayName || 'Desconhecido') && (
+                                            <button 
+                                              onClick={() => handleConfirmPresence(event.id, event.quemVai || [])}
+                                              className="mt-2 w-full py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl font-bold hover:bg-emerald-100 transition-colors"
+                                            >
+                                              Confirmar minha presença
+                                            </button>
+                                          )}
                                         </div>
                                       )}
 
