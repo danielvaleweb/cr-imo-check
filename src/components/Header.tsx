@@ -38,51 +38,68 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
   const isCondosList = location.pathname === '/condominios';
   const isCondoDetail = location.pathname.startsWith('/condominio/');
   const isTransparentPage = true;
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [headerUser, setHeaderUser] = useState<{
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL: string | null;
+  } | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        // Log para depuração de permissões
-        console.log('Header Auth State:', {
-          uid: currentUser.uid,
-          email: currentUser.email,
-          authInfo: currentUser.providerData
-        });
-
         // Exceção imediata para o administrador para evitar consultas desnecessárias
         const adminEmail = 'danielvaleweb@gmail.com';
         const isExplicitAdmin = 
           currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2' || 
           currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
 
+        const defaultUserData = {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL
+        };
+
         if (isExplicitAdmin) {
-          console.log('Header: Admin detected by UID/Email, bypassing Firestore check');
-          setUser(currentUser);
+          try {
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setHeaderUser({
+                ...defaultUserData,
+                photoURL: userData.photo || currentUser.photoURL
+              });
+            } else {
+              setHeaderUser(defaultUserData);
+            }
+          } catch (e) {
+            setHeaderUser(defaultUserData);
+          }
           return;
         }
 
-        // Validation: Check if user document exists and is approved
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          // Always show the user in the header if they exist in Firestore
           if (userDoc.exists()) {
-            setUser(currentUser);
+            const userData = userDoc.data();
+            setHeaderUser({
+              ...defaultUserData,
+              photoURL: userData.photo || currentUser.photoURL
+            });
           } else {
-            console.warn('Header: User document does not exist in Firestore');
-            setUser(null);
+            setHeaderUser(null);
           }
         } catch (error) {
           console.error("Error validating header user:", error);
-          // Se houver erro de permissão mas o e-mail for do admin (fallback de segurança), permite
           if (isExplicitAdmin) {
-            setUser(currentUser);
+            setHeaderUser(defaultUserData);
           } else {
-            setUser(null);
+            setHeaderUser(null);
           }
         }
       } else {
-        setUser(null);
+        setHeaderUser(null);
       }
     });
     return () => unsubscribe();
@@ -93,7 +110,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
   }, [location.pathname]);
 
   const handleUserClick = async () => {
-    if (user) {
+    if (headerUser) {
       navigate('/admin');
     } else {
       onLoginClick();
@@ -314,9 +331,20 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                   onClick={handleUserClick}
                   className="text-brand-cream p-2 hover:bg-white/10 rounded-full transition-colors relative z-[60] cursor-pointer group/login"
                 >
-                  {user ? (
+                  {headerUser ? (
                     <div className="relative">
-                      <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-6 h-6 rounded-full border border-white/20" />
+                      {headerUser.photoURL ? (
+                        <img 
+                          src={headerUser.photoURL} 
+                          alt={headerUser.displayName || ''} 
+                          className="w-6 h-6 rounded-full border border-white/20 object-cover" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (headerUser.displayName || 'User') + '&background=617964&color=fff';
+                          }}
+                        />
+                      ) : (
+                        <User className="w-6 h-6" />
+                      )}
                       <div className="absolute -bottom-1 -right-1 bg-[#25D366] w-2.5 h-2.5 rounded-full border-2 border-[#617964]" />
                     </div>
                   ) : (
@@ -396,9 +424,22 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                     onMouseLeave={() => setIsUserHovered(false)}
                     className="relative group cursor-pointer p-2"
                   >
-                    {user ? (
+                    {headerUser ? (
                       <div className="relative">
-                        <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-8 h-8 rounded-full border-2 border-white/20 group-hover:border-white transition-all shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)]" />
+                        {headerUser.photoURL ? (
+                          <img 
+                            src={headerUser.photoURL} 
+                            alt={headerUser.displayName || ''} 
+                            className="w-8 h-8 rounded-full border-2 border-white/20 group-hover:border-white transition-all shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)] object-cover" 
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (headerUser.displayName || 'User') + '&background=617964&color=fff';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full border-2 border-white/20 flex items-center justify-center bg-white/10 group-hover:bg-white transition-all">
+                            <User className="w-4 h-4 text-white group-hover:text-[#617964]" />
+                          </div>
+                        )}
                         <div className="absolute -bottom-0.5 -right-0.5 bg-[#25D366] w-3 h-3 rounded-full border-2 border-[#617964]" />
                       </div>
                     ) : (
@@ -406,7 +447,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                     )}
                   </button>
                   
-                  {user && (
+                  {headerUser && (
                     <div className="absolute top-full right-0 mt-2 opacity-0 group-hover/user:opacity-100 transition-opacity pointer-events-none">
                       <div className="bg-[#617964] text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap">
                         Acessar Dashboard

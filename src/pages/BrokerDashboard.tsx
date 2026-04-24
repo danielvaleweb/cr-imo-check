@@ -2374,7 +2374,19 @@ export default function BrokerDashboard() {
                     <ChevronLeft className="w-5 h-5 text-gray-500" />
                   </button>
                   <div className="flex items-center gap-3">
-                    <img src={selectedChatBroker.photo || "https://i.imgur.com/2mOeELD.jpeg"} className="w-10 h-10 rounded-xl object-cover" />
+                    {selectedChatBroker.photo ? (
+                      <img 
+                        src={selectedChatBroker.photo} 
+                        className="w-10 h-10 rounded-xl object-cover" 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (selectedChatBroker.name || 'User') + '&background=617964&color=fff';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-[#617964] flex items-center justify-center text-white font-bold">
+                        {selectedChatBroker.name?.charAt(0) || 'U'}
+                      </div>
+                    )}
                     <div>
                       <h3 className="text-sm font-black text-gray-900">{selectedChatBroker.name}</h3>
                       <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
@@ -2467,8 +2479,19 @@ export default function BrokerDashboard() {
                          className={`w-full flex items-center gap-4 p-4 hover:bg-[#617964]/5 rounded-2xl transition-all group ${unreadCount > 0 ? 'bg-red-50 hover:bg-red-100/50' : ''}`}
                       >
                         <div className="relative">
-                          <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 shadow-sm transition-transform group-hover:scale-105 ${unreadCount > 0 ? 'border-red-200' : 'border-white'}`}>
-                            <img src={broker.photo || "https://i.imgur.com/2mOeELD.jpeg"} alt={broker.name} className="w-full h-full object-cover" />
+                          <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 shadow-sm transition-transform group-hover:scale-105 ${unreadCount > 0 ? 'border-red-200' : 'border-white'} flex items-center justify-center bg-gray-50`}>
+                            {broker.photo ? (
+                              <img 
+                                src={broker.photo} 
+                                alt={broker.name} 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (broker.name || 'User') + '&background=617964&color=fff';
+                                }}
+                              />
+                            ) : (
+                               <User className="w-6 h-6 text-gray-300" />
+                            )}
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
                         </div>
@@ -4604,13 +4627,20 @@ export default function BrokerDashboard() {
                     {currentBroker?.role || userRole || 'CORRETOR PARCEIRO'}
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white">
-                  <img 
-                    src={currentBroker?.photo || auth.currentUser?.photoURL || "https://i.imgur.com/2mOeELD.jpeg"} 
-                    alt={currentBroker?.name || auth.currentUser?.displayName || "Perfil"} 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white bg-gray-50 flex items-center justify-center">
+                  {(currentBroker?.photo || auth.currentUser?.photoURL) ? (
+                    <img 
+                      src={currentBroker?.photo || auth.currentUser?.photoURL || ""} 
+                      alt={currentBroker?.name || auth.currentUser?.displayName || "Perfil"} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (currentBroker?.name || auth.currentUser?.displayName || 'User') + '&background=617964&color=fff';
+                      }}
+                    />
+                  ) : (
+                    <User className="w-5 h-5 text-gray-300" />
+                  )}
                 </div>
                 <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isUserDropdownOpen ? 'rotate-90' : ''}`} />
               </button>
@@ -5073,17 +5103,24 @@ export default function BrokerDashboard() {
                                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-white" />
                                 </div>
 
-                                {/* Broker Image in Circle - "Leaving the canvas" */}
-                                <div className="relative flex justify-center -mt-28 mb-4">
-                                  <div className="w-36 h-36 rounded-full border-[10px] border-white shadow-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105">
-                                    <img 
-                                      src={broker.photo} 
-                                      alt={broker.name}
-                                      className="w-full h-full object-cover"
-                                      referrerPolicy="no-referrer"
-                                    />
+                                  {/* Broker Image in Circle - "Leaving the canvas" */}
+                                  <div className="relative flex justify-center -mt-28 mb-4">
+                                    <div className="w-36 h-36 rounded-full border-[10px] border-white shadow-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-105 bg-gray-100 flex items-center justify-center">
+                                      {broker.photo ? (
+                                        <img 
+                                          src={broker.photo} 
+                                          alt={broker.name}
+                                          className="w-full h-full object-cover"
+                                          referrerPolicy="no-referrer"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (broker.name || 'User') + '&background=617964&color=fff';
+                                          }}
+                                        />
+                                      ) : (
+                                        <User className="w-12 h-12 text-gray-300" />
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
 
                                 <div className="p-6 relative z-20">
                                   <div className="text-center mb-6">
