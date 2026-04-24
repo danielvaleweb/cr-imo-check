@@ -275,6 +275,9 @@ export default function BrokerDashboard() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const adminEmail = 'danielvaleweb@gmail.com';
+  const adminUid = 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+
   const [authStatus, setAuthStatus] = useState<'pending' | 'rejected' | 'approved' | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -312,6 +315,11 @@ export default function BrokerDashboard() {
   };
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const isActuallyAdmin = user && (
+    user.email?.toLowerCase() === adminEmail || 
+    user.uid === adminUid || 
+    isAdmin
+  );
   const [userRole, setUserRole] = useState<string>('');
   const [userPermissions, setUserPermissions] = useState<Permissions>(DEFAULT_PERMISSIONS);
   const [rolePermissions, setRolePermissions] = useState<Record<string, Permissions>>({});
@@ -894,7 +902,7 @@ export default function BrokerDashboard() {
           addBroker({
             name: 'Daniel Vale',
             role: 'CEO Diretor criativo',
-            photo: 'https://i.imgur.com/5l1CO1t.png',
+            photo: 'https://i.imgur.com/2mOeELD.jpeg',
             phone: '(32) 98888-8888',
             email: userEmail,
             bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
@@ -2086,7 +2094,7 @@ export default function BrokerDashboard() {
             await addBroker({
               name: userToUpd.name || 'Novo Membro',
               role: 'Membro',
-              photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
+              photo: userToUpd.photoURL || 'https://i.imgur.com/2mOeELD.jpeg',
               phone: userToUpd.phone || '',
               email: userToUpd.email || '',
               bio: 'Novo membro da equipe CR Imóveis.',
@@ -2386,6 +2394,7 @@ export default function BrokerDashboard() {
         email: userEmail,
         status: 'pending',
         role: 'corretor',
+        photo: 'https://i.imgur.com/2mOeELD.jpeg',
         createdAt: new Date().toISOString()
       };
 
@@ -2639,7 +2648,7 @@ export default function BrokerDashboard() {
     );
   }
 
-  if (user && authStatus === 'pending' && !isLoading) {
+  if (user && authStatus === 'pending' && !isLoading && !isActuallyAdmin) {
     return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
@@ -2665,7 +2674,7 @@ export default function BrokerDashboard() {
     );
   }
 
-  if (user && authStatus === 'rejected' && !isLoading) {
+  if (user && authStatus === 'rejected' && !isLoading && !isActuallyAdmin) {
      return (
        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <motion.div 
@@ -2692,7 +2701,7 @@ export default function BrokerDashboard() {
   }
 
   // Garantir que corretores comuns só entrem se aprovados
-  if (user && !isAdmin && authStatus !== 'approved' && !isLoading) {
+  if (user && !isActuallyAdmin && authStatus !== 'approved' && !isLoading) {
     // Se ainda não temos status (null), mostramos um spinner em vez do card de verificação
     // para evitar flashes visuais durante a transição de autenticação.
     if (authStatus === null) {
@@ -2750,7 +2759,7 @@ export default function BrokerDashboard() {
                     <ChevronLeft className="w-5 h-5 text-gray-500" />
                   </button>
                   <div className="flex items-center gap-3">
-                    <img src={selectedChatBroker.photo || "https://i.imgur.com/5l1CO1t.png"} className="w-10 h-10 rounded-xl object-cover" />
+                    <img src={selectedChatBroker.photo || "https://i.imgur.com/2mOeELD.jpeg"} className="w-10 h-10 rounded-xl object-cover" />
                     <div>
                       <h3 className="text-sm font-black text-gray-900">{selectedChatBroker.name}</h3>
                       <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
@@ -2844,7 +2853,7 @@ export default function BrokerDashboard() {
                       >
                         <div className="relative">
                           <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 shadow-sm transition-transform group-hover:scale-105 ${unreadCount > 0 ? 'border-red-200' : 'border-white'}`}>
-                            <img src={broker.photo || "https://i.imgur.com/5l1CO1t.png"} alt={broker.name} className="w-full h-full object-cover" />
+                            <img src={broker.photo || "https://i.imgur.com/2mOeELD.jpeg"} alt={broker.name} className="w-full h-full object-cover" />
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
                         </div>
@@ -4982,7 +4991,7 @@ export default function BrokerDashboard() {
                 </div>
                 <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white">
                   <img 
-                    src={currentBroker?.photo || auth.currentUser?.photoURL || "https://i.imgur.com/5l1CO1t.png"} 
+                    src={currentBroker?.photo || auth.currentUser?.photoURL || "https://i.imgur.com/2mOeELD.jpeg"} 
                     alt={currentBroker?.name || auth.currentUser?.displayName || "Perfil"} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
