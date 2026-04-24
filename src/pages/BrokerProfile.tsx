@@ -94,9 +94,7 @@ export default function BrokerProfile() {
 
               <div className="space-y-2 mb-8">
                 <h1 className="text-3xl font-serif font-bold text-white">{broker.name}</h1>
-                <p className="text-terracota font-bold uppercase tracking-[0.2em] text-xs">
-                  {Array.from(new Set(broker.role.split(', '))).join(', ')}
-                </p>
+                <p className="text-terracota font-bold uppercase tracking-[0.2em] text-xs">{broker.role}</p>
                 {broker.creci && (
                   <p className="text-white/30 font-black text-[10px] uppercase tracking-widest mt-2">
                     CRECI: {broker.creci}

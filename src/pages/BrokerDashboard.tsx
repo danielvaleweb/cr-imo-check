@@ -384,14 +384,14 @@ export default function BrokerDashboard() {
 
   const [sidebarItems, setSidebarItems] = useState([
     { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
-    { id: 'properties', label: 'Todos Imóveis', icon: Home, permission: 'canEditProperties' },
+    { id: 'properties', label: 'Todos Imóveis', icon: Home },
     { id: 'proposals', label: 'Propostas', icon: FileText, permission: 'canHandleProposals' },
-    { id: 'condos', label: 'Condomínios', icon: ShieldCheck, permission: 'canEditCondos' },
+    { id: 'condos', label: 'Condomínios', icon: ShieldCheck },
     { id: 'brokers', label: 'Equipe', icon: Users, permission: 'canViewTeam' },
-    { id: 'leads', label: 'Captações', icon: Users, permission: 'canEditProperties' },
+    { id: 'leads', label: 'Captações', icon: Users },
     { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
     { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
-    { id: 'calendar', label: 'Agenda', icon: Calendar, permission: 'canManageAgenda' },
+    { id: 'calendar', label: 'Agenda', icon: Calendar },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, permission: 'canViewReports' },
     { id: 'users_approval', label: 'Aprovar login', icon: Users, permission: 'canApproveUsers' },
   ]);
@@ -843,85 +843,78 @@ export default function BrokerDashboard() {
 
   useEffect(() => {
     console.log('Dashboard: Auth listener starting...');
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log('Dashboard: Auth state changed:', currentUser?.email);
-      setUser(currentUser);
+      
       if (!currentUser) {
+        setUser(null);
         setIsAdmin(false);
         setAuthStatus(null);
         setIsLoading(false);
+      } else {
+        setUser(currentUser);
+        setIsLoading(true);
+        const adminEmail = 'danielvaleweb@gmail.com';
+        const isDaniel = currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
+        const isUidAdmin = currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
+        
+        if (isDaniel || isUidAdmin) {
+          setIsAdmin(true);
+          setAuthStatus('approved');
+          setUserRole('CEO Diretor criativo');
+          setUserPermissions(getPermissions('CEO Diretor criativo'));
+          
+          // Auto-sync Daniel's broker record if needed
+          const danielEmail = currentUser.email?.toLowerCase();
+          const existingDanielBroker = brokers.find(b => b.email?.toLowerCase() === danielEmail);
+          if (existingDanielBroker && existingDanielBroker.role !== 'CEO Diretor criativo') {
+            updateBroker(existingDanielBroker.id, { role: 'CEO Diretor criativo' });
+          } else if (!existingDanielBroker && danielEmail === 'danielvaleweb@gmail.com') {
+            // If Daniel doesn't have a broker profile under this email yet, create one
+            addBroker({
+              name: 'Daniel Vale',
+              role: 'CEO Diretor criativo',
+              photo: 'https://i.imgur.com/5l1CO1t.png',
+              phone: '(32) 98888-8888',
+              email: danielEmail,
+              bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
+              creci: '54.321-F',
+              instagram: 'daniel_crimoveis'
+            });
+          }
+
+          setIsLoading(false);
+          return;
+        }
+
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setAuthStatus(userData.status);
+            const role = userData.role || 'Corretor de Imóveis';
+            setUserRole(role);
+            setUserPermissions(getPermissions(role));
+            if (role === 'admin' || role.includes('Diretor') || role.includes('CEO') || role.includes('Gerente')) {
+               setIsAdmin(true);
+            }
+          } else {
+            if (!isDaniel && !isUidAdmin) {
+              await signOut(auth);
+              setAuthStatus(null);
+              setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
+            }
+          }
+        } catch (error) {
+          console.error("Dashboard auth check error:", error);
+        } finally {
+          setIsLoading(false);
+        }
       }
     });
 
     return () => unsubscribe();
-  }, []);
-
-  // Separate effect for syncing and loading user data to avoid stale closures
-  useEffect(() => {
-    const checkUserAndSync = async () => {
-      if (!user) return;
-      
-      setIsLoading(true);
-      const adminEmail = 'danielvaleweb@gmail.com';
-      const userEmail = user.email?.toLowerCase();
-      const isDaniel = userEmail === adminEmail.toLowerCase();
-      const isUidAdmin = user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-
-      if (isDaniel || isUidAdmin) {
-        setIsAdmin(true);
-        setAuthStatus('approved');
-        setUserRole('CEO Diretor criativo');
-        setUserPermissions(getPermissions('CEO Diretor criativo'));
-        
-        // Auto-sync Daniel's broker record if needed
-        const existingDanielBroker = brokers.find(b => b.email?.toLowerCase() === userEmail);
-        
-        if (existingDanielBroker) {
-          if (existingDanielBroker.role !== 'CEO Diretor criativo') {
-            updateBroker(existingDanielBroker.id, { role: 'CEO Diretor criativo' });
-          }
-        } else if (userEmail === 'danielvaleweb@gmail.com') {
-          // Only add if we're sure it's not in the list yet
-          addBroker({
-            name: 'Daniel Vale',
-            role: 'CEO Diretor criativo',
-            photo: 'https://i.imgur.com/5l1CO1t.png',
-            phone: '(32) 98888-8888',
-            email: userEmail,
-            bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
-            creci: '54.321-F',
-            instagram: 'daniel_crimoveis'
-          });
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setAuthStatus(userData.status);
-          const role = userData.role || 'Corretor de Imóveis';
-          setUserRole(role);
-          setUserPermissions(getPermissions(role));
-          if (role === 'admin' || role.includes('Diretor') || role.includes('CEO') || role.includes('Gerente')) {
-             setIsAdmin(true);
-          }
-        } else {
-          await signOut(auth);
-          setAuthStatus(null);
-          setLoginError('Este e-mail não está cadastrado como corretor. Por favor, use a opção de se associar.');
-        }
-      } catch (error) {
-        console.error("Dashboard auth data check error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkUserAndSync();
-  }, [user, brokers, navigate, updateBroker, addBroker]);
+  }, [navigate]);
 
   // Broker Management
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
@@ -2071,23 +2064,18 @@ export default function BrokerDashboard() {
 
       // If approved, also add to brokers (Team/Equipe) if not already there
       if (status === 'approved' && userToUpd) {
-        try {
-          const alreadyBroker = brokers.some(b => b.email?.toLowerCase() === userToUpd.email?.toLowerCase());
-          if (!alreadyBroker) {
-            await addBroker({
-              name: userToUpd.name || 'Novo Membro',
-              role: 'Membro',
-              photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
-              phone: userToUpd.phone || '',
-              email: userToUpd.email || '',
-              bio: 'Novo membro da equipe CR Imóveis.',
-              creci: userToUpd.creci || '',
-              instagram: ''
-            });
-          }
-        } catch (brokerError) {
-          console.error("Secondary error adding broker during approval:", brokerError);
-          // Don't fail the user status update if broker creation fails (likely already exists or quota)
+        const alreadyBroker = brokers.some(b => b.email?.toLowerCase() === userToUpd.email?.toLowerCase());
+        if (!alreadyBroker) {
+          await addBroker({
+            name: userToUpd.name || 'Novo Membro',
+            role: 'Membro',
+            photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
+            phone: userToUpd.phone || '',
+            email: userToUpd.email || '',
+            bio: 'Novo membro da equipe CR Imóveis.',
+            creci: userToUpd.creci || '',
+            instagram: ''
+          });
         }
       }
 
@@ -5445,9 +5433,7 @@ export default function BrokerDashboard() {
                                 <div className="p-6 relative z-20">
                                   <div className="text-center mb-6">
                                     <h3 className="font-black text-gray-900 text-lg leading-tight">{broker.name}</h3>
-                                    <p className="text-[#617964] font-bold text-xs uppercase tracking-widest">
-                                      {Array.from(new Set(broker.role.split(', ').map(r => r.replace(/CEO \(Diretor Executivo\)/g, 'CEO Diretor Executivo').replace(/\((.*?)\)/g, '$1').trim()))).join(', ')}
-                                    </p>
+                                    <p className="text-[#617964] font-bold text-xs uppercase tracking-widest">{broker.role}</p>
                                   </div>
 
                                   <div className="space-y-3 mb-6 bg-gray-50/50 p-4 rounded-2xl text-left">
@@ -6723,10 +6709,8 @@ export default function BrokerDashboard() {
                                   <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.label}</h4>
                                   <div className="space-y-1">
                                     {group.roles.map((role) => {
-                                      // Normalize role names for comparison to handle legacy formats
-                                      const normalize = (r: string) => r.replace(/CEO \(Diretor Executivo\)/g, 'CEO Diretor Executivo').replace(/\((.*?)\)/g, '$1').trim();
-                                      const selectedRoles = newBrokerData.role ? newBrokerData.role.split(', ').map(r => normalize(r)) : [];
-                                      const isSelected = selectedRoles.includes(normalize(role));
+                                      const selectedRoles = newBrokerData.role ? newBrokerData.role.split(', ') : [];
+                                      const isSelected = selectedRoles.includes(role);
                                       
                                       return (
                                         <label key={role} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors">
@@ -6743,14 +6727,11 @@ export default function BrokerDashboard() {
                                             onChange={(e) => {
                                               let newRoles;
                                               if (e.target.checked) {
-                                                if (isSelected) return;
                                                 newRoles = [...selectedRoles, role];
                                               } else {
-                                                newRoles = selectedRoles.filter(r => normalize(r) !== normalize(role));
+                                                newRoles = selectedRoles.filter(r => r !== role);
                                               }
-                                              // Deduplicate and ensure clean strings are used
-                                              const uniqueRoles = Array.from(new Set(newRoles.map(r => normalize(r))));
-                                              setNewBrokerData({...newBrokerData, role: uniqueRoles.join(', ')});
+                                              setNewBrokerData({...newBrokerData, role: newRoles.join(', ')});
                                             }}
                                           />
                                         </label>
