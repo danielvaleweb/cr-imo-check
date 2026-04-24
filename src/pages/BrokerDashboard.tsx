@@ -874,7 +874,7 @@ export default function BrokerDashboard() {
             addBroker({
               name: 'Daniel Vale',
               role: 'CEO Diretor criativo',
-              photo: 'https://i.imgur.com/5l1CO1t.png',
+              photo: 'https://i.imgur.com/2mOeELD.jpeg',
               phone: '(32) 98888-8888',
               email: danielEmail,
               bio: 'Fundador da CR Imóveis, focado em inovação e atendimento personalizado.',
@@ -2069,7 +2069,7 @@ export default function BrokerDashboard() {
           await addBroker({
             name: userToUpd.name || 'Novo Membro',
             role: 'Membro',
-            photo: userToUpd.photoURL || 'https://i.imgur.com/pe07Ikg.png',
+            photo: userToUpd.photoURL || 'https://i.imgur.com/2mOeELD.jpeg',
             phone: userToUpd.phone || '',
             email: userToUpd.email || '',
             bio: 'Novo membro da equipe CR Imóveis.',
@@ -2354,7 +2354,8 @@ export default function BrokerDashboard() {
       const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
       
       await updateProfile(userCredential.user, {
-        displayName: registerData.name.trim()
+        displayName: registerData.name.trim(),
+        photoURL: 'https://i.imgur.com/2mOeELD.jpeg'
       });
 
       const userEmail = loginEmail.toLowerCase();
@@ -2365,6 +2366,7 @@ export default function BrokerDashboard() {
         email: userEmail,
         status: 'pending',
         role: 'corretor',
+        photoURL: 'https://i.imgur.com/2mOeELD.jpeg',
         createdAt: new Date().toISOString()
       };
 
@@ -2719,7 +2721,7 @@ export default function BrokerDashboard() {
                     <ChevronLeft className="w-5 h-5 text-gray-500" />
                   </button>
                   <div className="flex items-center gap-3">
-                    <img src={selectedChatBroker.photo || "https://i.imgur.com/5l1CO1t.png"} className="w-10 h-10 rounded-xl object-cover" />
+                    <img src={selectedChatBroker.photo || "https://i.imgur.com/2mOeELD.jpeg"} className="w-10 h-10 rounded-xl object-cover" />
                     <div>
                       <h3 className="text-sm font-black text-gray-900">{selectedChatBroker.name}</h3>
                       <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
@@ -2813,7 +2815,7 @@ export default function BrokerDashboard() {
                       >
                         <div className="relative">
                           <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 shadow-sm transition-transform group-hover:scale-105 ${unreadCount > 0 ? 'border-red-200' : 'border-white'}`}>
-                            <img src={broker.photo || "https://i.imgur.com/5l1CO1t.png"} alt={broker.name} className="w-full h-full object-cover" />
+                            <img src={broker.photo || "https://i.imgur.com/2mOeELD.jpeg"} alt={broker.name} className="w-full h-full object-cover" />
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
                         </div>
@@ -4951,7 +4953,7 @@ export default function BrokerDashboard() {
                 </div>
                 <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#617964]/20 border-2 border-white">
                   <img 
-                    src={currentBroker?.photo || auth.currentUser?.photoURL || "https://i.imgur.com/5l1CO1t.png"} 
+                    src={currentBroker?.photo || auth.currentUser?.photoURL || "https://i.imgur.com/2mOeELD.jpeg"} 
                     alt={currentBroker?.name || auth.currentUser?.displayName || "Perfil"} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"

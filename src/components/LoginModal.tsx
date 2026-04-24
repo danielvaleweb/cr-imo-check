@@ -268,7 +268,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
       // Update Auth Profile
       await updateProfile(userCredential.user, {
-        displayName: formData.name.trim()
+        displayName: formData.name.trim(),
+        photoURL: 'https://i.imgur.com/2mOeELD.jpeg'
       });
 
       // Create Firestore Doc
@@ -280,6 +281,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         email: userEmail,
         status: 'pending',
         role: 'user',
+        photoURL: 'https://i.imgur.com/2mOeELD.jpeg',
         createdAt: new Date().toISOString()
       };
 
