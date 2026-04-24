@@ -209,7 +209,23 @@ export const DEFAULT_PERMISSIONS: Permissions = {
 };
 
 export function getPermissions(role: string): Permissions {
-  return ROLE_PERMISSIONS[role] || DEFAULT_PERMISSIONS;
+  const normalizedRole = role.toLowerCase();
+  
+  if (ROLE_PERMISSIONS[role]) {
+    return ROLE_PERMISSIONS[role];
+  }
+
+  // If the role has "corretor", give them proposal permissions by default
+  if (normalizedRole.includes('corretor')) {
+    return {
+      ...DEFAULT_PERMISSIONS,
+      canEditProperties: true,
+      canHandleProposals: true,
+      canManageAgenda: true,
+    };
+  }
+
+  return DEFAULT_PERMISSIONS;
 }
 
 export const PERMISSION_LABELS: Record<keyof Permissions, string> = {

@@ -680,7 +680,8 @@ export default function BrokerDashboard() {
   });
 
   useEffect(() => {
-    if (isLoading || !isAdmin) return;
+    if (isLoading) return;
+    if (!isAdmin && !userPermissions?.canHandleProposals) return;
 
     const q = query(collection(db, 'proposals'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -700,10 +701,11 @@ export default function BrokerDashboard() {
       }
     });
     return () => unsubscribe();
-  }, [isLoading, isAdmin]);
+  }, [isLoading, isAdmin, userPermissions?.canHandleProposals]);
 
   useEffect(() => {
-    if (isLoading || !isAdmin) return;
+    if (isLoading) return;
+    if (!isAdmin && !userPermissions?.canEditProperties) return;
     
     const leadsCollection = collection(db, 'property_leads');
     const q = query(leadsCollection, orderBy('createdAt', 'desc'));
@@ -727,7 +729,7 @@ export default function BrokerDashboard() {
     });
 
     return () => unsubscribe();
-  }, [isLoading, isAdmin]);
+  }, [isLoading, isAdmin, userPermissions?.canEditProperties]);
 
   useEffect(() => {
     const currentEmail = auth.currentUser?.email?.toLowerCase();
