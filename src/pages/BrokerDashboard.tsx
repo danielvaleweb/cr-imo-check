@@ -401,7 +401,7 @@ export default function BrokerDashboard() {
     { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
     { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
     { id: 'calendar', label: 'Agenda', icon: Calendar },
-    { id: 'photo_editor', label: 'Editor de Fotos', icon: ImageIcon },
+    { id: 'photo_editor', label: 'Editor de Fotos', icon: ImageIcon, permission: 'canUsePhotoEditor' },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, permission: 'canViewReports' },
     { id: 'users_approval', label: 'Aprovar login', icon: Users, permission: 'canApproveUsers' },
   ]);
@@ -6241,7 +6241,7 @@ export default function BrokerDashboard() {
           ) : activeTab === 'finance' ? (
             <FinanceTab permissions={userPermissions} />
           ) : activeTab === 'photo_editor' ? (
-            <PhotoEditorTab />
+            userPermissions.canUsePhotoEditor ? <PhotoEditorTab /> : <div className="text-center py-12"><div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><Lock className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-900 mb-2">Acesso Restrito</h2><p className="text-gray-500">Você não tem permissão para visualizar o Editor de Fotos.</p></div>
           ) : activeTab === 'reports' ? (
             userPermissions.canViewReports ? (
               <div className="space-y-8">

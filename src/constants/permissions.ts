@@ -13,6 +13,7 @@ export interface Permissions {
   canManageSystem: boolean;
   canManageAgenda: boolean;
   canDeleteAgenda: boolean;
+  canUsePhotoEditor: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<string, Permissions> = {
@@ -32,6 +33,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: true,
     canManageAgenda: true,
     canDeleteAgenda: true,
+    canUsePhotoEditor: true,
   },
   "CEO (Diretor Executivo)": {
     canViewReports: true,
@@ -48,6 +50,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: true,
     canManageAgenda: true,
     canDeleteAgenda: true,
+    canUsePhotoEditor: true,
   },
   "Diretor de Operações": {
     canViewReports: true,
@@ -64,6 +67,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: true,
+    canUsePhotoEditor: true,
   },
   "Diretor Comercial": {
     canViewReports: true,
@@ -80,6 +84,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: true,
+    canUsePhotoEditor: true,
   },
   // Commercial
   "Corretor de Imóveis": {
@@ -97,6 +102,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: false,
+    canUsePhotoEditor: false,
   },
   // Finance
   "Diretor Financeiro (CFO)": {
@@ -114,6 +120,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: false,
+    canUsePhotoEditor: false,
   },
   // Juridico
   "Advogado Imobiliário": {
@@ -131,6 +138,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: false,
+    canUsePhotoEditor: false,
   },
   // Management group
   "Gerente Geral": {
@@ -148,6 +156,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: true,
+    canUsePhotoEditor: true,
   },
   "Gerente Comercial": {
     canViewReports: true,
@@ -164,6 +173,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: true,
+    canUsePhotoEditor: true,
   },
   // Marketing group
   "Gestor de Marketing": {
@@ -181,6 +191,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: true,
     canDeleteAgenda: false,
+    canUsePhotoEditor: true,
   },
   "Membro": {
     canViewReports: false,
@@ -197,6 +208,7 @@ export const ROLE_PERMISSIONS: Record<string, Permissions> = {
     canManageSystem: false,
     canManageAgenda: false,
     canDeleteAgenda: false,
+    canUsePhotoEditor: false,
   },
 };
 
@@ -219,6 +231,7 @@ export const DEFAULT_PERMISSIONS: Permissions = {
   canManageSystem: false,
   canManageAgenda: false,
   canDeleteAgenda: false,
+  canUsePhotoEditor: false,
 };
 
 export function getPermissions(role: string): Permissions {
@@ -240,4 +253,5 @@ export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
   canManageSystem: "Configurações do Sistema",
   canManageAgenda: "Agendar / Editar Agenda",
   canDeleteAgenda: "Excluir/Cancelar Agenda",
+  canUsePhotoEditor: "Usar Editor de Fotos",
 };
