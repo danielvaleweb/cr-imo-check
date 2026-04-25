@@ -1,0 +1,22 @@
+198:  const activeTab = searchParams.get('tab') || 'overview';
+2913:                        activeTab === item.id 
+2921:                        <item.icon className={`w-5 h-5 ${badgeCount > 0 && activeTab !== item.id ? 'text-blue-500' : ''}`} />
+2927:                            activeTab === item.id ? 'bg-[#617964] text-white' : 'bg-blue-600 text-white animate-bounce'
+4945:              className={`p-2.5 rounded-xl transition-all relative ${activeTab === 'notifications' ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+4949:                <span className={`absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 ${activeTab === 'notifications' ? 'border-[#617964]' : 'border-white'}`}></span>
+4955:                className={`hidden sm:flex p-2.5 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-[#617964] text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+5039:          {activeTab === 'overview' ? (
+5349:          ) : activeTab === 'brokers' ? (
+5529:            ) : activeTab === 'users_approval' ? (
+5789:          ) : activeTab === 'condos' ? (
+5900:          ) : activeTab === 'proposals' ? (
+5970:          ) : activeTab === 'properties' ? (
+6161:          ) : activeTab === 'leads' ? (
+6237:          ) : activeTab === 'calendar' ? (
+6239:          ) : activeTab === 'fichas' ? (
+6241:          ) : activeTab === 'finance' ? (
+6243:          ) : activeTab === 'photo_editor' ? (
+6245:          ) : activeTab === 'reports' ? (
+6323:          ) : activeTab === 'notifications' ? (
+6404:          ) : activeTab === 'profile' ? (
+6513:          ) : activeTab === 'settings' && userPermissions?.canManageSystem ? (

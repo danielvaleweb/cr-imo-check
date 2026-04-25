@@ -66,6 +66,10 @@ export default function Sell() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [hasReadTerms, setHasReadTerms] = useState(false);
+  const [showTermsError, setShowTermsError] = useState(false);
+  const termsRef = React.useRef<HTMLDivElement>(null);
+  const checkboxContainerRef = React.useRef<HTMLLabelElement>(null);
   
   const [formData, setFormData] = useState({
     propertyType: '',
@@ -85,32 +89,55 @@ export default function Sell() {
     acceptedTerms: false
   });
 
+  const formatCurrency = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '');
+    if (!cleanValue) return '';
+    const numberValue = parseInt(cleanValue, 10) / 100;
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numberValue);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    let val: string | boolean = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    
+    if (name === 'price') {
+      val = formatCurrency(value);
+    }
+
+    if (name === 'acceptedTerms' && val === true) {
+      setShowTermsError(false);
+    }
+    
     setFormData(prev => ({ ...prev, [name]: val }));
+  };
+
+  const handleTermsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const isBottom = Math.abs(target.scrollHeight - target.scrollTop - target.clientHeight) < 10;
+    if (isBottom) {
+      setHasReadTerms(true);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.acceptedTerms) {
-      alert("Você precisa aceitar os termos e condições.");
+      setShowTermsError(true);
+      checkboxContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/leads', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const leadsRef = collection(db, 'property_leads');
+      await addDoc(leadsRef, {
+        ...formData,
+        createdAt: serverTimestamp(),
+        source: 'site'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit lead');
-      }
 
       setIsSuccess(true);
       await addLog('lead', 'Cadastrou imóvel (Captação)', `Proprietário: ${formData.ownerName}, Imóvel: ${formData.propertyType}`);
@@ -446,17 +473,134 @@ export default function Sell() {
               </div>
             </div>
 
-            <div className="pt-4">
-              <label className="flex items-center gap-4 p-6 bg-marromescuro/5 rounded-2xl cursor-pointer hover:bg-marromescuro/10 transition-colors">
-                <input 
-                  type="checkbox"
-                  name="acceptedTerms"
-                  checked={formData.acceptedTerms}
-                  onChange={handleChange}
-                  className="w-6 h-6 rounded-md border-marromescuro/20 text-[#617964] focus:ring-[#617964] bg-white"
-                />
-                <span className="text-sm font-bold text-marromescuro">Aceito todos os termos e condições para cadastrar meu imóvel</span>
-              </label>
+            <div className="pt-4 space-y-4">
+              <label className="text-[10px] font-bold text-marromescuro/50 uppercase tracking-widest ml-1">Termos e Condições para Envio de Imóvel</label>
+              <div 
+                ref={termsRef}
+                onScroll={handleTermsScroll}
+                className="w-full bg-marromescuro/5 rounded-2xl p-6 h-64 overflow-y-auto space-y-6 text-sm text-marromescuro/70 border-2 border-transparent focus:border-[#617964]/20 outline-none transition-all scrollbar-thin scrollbar-thumb-marromescuro/10 scrollbar-track-transparent"
+              >
+                <div className="space-y-4">
+                  <h3 className="font-bold text-marromescuro text-base italic uppercase tracking-wider">TERMO DE CONDIÇÕES PARA ENVIO DE IMÓVEL (CAPTAÇÃO)</h3>
+                  
+                  <p className="font-medium">Ao preencher e enviar este formulário, o(a) PROPRIETÁRIO(A) declara estar ciente e de acordo com as seguintes condições:</p>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">1. VERACIDADE DAS INFORMAÇÕES</p>
+                    <p>O(a) PROPRIETÁRIO(A) declara que todas as informações fornecidas sobre o imóvel, incluindo valores, características, metragem, documentação e demais dados, são verdadeiras, completas e atualizadas, assumindo total responsabilidade civil e legal por sua veracidade.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">2. AUTORIZAÇÃO DE USO DAS INFORMAÇÕES</p>
+                    <p>O(a) PROPRIETÁRIO(A) autoriza a imobiliária a utilizar as informações fornecidas para:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Cadastro interno do imóvel</li>
+                      <li>Avaliação comercial</li>
+                      <li>Apresentação para potenciais clientes</li>
+                      <li>Divulgação em canais internos</li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">3. DIREITO DE IMAGEM E DIVULGAÇÃO</p>
+                    <p>O(a) PROPRIETÁRIO(A) autoriza, desde já, a divulgação do imóvel em:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Internet e portais imobiliários</li>
+                      <li>Redes sociais</li>
+                      <li>Site da imobiliária</li>
+                      <li>Materiais publicitários digitais e impressos</li>
+                    </ul>
+                    <p>Podendo a imobiliária editar, adaptar ou otimizar as imagens e descrições para fins comerciais.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">4. NATUREZA DA AUTORIZAÇÃO</p>
+                    <p>O envio deste formulário não caracteriza, por si só, exclusividade de intermediação, podendo o proprietário negociar diretamente ou com terceiros.</p>
+                    <p>A intermediação pela imobiliária ocorrerá mediante aceite e continuidade do processo comercial.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">5. PROTEÇÃO DE COMISSÃO</p>
+                    <p>Caso a imobiliária venha a apresentar cliente interessado e a negociação seja concretizada, ainda que diretamente entre as partes, será devida a comissão conforme prática de mercado, desde que comprovado o vínculo da intermediação.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">6. LIMITAÇÃO DE RESPONSABILIDADE</p>
+                    <p>A imobiliária:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Não se responsabiliza por inconsistências nas informações fornecidas</li>
+                      <li>Não garante a efetivação da venda ou locação</li>
+                      <li>Não assume responsabilidade por questões jurídicas, documentais ou fiscais do imóvel</li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">7. ANÁLISE E APROVAÇÃO</p>
+                    <p>O imóvel passará por análise interna, podendo:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Ser aprovado para divulgação</li>
+                      <li>Ter ajustes sugeridos (valor, fotos, descrição)</li>
+                      <li>Não ser aceito, sem obrigatoriedade de justificativa</li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">8. PROTEÇÃO DE DADOS</p>
+                    <p>Os dados fornecidos serão utilizados exclusivamente para fins comerciais relacionados à intermediação imobiliária, respeitando a legislação vigente de proteção de dados.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-marromescuro">9. ACEITE DIGITAL</p>
+                    <p>O envio deste formulário caracteriza aceite integral e irretratável dos termos acima, com validade jurídica.</p>
+                  </div>
+
+                  <div className="pt-4 text-center">
+                    <span className={`inline-flex items-center px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                      hasReadTerms ? "bg-[#617964] text-white" : "bg-marromescuro/10 text-marromescuro/40"
+                    }`}>
+                      {hasReadTerms ? "✓ Leitura Concluída" : "↓ Role para ler tudo"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative group">
+                {!hasReadTerms && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-4 py-2 bg-marromescuro text-white text-[10px] font-bold rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 whitespace-nowrap shadow-2xl z-20 translate-y-2 group-hover:translate-y-0">
+                    Para liberar leia os termos e condições!
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-marromescuro"></div>
+                  </div>
+                )}
+                
+                <label 
+                  ref={checkboxContainerRef}
+                  className={`flex items-center gap-4 p-6 rounded-2xl border-2 transition-all ${
+                    !hasReadTerms 
+                      ? 'bg-gray-50 border-gray-100 cursor-not-allowed opacity-60' 
+                      : showTermsError
+                        ? 'bg-red-50 border-red-500 cursor-pointer animate-shake'
+                        : 'bg-marromescuro/5 border-transparent cursor-pointer hover:bg-marromescuro/10 active:scale-[0.98]'
+                  }`}
+                >
+                  <input 
+                    type="checkbox"
+                    name="acceptedTerms"
+                    checked={formData.acceptedTerms}
+                    onChange={handleChange}
+                    disabled={!hasReadTerms}
+                    className={`w-6 h-6 rounded-md border-marromescuro/20 text-[#617964] focus:ring-[#617964] bg-white disabled:opacity-50 ${showTermsError ? 'border-red-500' : ''}`}
+                  />
+                  <span className={`text-sm font-bold ${showTermsError ? 'text-red-600' : 'text-marromescuro'}`}>
+                    Aceito todos os termos e condições para cadastrar meu imóvel
+                  </span>
+                </label>
+              </div>
+              
+              {showTermsError && (
+                <p className="text-xs font-bold text-red-500 ml-2 animate-bounce">
+                  ↑ Por favor, aceite os termos antes de continuar
+                </p>
+              )}
             </div>
 
             <div className="pt-4">

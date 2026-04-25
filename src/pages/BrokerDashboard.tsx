@@ -924,7 +924,24 @@ export default function BrokerDashboard() {
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, addBroker, brokers, updateBroker]); // Added some missing dependencies for completeness but keeping original behavior
+
+  // Log "Fez login" e mostra relatórios by default quando logar
+  useEffect(() => {
+    if (user && authStatus === 'approved') {
+      const sessionKey = 'logged_in_' + user.uid;
+      
+      if (!sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        addLog('system', 'Fez login', `Usuário: ${user.displayName || user.email || 'Usuário'}`);
+        
+        // Se a pessoa tiver permissão de relatórios e não estiver forcando uma aba, muda para relatórios
+        if (userPermissions?.canViewReports && !searchParams.get('tab')) {
+           setSearchParams({ tab: 'reports' });
+        }
+      }
+    }
+  }, [user, authStatus, userPermissions, searchParams, setSearchParams]);
 
   // Broker Management
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
@@ -6192,7 +6209,7 @@ export default function BrokerDashboard() {
                           <tr key={lead.id} className="hover:bg-gray-50/50 transition-colors">
                             <td className="p-6">
                               <div className="text-sm font-bold text-gray-900">
-                                {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
+                                {lead.createdAt?.toDate ? lead.createdAt.toDate().toLocaleDateString('pt-BR') : lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
                               </div>
                             </td>
                             <td className="p-6">
@@ -6210,7 +6227,13 @@ export default function BrokerDashboard() {
                               <div className="text-xs text-gray-500">{lead.street}, {lead.number}</div>
                             </td>
                             <td className="p-6">
-                              <div className="text-sm font-bold text-[#617964]">R$ {lead.price}</div>
+                              <div className="text-sm font-bold text-[#617964]">
+                                {lead.price ? (
+                                  String(lead.price).includes(',') || String(lead.price).includes('.') || String(lead.price).includes('R$')
+                                    ? (String(lead.price).includes('R$') ? lead.price : `R$ ${lead.price}`)
+                                    : `R$ ${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(lead.price) || 0)}`
+                                ) : 'N/A'}
+                              </div>
                             </td>
                             <td className="p-6 text-right">
                               {userPermissions.canDeleteProperties && (
