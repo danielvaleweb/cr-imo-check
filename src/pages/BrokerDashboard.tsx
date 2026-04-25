@@ -187,6 +187,7 @@ const HORIZONTAL_CONVENIENCES = [
 import { AgendaTab } from '../components/AgendaTab';
 import { FichasCadastraisTab } from '../components/FichasCadastraisTab';
 import { FinanceTab } from '../components/FinanceTab';
+import { PhotoEditorTab } from '../components/PhotoEditorTab';
 
 export default function BrokerDashboard() {
   const navigate = useNavigate();
@@ -400,6 +401,7 @@ export default function BrokerDashboard() {
     { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
     { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
     { id: 'calendar', label: 'Agenda', icon: Calendar },
+    { id: 'photo_editor', label: 'Editor de Fotos', icon: ImageIcon },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, permission: 'canViewReports' },
     { id: 'users_approval', label: 'Aprovar login', icon: Users, permission: 'canApproveUsers' },
   ]);
@@ -6238,6 +6240,8 @@ export default function BrokerDashboard() {
             <FichasCadastraisTab />
           ) : activeTab === 'finance' ? (
             <FinanceTab permissions={userPermissions} />
+          ) : activeTab === 'photo_editor' ? (
+            <PhotoEditorTab />
           ) : activeTab === 'reports' ? (
             userPermissions.canViewReports ? (
               <div className="space-y-8">
