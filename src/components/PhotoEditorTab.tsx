@@ -185,9 +185,7 @@ export function PhotoEditorTab() {
          addLog(
            'photo_editor',
            mode === 'watermark' ? 'Aplicou Marca d\'Água' : 'Editou Foto (IA)',
-           `Arquivo: ${result.originalFile.name}`,
-           undefined,
-           result.processedBase64
+           `Arquivo: ${result.originalFile.name}`
          );
        }
 
