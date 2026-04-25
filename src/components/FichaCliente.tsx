@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { ArrowLeft, User, Search, Download, CheckSquare, FileText, Briefcase, Heart } from 'lucide-react';
 import { generateClientFichaPDF } from '../lib/pdfGenerator';
+import { ConfirmPDFDownloadModal } from './ConfirmPDFDownloadModal';
+import { PDFPreviewModal } from './PDFPreviewModal';
 
 interface Props {
   onBack: () => void;
@@ -9,8 +11,13 @@ interface Props {
 
 export function FichaCliente({ onBack, initialData }: Props) {
   const [formData, setFormData] = useState<any>({});
+  
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUri, setPreviewUri] = useState('');
 
   React.useEffect(() => {
+// ...
     if (initialData === 'blank') {
       setFormData({
          name: '', cpf: '', rg: '', phone: '', whatsapp: '', email: '',
@@ -60,6 +67,14 @@ export function FichaCliente({ onBack, initialData }: Props) {
 
   const handleGeneratePDF = () => {
     generateClientFichaPDF(formData);
+    setIsConfirmOpen(false);
+  };
+
+  const handleReviewPDF = () => {
+    const uri = generateClientFichaPDF(formData, { returnUri: true }) as string;
+    setPreviewUri(uri);
+    setIsConfirmOpen(false);
+    setIsPreviewOpen(true);
   };
 
   return (
@@ -77,7 +92,7 @@ export function FichaCliente({ onBack, initialData }: Props) {
           </div>
         </div>
         <button
-          onClick={handleGeneratePDF}
+          onClick={() => setIsConfirmOpen(true)}
           className="px-6 py-3 bg-amber-500 text-white rounded-xl text-sm font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] flex items-center gap-2 uppercase tracking-widest transition-all"
         >
           <Download className="w-4 h-4" /> Gerar PDF
@@ -286,6 +301,20 @@ export function FichaCliente({ onBack, initialData }: Props) {
         </div>
 
       </div>
+
+      <ConfirmPDFDownloadModal 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleGeneratePDF}
+        onReview={handleReviewPDF}
+      />
+
+      <PDFPreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        pdfDataUri={previewUri}
+        title="Ficha de Cliente"
+      />
     </div>
   );
 }

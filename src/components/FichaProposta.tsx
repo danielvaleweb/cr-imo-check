@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { ArrowLeft, User, Home, Download, FileText, CheckCircle, ShieldCheck, DollarSign, Calendar } from 'lucide-react';
 import { generateProposalFichaPDF } from '../lib/pdfGenerator';
+import { ConfirmPDFDownloadModal } from './ConfirmPDFDownloadModal';
+import { PDFPreviewModal } from './PDFPreviewModal';
 
 interface Props {
   onBack: () => void;
@@ -32,12 +34,24 @@ export function FichaProposta({ onBack, initialData }: Props) {
     currentDate: new Date().toLocaleDateString('pt-BR')
   });
 
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUri, setPreviewUri] = useState('');
+
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleGeneratePDF = () => {
     generateProposalFichaPDF(formData);
+    setIsConfirmOpen(false);
+  };
+
+  const handleReviewPDF = () => {
+    const uri = generateProposalFichaPDF(formData, { returnUri: true }) as string;
+    setPreviewUri(uri);
+    setIsConfirmOpen(false);
+    setIsPreviewOpen(true);
   };
 
   return (
@@ -55,7 +69,7 @@ export function FichaProposta({ onBack, initialData }: Props) {
           </div>
         </div>
         <button
-          onClick={handleGeneratePDF}
+          onClick={() => setIsConfirmOpen(true)}
           className="px-6 py-3 bg-[#617964] text-white rounded-xl text-sm font-black shadow-lg shadow-[#617964]/20 hover:scale-[1.02] flex items-center gap-2 uppercase tracking-widest transition-all"
         >
           <Download className="w-4 h-4" /> Gerar PDF
@@ -247,6 +261,20 @@ export function FichaProposta({ onBack, initialData }: Props) {
            </div>
         </div>
       </div>
+
+      <ConfirmPDFDownloadModal 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleGeneratePDF}
+        onReview={handleReviewPDF}
+      />
+
+      <PDFPreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        pdfDataUri={previewUri}
+        title="Ficha de Proposta"
+      />
     </div>
   );
 }

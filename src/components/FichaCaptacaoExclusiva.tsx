@@ -4,6 +4,8 @@ import { Search, Building, User, Signature, Download, ArrowLeft, ShieldCheck, Ch
 import { useProperties } from '../context/PropertyContext';
 import { generateExclusivityPDF } from '../lib/pdfGenerator';
 import { Property } from '../context/PropertyContext';
+import { ConfirmPDFDownloadModal } from './ConfirmPDFDownloadModal';
+import { PDFPreviewModal } from './PDFPreviewModal';
 
 interface Props {
   onBack: () => void;
@@ -15,8 +17,13 @@ export function FichaCaptacaoExclusiva({ onBack, initialProperty }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [formData, setFormData] = useState<any>({});
+  
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUri, setPreviewUri] = useState('');
 
   React.useEffect(() => {
+// ...
     if (initialProperty === 'blank') {
       handleBlankFicha();
     } else if (initialProperty && typeof initialProperty !== 'string') {
@@ -55,9 +62,19 @@ export function FichaCaptacaoExclusiva({ onBack, initialProperty }: Props) {
   const handleGeneratePDF = () => {
     if (!selectedProperty) return;
     generateExclusivityPDF(formData);
+    setIsConfirmOpen(false);
+  };
+
+  const handleReviewPDF = () => {
+    if (!selectedProperty) return;
+    const uri = generateExclusivityPDF(formData, { returnUri: true }) as string;
+    setPreviewUri(uri);
+    setIsConfirmOpen(false);
+    setIsPreviewOpen(true);
   };
 
   const handleBlankFicha = () => {
+// ...
     const blankProperty: any = {
        id: 'blank_' + Date.now(),
        title: 'Ficha Avulsa',
@@ -132,7 +149,7 @@ export function FichaCaptacaoExclusiva({ onBack, initialProperty }: Props) {
           </div>
         </div>
         <button
-          onClick={handleGeneratePDF}
+          onClick={() => setIsConfirmOpen(true)}
           className="px-6 py-3 bg-amber-500 text-white rounded-xl text-sm font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] flex items-center gap-2 uppercase tracking-widest transition-all"
         >
           <Download className="w-4 h-4" /> Gerar PDF
@@ -263,6 +280,20 @@ export function FichaCaptacaoExclusiva({ onBack, initialProperty }: Props) {
         </div>
 
       </div>
+
+      <ConfirmPDFDownloadModal 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleGeneratePDF}
+        onReview={handleReviewPDF}
+      />
+
+      <PDFPreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        pdfDataUri={previewUri}
+        title="Captação Exclusiva"
+      />
     </div>
   );
 }

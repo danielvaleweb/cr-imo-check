@@ -22,10 +22,18 @@ import { FichaCaptacaoSimples } from './FichaCaptacaoSimples';
 import { FichaCliente } from './FichaCliente';
 import { FichaVisita } from './FichaVisita';
 import { FichaProposta } from './FichaProposta';
+import { FichaReserva } from './FichaReserva';
+import { FichaAnaliseCredito } from './FichaAnaliseCredito';
+import { FichaLocacao } from './FichaLocacao';
+import { FichaVistoria } from './FichaVistoria';
+import { FichaDocumentacaoJuridica } from './FichaDocumentacaoJuridica';
+import { FichaPosVenda } from './FichaPosVenda';
 import { PDFPreviewModal } from './PDFPreviewModal';
-import { generateExclusivityPDF, generateNonExclusivityPDF, generateClientFichaPDF, generateVisitFichaPDF, generateProposalFichaPDF } from '../lib/pdfGenerator';
+import { generateExclusivityPDF, generateNonExclusivityPDF, generateClientFichaPDF, generateVisitFichaPDF, generateProposalFichaPDF, generateReserveFichaPDF, generateCreditAnalysisPDF, generateRentalFichaPDF, generateInspectionPDF, generateLegalDocPDF, generateAfterSalesPDF } from '../lib/pdfGenerator';
+import { ConfirmPDFDownloadModal } from './ConfirmPDFDownloadModal';
 
 export const FICHAS = [
+// ...
   { id: 'captacao_exclusiva', title: 'Captação (C/ Exclusividade)', description: 'Autorização de venda com exclusividade. Cópia dos dados internos e do proprietário.', icon: ShieldCheck, color: 'text-emerald-600', bgColor: 'bg-emerald-50', canSearch: true },
   { id: 'captacao_simples', title: 'Captação (S/ Exclusividade)', description: 'Dados básicos para novo imóvel: proprietário, endereço, características e valores.', icon: FileSignature, color: 'text-blue-600', bgColor: 'bg-blue-50', canSearch: true },
   { id: 'cadastro_interno', title: 'Ficha do Imóvel (Interno)', description: 'Cadastro completo: código, pontos fortes, histórico e docs de matrícula.', icon: Home, color: 'text-indigo-600', bgColor: 'bg-indigo-50', canSearch: false },
@@ -49,8 +57,13 @@ export function FichasCadastraisTab() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewUri, setPreviewUri] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
+
+  // Confirmation Modal State
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [pendingFicha, setPendingFicha] = useState<typeof FICHAS[0] | null>(null);
   
   const filteredFichas = FICHAS.filter(f => 
+// ...
     f.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     f.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -67,6 +80,18 @@ export function FichasCadastraisTab() {
       uri = generateVisitFichaPDF({}, { returnUri: true }) as string;
     } else if (ficha.id === 'proposta') {
       uri = generateProposalFichaPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'reserva') {
+      uri = generateReserveFichaPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'analise_credito') {
+      uri = generateCreditAnalysisPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'locacao') {
+      uri = generateRentalFichaPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'vistoria') {
+      uri = generateInspectionPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'doc_juridica') {
+      uri = generateLegalDocPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'pos_venda') {
+      uri = generateAfterSalesPDF({}, { returnUri: true }) as string;
     } else {
       alert('Modelo de visualização ainda não disponível para esta ficha.');
       return;
@@ -99,6 +124,67 @@ export function FichasCadastraisTab() {
     return <FichaProposta onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
   }
 
+  if (activeFicha === 'reserva') {
+    return <FichaReserva onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  if (activeFicha === 'analise_credito') {
+    return <FichaAnaliseCredito onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  if (activeFicha === 'locacao') {
+    return <FichaLocacao onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  if (activeFicha === 'vistoria') {
+    return <FichaVistoria onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  if (activeFicha === 'doc_juridica') {
+    return <FichaDocumentacaoJuridica onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  if (activeFicha === 'pos_venda') {
+    return <FichaPosVenda onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  const handleConfirmDownload = () => {
+    if (!pendingFicha) return;
+    const ficha = pendingFicha;
+    if (ficha.id === 'captacao_exclusiva') {
+      generateExclusivityPDF({});
+    } else if (ficha.id === 'captacao_simples') {
+      generateNonExclusivityPDF({});
+    } else if (ficha.id === 'cliente') {
+      generateClientFichaPDF({});
+    } else if (ficha.id === 'visita') {
+      generateVisitFichaPDF({});
+    } else if (ficha.id === 'proposta') {
+      generateProposalFichaPDF({});
+    } else if (ficha.id === 'reserva') {
+      generateReserveFichaPDF({});
+    } else if (ficha.id === 'analise_credito') {
+      generateCreditAnalysisPDF({});
+    } else if (ficha.id === 'locacao') {
+      generateRentalFichaPDF({});
+    } else if (ficha.id === 'vistoria') {
+      generateInspectionPDF({});
+    } else if (ficha.id === 'doc_juridica') {
+      generateLegalDocPDF({});
+    } else if (ficha.id === 'pos_venda') {
+      generateAfterSalesPDF({});
+    }
+    setIsConfirmOpen(false);
+    setPendingFicha(null);
+  };
+
+  const handleReviewBlankPDF = () => {
+    if (!pendingFicha) return;
+    handlePreview(pendingFicha);
+    setIsConfirmOpen(false);
+    setPendingFicha(null);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -124,7 +210,7 @@ export function FichasCadastraisTab() {
             key={ficha.id}
             className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group focus-within:ring-2 ring-[#617964]/20 cursor-pointer flex flex-col h-full"
             onClick={() => {
-              if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente' || ficha.id === 'visita' || ficha.id === 'proposta') {
+              if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente' || ficha.id === 'visita' || ficha.id === 'proposta' || ficha.id === 'reserva' || ficha.id === 'analise_credito' || ficha.id === 'locacao' || ficha.id === 'vistoria' || ficha.id === 'doc_juridica' || ficha.id === 'pos_venda') {
                 setActiveFicha(ficha.id);
               } else {
                 handlePreview(ficha);
@@ -144,7 +230,7 @@ export function FichasCadastraisTab() {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente' || ficha.id === 'visita' || ficha.id === 'proposta') {
+                    if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente' || ficha.id === 'visita' || ficha.id === 'proposta' || ficha.id === 'reserva' || ficha.id === 'analise_credito' || ficha.id === 'locacao' || ficha.id === 'vistoria' || ficha.id === 'doc_juridica' || ficha.id === 'pos_venda') {
                       setActiveFicha(ficha.id);
                       setFichaMode('blank');
                     } else {
@@ -185,19 +271,8 @@ export function FichasCadastraisTab() {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (ficha.id === 'captacao_exclusiva') {
-                      generateExclusivityPDF({});
-                    } else if (ficha.id === 'captacao_simples') {
-                      generateNonExclusivityPDF({});
-                    } else if (ficha.id === 'cliente') {
-                      generateClientFichaPDF({});
-                    } else if (ficha.id === 'visita') {
-                      generateVisitFichaPDF({});
-                    } else if (ficha.id === 'proposta') {
-                      generateProposalFichaPDF({});
-                    } else {
-                      alert('Download indisponível para este modelo');
-                    }
+                    setPendingFicha(ficha);
+                    setIsConfirmOpen(true);
                   }}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-50 text-gray-500 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 hover:text-gray-700 transition-all border border-transparent hover:border-gray-200"
                 >
@@ -221,6 +296,13 @@ export function FichasCadastraisTab() {
         onClose={() => setIsPreviewOpen(false)}
         pdfDataUri={previewUri}
         title={previewTitle}
+      />
+
+      <ConfirmPDFDownloadModal 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmDownload}
+        onReview={handleReviewBlankPDF}
       />
     </div>
   );

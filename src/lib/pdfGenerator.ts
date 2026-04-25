@@ -1348,3 +1348,1183 @@ export const generateProposalFichaPDF = (proposalData: any, options: { returnUri
   doc.save(`PROPOSTA_${proposalData.proponentName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
 };
 
+export const generateReserveFichaPDF = (reserveData: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | number | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(97, 121, 100);
+  doc.setFont('helvetica', 'bold');
+  doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+  y += 7;
+  doc.setFontSize(7);
+  doc.setTextColor(120);
+  doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO | CRECI/MG 9469', pageWidth / 2, y, { align: 'center' });
+  y += 10;
+  
+  doc.setFontSize(11);
+  doc.setTextColor(40, 40, 40);
+  doc.text('FICHA DE RESERVA DE IMÓVEL (COM SINAL – ARRAS)', pageWidth / 2, y, { align: 'center' });
+  y += 3;
+  doc.setDrawColor(97, 121, 100);
+  doc.setLineWidth(0.8);
+  doc.line(pageWidth/2 - 70, y, pageWidth/2 + 70, y);
+  y += 10;
+
+  // 1. DADOS DO IMÓVEL
+  y = drawSectionHeader('DADOS DO IMÓVEL', y);
+  y = checkPageBreak(y, 10);
+  addField('Endereço', reserveData.propertyAddress, 25, y, 110);
+  addField('Código', reserveData.propertyCode, 150, y, 30);
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(100);
+  doc.text('Tipo:', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0);
+  doc.text(`( ${reserveData.propertyType === 'venda' ? 'X' : ' '} ) Venda    ( ${reserveData.propertyType === 'locacao' ? 'X' : ' '} ) Locação`, 40, y);
+  y += 12;
+
+  // 2. DADOS DO PROPONENTE
+  y = drawSectionHeader('DADOS DO PROPONENTE', y);
+  y = checkPageBreak(y, 10);
+  addField('Nome', reserveData.proponentName, 25, y, 140);
+  y += 8;
+  addField('CPF', reserveData.proponentCpf, 25, y, 50);
+  addField('RG', reserveData.proponentRg, 90, y, 50);
+  y += 8;
+  addField('E-mail', reserveData.proponentEmail, 25, y, 140);
+  y += 8;
+  addField('Telefone', reserveData.proponentPhone, 25, y, 50);
+  y += 12;
+
+  // 3. DADOS DO PROPRIETÁRIO
+  y = drawSectionHeader('DADOS DO PROPRIETÁRIO', y);
+  y = checkPageBreak(y, 10);
+  addField('Nome', reserveData.ownerName, 25, y, 140);
+  y += 8;
+  addField('CPF/CNPJ', reserveData.ownerDoc, 25, y, 140);
+  y += 12;
+
+  // 4. VALOR E RESERVA
+  y = drawSectionHeader('VALOR E RESERVA', y);
+  y = checkPageBreak(y, 10);
+  addField('Valor da proposta', reserveData.proposalValue ? `R$ ${reserveData.proposalValue}` : 'R$ ', 25, y, 50);
+  y += 8;
+  addField('Valor do sinal (arras)', reserveData.signalValue ? `R$ ${reserveData.signalValue}` : 'R$ ', 25, y, 50);
+  y += 10;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Forma de pagamento do sinal:', 25, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.text(`( ${reserveData.paymentMethod === 'pix' ? 'X' : ' '} ) Pix    ( ${reserveData.paymentMethod === 'transfer' ? 'X' : ' '} ) Transferência    ( ${reserveData.paymentMethod === 'cash' ? 'X' : ' '} ) Dinheiro`, 30, y);
+  y += 6;
+  doc.text(`( ${reserveData.paymentMethod === 'other' ? 'X' : ' '} ) Outro: ${reserveData.otherPayment || '___________________'}`, 30, y);
+  y += 10;
+  addField('Data do pagamento', reserveData.paymentDate, 25, y, 40);
+  y += 12;
+
+  // 5. PRAZO DE RESERVA
+  y = drawSectionHeader('PRAZO DE RESERVA', y);
+  y = checkPageBreak(y, 10);
+  addField('O imóvel permanecerá reservado até', reserveData.reserveUntil, 25, y, 40);
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text('Durante este período, o proprietário compromete-se a não negociar com terceiros.', 25, y);
+  y += 12;
+
+  // 6. CONDIÇÕES DO SINAL
+  y = drawSectionHeader('CONDIÇÕES DO SINAL (ARRAS)', y);
+  doc.setFontSize(8);
+  const conditions = [
+    "O valor pago a título de sinal possui natureza de arras confirmatórias, nos termos dos artigos 417 a 420 do Código Civil.",
+    "Em caso de conclusão do negócio, o valor será abatido do total da negociação.",
+    "Em caso de desistência injustificada por parte do proponente, o valor pago será retido pelo proprietário a título de compensação.",
+    "Em caso de desistência por parte do proprietário, este deverá devolver o valor recebido em dobro ao proponente.",
+    "Caso a negociação não se concretize por motivos alheios à vontade das partes, como reprovação de crédito ou impedimento jurídico comprovado, o valor poderá ser devolvido mediante acordo entre as partes."
+  ];
+
+  doc.setFont('helvetica', 'normal');
+  conditions.forEach(text => {
+    const splitText = doc.splitTextToSize(text, pageWidth - 45);
+    y = checkPageBreak(y, splitText.length * 4);
+    doc.text(splitText, 25, y);
+    y += (splitText.length * 4) + 2;
+  });
+  y += 10;
+
+  // 7. INTERMEDIAÇÃO
+  doc.setFont('helvetica', 'bold');
+  doc.text('INTERMEDIAÇÃO E COMISSÃO', 25, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  const mediationText = [
+    "As partes reconhecem que a negociação foi intermediada por corretor/imobiliária, sendo devida a comissão conforme prática de mercado em caso de concretização do negócio.",
+    "Caso a negociação seja concluída diretamente entre as partes, sem a participação do corretor, ainda assim será devida a comissão, desde que comprovado o vínculo da intermediação."
+  ];
+  mediationText.forEach(text => {
+    const splitText = doc.splitTextToSize(text, pageWidth - 45);
+    y = checkPageBreak(y, splitText.length * 4);
+    doc.text(splitText, 25, y);
+    y += (splitText.length * 4) + 1;
+  });
+  y += 10;
+
+  // 8. DECLARAÇÕES
+  doc.setFont('helvetica', 'bold');
+  doc.text('DECLARAÇÕES', 25, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  const declText = [
+    "O proponente declara que tem ciência das condições do imóvel e da negociação, e compromete-me a dar andamento à formalização dentro do prazo acordado.",
+    "O proprietário declara que o imóvel encontra-se apto à negociação e que respeitará o prazo de reserva estabelecido.",
+    "Este instrumento possui caráter preliminar e não substitui o contrato definitivo."
+  ];
+  declText.forEach(text => {
+    const splitText = doc.splitTextToSize(text, pageWidth - 45);
+    y = checkPageBreak(y, splitText.length * 4);
+    doc.text(splitText, 25, y);
+    y += (splitText.length * 4) + 1;
+  });
+  y += 12;
+
+  // FORO
+  addField('Fica eleito o foro da comarca de', reserveData.cityForo, 25, y, 80);
+  y += 25;
+
+  // ASSINATURAS
+  doc.setLineWidth(0.2);
+  doc.line(25, y, 90, y);
+  doc.line(120, y, 185, y);
+  y += 5;
+  doc.setFontSize(7);
+  doc.text('PROPONENTE', 57.5, y, { align: 'center' });
+  doc.text('PROPRIETÁRIO', 152.5, y, { align: 'center' });
+  y += 15;
+  doc.line(25, y, 90, y);
+  doc.line(120, y, 185, y);
+  y += 5;
+  doc.text('CORRETOR', 57.5, y, { align: 'center' });
+  doc.text('IMOBILIÁRIA', 152.5, y, { align: 'center' });
+
+  y += 15;
+  addField('DATA', reserveData.currentDate || new Date().toLocaleDateString('pt-BR'), 25, y, 40);
+
+  // Final Footer Call
+  drawFooter();
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+
+  doc.save(`RESERVA_${reserveData.proponentName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+
+export const generateCreditAnalysisPDF = (analysisData: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | number | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(97, 121, 100);
+  doc.setFont('helvetica', 'bold');
+  doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+  y += 7;
+  doc.setFontSize(7);
+  doc.setTextColor(120);
+  doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO | CRECI/MG 9469', pageWidth / 2, y, { align: 'center' });
+  y += 10;
+  
+  doc.setFontSize(11);
+  doc.setTextColor(40, 40, 40);
+  doc.text('FICHA DE ANÁLISE DE CRÉDITO PARA LOCAÇÃO', pageWidth / 2, y, { align: 'center' });
+  y += 3;
+  doc.setDrawColor(97, 121, 100);
+  doc.setLineWidth(0.8);
+  doc.line(pageWidth/2 - 70, y, pageWidth/2 + 70, y);
+  y += 10;
+
+  // 1. DADOS DO PRETENDENTE
+  y = drawSectionHeader('DADOS DO PRETENDENTE', y);
+  addField('Nome completo', analysisData.name, 25, y, 140);
+  y += 8;
+  addField('CPF', analysisData.cpf, 25, y, 50);
+  addField('RG', analysisData.rg, 90, y, 50);
+  y += 8;
+  addField('Data de nascimento', analysisData.birthDate, 25, y, 50);
+  addField('Estado civil', analysisData.maritalStatus, 90, y, 50);
+  y += 8;
+  addField('Telefone', analysisData.phone, 25, y, 50);
+  addField('E-mail', analysisData.email, 90, y, 80);
+  y += 8;
+  addField('Endereço atual', analysisData.currentAddress, 25, y, 140);
+  y += 8;
+  addField('Tempo de residência', analysisData.residenceTime, 25, y, 40);
+  y += 12;
+
+  // 2. DADOS PROFISSIONAIS
+  y = drawSectionHeader('DADOS PROFISSIONAIS', y);
+  addField('Profissão', analysisData.profession, 25, y, 60);
+  addField('Empresa', analysisData.company, 100, y, 70);
+  y += 8;
+  addField('CNPJ', analysisData.cnpj, 25, y, 50);
+  addField('Telefone empresa', analysisData.companyPhone, 90, y, 50);
+  y += 8;
+  addField('Endereço empresa', analysisData.companyAddress, 25, y, 140);
+  y += 8;
+  addField('Tempo de vínculo', analysisData.bondTime, 25, y, 50);
+  addField('Tipo de vínculo', analysisData.bondType, 90, y, 50);
+  y += 12;
+
+  // 3. RENDA E CAPACIDADE FINANCEIRA
+  y = drawSectionHeader('RENDA E CAPACIDADE FINANCEIRA', y);
+  addField('Renda mensal principal', analysisData.mainIncome, 25, y, 50);
+  y += 8;
+  addField('Outras rendas', analysisData.otherIncomes, 25, y, 140);
+  y += 8;
+  addField('Renda total familiar', analysisData.totalIncome, 25, y, 50);
+  addField('Comprometimento de renda (%)', analysisData.incomeCommitment, 90, y, 30);
+  y += 12;
+
+  // 4. DADOS DO IMÓVEL PRETENDIDO
+  y = drawSectionHeader('DADOS DO IMÓVEL PRETENDIDO', y);
+  addField('Endereço', analysisData.propertyAddress, 25, y, 140);
+  y += 8;
+  addField('Valor do aluguel', analysisData.rentValue, 25, y, 50);
+  addField('Encargos totais (estimado)', analysisData.totalCharges, 100, y, 50);
+  y += 12;
+
+  // 5. MODALIDADE DE GARANTIA
+  y = drawSectionHeader('MODALIDADE DE GARANTIA', y);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`( ${analysisData.guaranteeType === 'fiador' ? 'X' : ' '} ) Fiador    ( ${analysisData.guaranteeType === 'seguro' ? 'X' : ' '} ) Seguro fiança    ( ${analysisData.guaranteeType === 'caucao' ? 'X' : ' '} ) Caução    ( ${analysisData.guaranteeType === 'titulo' ? 'X' : ' '} ) Título`, 25, y);
+  y += 8;
+  addField('Descrição da garantia', analysisData.guaranteeDescription, 25, y, 140);
+  y += 12;
+
+  // 6. DADOS DO FIADOR
+  y = drawSectionHeader('DADOS DO FIADOR (SE APLICÁVEL)', y);
+  addField('Nome', analysisData.guarantorName, 25, y, 140);
+  y += 8;
+  addField('CPF', analysisData.guarantorCpf, 25, y, 50);
+  addField('Profissão', analysisData.guarantorProfession, 90, y, 70);
+  y += 8;
+  addField('Renda mensal', analysisData.guarantorIncome, 25, y, 50);
+  y += 8;
+  addField('Endereço', analysisData.guarantorAddress, 25, y, 140);
+  y += 8;
+  doc.text(`Possui imóvel próprio: ( ${analysisData.guarantorHasProperty === 'yes' ? 'X' : ' '} ) Sim    ( ${analysisData.guarantorHasProperty === 'no' ? 'X' : ' '} ) Não`, 25, y);
+  y += 12;
+
+  // 7. CONSULTAS E ANÁLISES
+  y = drawSectionHeader('CONSULTAS E ANÁLISES', y);
+  doc.text(`Autoriza consulta órgãos de proteção: ( ${analysisData.authorizeConsult === 'yes' ? 'X' : ' '} ) Sim    ( ${analysisData.authorizeConsult === 'no' ? 'X' : ' '} ) Não`, 25, y);
+  y += 8;
+  addField('Resultado da análise', analysisData.analysisResult, 25, y, 140);
+  y += 8;
+  doc.text(`Possui restrições financeiras: ( ${analysisData.hasRestrictions === 'yes' ? 'X' : ' '} ) Sim    ( ${analysisData.hasRestrictions === 'no' ? 'X' : ' '} ) Não`, 25, y);
+  y += 8;
+  addField('Score (se aplicável)', analysisData.creditScore, 25, y, 40);
+  y += 12;
+
+  // 10. DOCUMENTOS APRESENTADOS
+  y = drawSectionHeader('DOCUMENTOS APRESENTADOS', y);
+  const docs = analysisData.docsPresented || [];
+  doc.setFontSize(7);
+  doc.text(`( ${docs.includes('id') ? 'X' : ' '} ) RG e CPF`, 25, y);
+  doc.text(`( ${docs.includes('income') ? 'X' : ' '} ) Comprovante de renda`, 60, y);
+  doc.text(`( ${docs.includes('address') ? 'X' : ' '} ) Comprovante de residência`, 110, y);
+  y += 5;
+  doc.text(`( ${docs.includes('ir') ? 'X' : ' '} ) Imposto de Renda`, 25, y);
+  doc.text(`( ${docs.includes('work') ? 'X' : ' '} ) CTPS / Contrato Social`, 60, y);
+  doc.text(`( ${docs.includes('guarantor') ? 'X' : ' '} ) Docs Fiador`, 110, y);
+  y += 12;
+
+  // 11. PARECER FINAL
+  y = drawSectionHeader('PARECER FINAL DA IMOBILIÁRIA', y);
+  doc.setFontSize(8);
+  doc.text(`Resultado: ( ${analysisData.finalResult === 'approved' ? 'X' : ' '} ) Aprovado    ( ${analysisData.finalResult === 'restricted' ? 'X' : ' '} ) c/ restrições    ( ${analysisData.finalResult === 'denied' ? 'X' : ' '} ) Reprovado`, 25, y);
+  y += 8;
+  addField('Observações internas', analysisData.internalObs, 25, y, 140);
+  y += 15;
+
+  // TERMO
+  y = checkPageBreak(y, 30);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  const term = "Declaro que as informações prestadas são verdadeiras e autorizo a imobiliária a realizar consultas... reprovação da análise e/ou cancelamento da locação... aprovação cadastral não obriga a imobiliária ou o proprietário à efetivação da locação...";
+  const splitTerm = doc.splitTextToSize(term, pageWidth - 50);
+  doc.text(splitTerm, 25, y);
+  
+  y += 30;
+  doc.line(25, y, 75, y);
+  doc.line(82, y, 132, y);
+  doc.line(139, y, 189, y);
+  y += 5;
+  doc.text('PRETENDENTE', 50, y, { align: 'center' });
+  doc.text('FIADOR', 107, y, { align: 'center' });
+  doc.text('RESPONSÁVEL ANÁLISE', 164, y, { align: 'center' });
+
+  drawFooter();
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+
+  doc.save(`ANALISE_CREDITO_${analysisData.name?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+
+export const generateRentalFichaPDF = (data: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawHeader = (title: string) => {
+    doc.setFontSize(18);
+    doc.setTextColor(97, 121, 100);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO', pageWidth / 2, y, { align: 'center' });
+    y += 10;
+    doc.setFontSize(11);
+    doc.setTextColor(40, 40, 40);
+    doc.text(title, pageWidth / 2, y, { align: 'center' });
+    y += 12;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---' && value !== '') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+  drawHeader('FICHA DE LOCAÇÃO RESIDENCIAL / COMERCIAL');
+
+  // DADOS DO LOCATÁRIO
+  y = drawSectionHeader('DADOS DO LOCATÁRIO', y);
+  addField('Nome completo', data.tenantName, 25, y, 140);
+  y += 8;
+  addField('CPF', data.tenantCpf, 25, y);
+  addField('RG', data.tenantRg, 90, y);
+  addField('Data de nascimento', data.tenantBirthDate, 140, y);
+  y += 8;
+  addField('Estado civil', data.tenantCivilStatus, 25, y);
+  addField('Profissão', data.tenantProfession, 90, y);
+  y += 8;
+  addField('Telefone', data.tenantPhone, 25, y);
+  addField('E-mail', data.tenantEmail, 90, y);
+  y += 8;
+  addField('Endereço atual', data.tenantAddress, 25, y, 140);
+  y += 8;
+  addField('Tempo de residência', data.tenantResidencyTime, 25, y);
+  y += 12;
+
+  // DADOS DO IMÓVEL LOCADO
+  y = drawSectionHeader('DADOS DO IMÓVEL LOCADO', y);
+  addField('Endereço', data.propertyAddress, 25, y, 140);
+  y += 8;
+  addField('Tipo', data.propertyType, 25, y);
+  addField('Finalidade', data.propertyPurpose, 90, y);
+  y += 8;
+  addField('Valor do aluguel', `R$ ${data.rentAmount}`, 25, y);
+  addField('Encargos', `R$ ${data.chargesAmount}`, 90, y);
+  addField('Total mensal', `R$ ${data.totalAmount}`, 145, y);
+  y += 8;
+  addField('Início', data.startDate, 25, y);
+  addField('Prazo', `${data.contractTerm} meses`, 90, y);
+  addField('Término', data.endDate, 145, y);
+  y += 12;
+
+  // FORMA DE PAGAMENTO E GARANTIA
+  y = drawSectionHeader('PAGAMENTO E GARANTIA', y);
+  addField('Forma de Pagamento', data.paymentMethod, 25, y);
+  addField('Vencimento', `dia ${data.dueDate}`, 90, y);
+  y += 8;
+  addField('Garantia', data.guaranteeType, 25, y);
+  y += 8;
+  doc.setFontSize(8);
+  doc.text('Descrição detalhada:', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.guaranteeDescription || '', 25, y + 4, { maxWidth: 160 });
+  y += 15;
+
+  // DADOS DO FIADOR
+  if (data.guarantorName) {
+    y = drawSectionHeader('DADOS DO FIADOR', y);
+    addField('Nome', data.guarantorName, 25, y);
+    y += 8;
+    addField('CPF', data.guarantorCpf, 25, y);
+    addField('RG', data.guarantorRg, 90, y);
+    y += 8;
+    addField('Profissão', data.guarantorProfession, 25, y);
+    addField('Renda mensal', `R$ ${data.guarantorIncome}`, 90, y);
+    y += 8;
+    addField('Endereço', data.guarantorAddress, 25, y);
+    y += 8;
+    addField('Telefone', data.guarantorPhone, 25, y);
+    y += 12;
+  }
+
+  // OBRIGAÇÕES (Resumo)
+  if (y > 230) { doc.addPage(); y = 20; }
+  y = drawSectionHeader('RESUMO DE OBRIGAÇÕES', y);
+  doc.setFontSize(7);
+  const obs = [
+    "• Pagar pontualmente aluguel e encargos nas datas acordadas.",
+    "• Responsável pela conservação e devolução nas mesmas condições recebidas.",
+    "• Vedada a sublocação ou cessão sem autorização formal.",
+    "• Multas e juros por atraso conforme contrato definitivo.",
+    "• Declaração de veracidade das informações prestadas."
+  ];
+  obs.forEach(text => {
+    doc.text(text, 25, y);
+    y += 4;
+  });
+  y += 10;
+
+  doc.setFontSize(10);
+  doc.text('__________________________', 25, y);
+  doc.text('__________________________', 115, y);
+  y += 5;
+  doc.setFontSize(8);
+  doc.text('Locatário', 45, y);
+  doc.text('Fiador', 135, y);
+  y += 15;
+  doc.text('__________________________', 25, y);
+  doc.text('__________________________', 115, y);
+  y += 5;
+  doc.text('Corretor/Imobiliária', 40, y);
+  doc.text('Data', 140, y);
+  y += 10;
+  doc.setFontSize(9);
+  doc.text(`Local: ${data.city || 'Curitiba'} - Data: ${data.date || new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, y, { align: 'center' });
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+  doc.save(`FICHA_LOCACAO_${data.tenantName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+
+export const generateInspectionPDF = (data: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawHeader = (title: string) => {
+    doc.setFontSize(18);
+    doc.setTextColor(97, 121, 100);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO', pageWidth / 2, y, { align: 'center' });
+    y += 10;
+    doc.setFontSize(11);
+    doc.setTextColor(40, 40, 40);
+    doc.text(title, pageWidth / 2, y, { align: 'center' });
+    y += 12;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---' && value !== '') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+  drawHeader(`FICHA DE VISTORIA DE IMÓVEL (${data.type?.toUpperCase() || 'ENTRADA / SAÍDA'})`);
+
+  y = drawSectionHeader('Dados Gerais', y);
+  addField('Tipo', data.type, 25, y);
+  addField('Data', data.date, 80, y);
+  addField('Hora', data.time, 140, y);
+  y += 8;
+  addField('Endereço', data.address, 25, y);
+  y += 8;
+  addField('Tipo de Imóvel', data.propertyType, 25, y);
+  y += 8;
+  addField('Locatário', data.tenantName, 25, y);
+  y += 8;
+  addField('Proprietário', data.ownerName, 25, y);
+  y += 8;
+  addField('Responsável', data.inspectorName, 25, y);
+  y += 12;
+
+  const sections = [
+    { title: 'Área Externa / Fachada', fields: [
+      { l: 'Portão', v: data.gate }, { l: 'Muros', v: data.walls }, { l: 'Pintura', v: data.exteriorPainting }, { l: 'Calçadas', v: data.sidewalks }, { l: 'Garagem', v: data.garage }
+    ]},
+    { title: 'Sala', fields: [
+      { l: 'Porta', v: data.livingRoomDoor }, { l: 'Fechadura', v: data.livingRoomLock }, { l: 'Paredes', v: data.livingRoomWalls }, { l: 'Teto', v: data.livingRoomCeiling }, { l: 'Piso', v: data.livingRoomFloor }, { l: 'Rodapés', v: data.livingRoomBaseboards }, { l: 'Janelas', v: data.livingRoomWindows }, { l: 'Elétrica', v: data.livingRoomOutlets }, { l: 'Iluminação', v: data.livingRoomLighting }
+    ]},
+    { title: 'Quartos', fields: [
+      { l: 'Portas', v: data.bedroomDoors }, { l: 'Paredes', v: data.bedroomWalls }, { l: 'Teto', v: data.bedroomCeiling }, { l: 'Piso', v: data.bedroomFloor }, { l: 'Armários', v: data.bedroomClosets }, { l: 'Janelas', v: data.bedroomWindows }, { l: 'Elétrica', v: data.bedroomOutlets }
+    ]},
+    { title: 'Cozinha', fields: [
+      { l: 'Paredes', v: data.kitchenWalls }, { l: 'Teto', v: data.kitchenCeiling }, { l: 'Piso', v: data.kitchenFloor }, { l: 'Pia', v: data.kitchenSink }, { l: 'Torneira', v: data.kitchenFaucet }, { l: 'Gabinetes', v: data.kitchenCabinets }, { l: 'Bancadas', v: data.kitchenCounters }, { l: 'Fogão', v: data.kitchenStove }, { l: 'Exaustor', v: data.kitchenHood }, { l: 'Elétrica', v: data.kitchenElec }
+    ]},
+    { title: 'Banheiros', fields: [
+      { l: 'Paredes', v: data.bathWalls }, { l: 'Teto', v: data.bathCeiling }, { l: 'Piso', v: data.bathFloor }, { l: 'Vaso', v: data.bathToilet }, { l: 'Descarga', v: data.bathFlush }, { l: 'Pia', v: data.bathSink }, { l: 'Torneira', v: data.bathFaucet }, { l: 'Chuveiro', v: data.bathShower }, { l: 'Box', v: data.bathGlass }, { l: 'Ralos', v: data.bathDrains }, { l: 'Acessórios', v: data.bathAccessories }
+    ]},
+    { title: 'Área de Serviço', fields: [
+      { l: 'Tanque', v: data.serviceTank }, { l: 'Torneiras', v: data.serviceFaucets }, { l: 'Máquina', v: data.serviceWashMachine }, { l: 'Piso/Paredes', v: data.serviceFloor }
+    ]},
+    { title: 'Instalações Gerais', fields: [
+      { l: 'Elétrica', v: data.elecInstall }, { l: 'Disjuntores', v: data.breakerPanel }, { l: 'Hidráulica', v: data.hydroInstall }, { l: 'Pressão Água', v: data.waterPressure }, { l: 'Gás', v: data.gasSystem }, { l: 'Interfone', v: data.intercom }
+    ]},
+    { title: 'Complementares', fields: [
+      { l: 'Ar-cond.', v: data.ac }, { l: 'Planejados', v: data.customFurniture }, { l: 'Eletrodomest.', v: data.appliances }, { l: 'Cortinas', v: data.curtains }
+    ]}
+  ];
+
+  sections.forEach(section => {
+    y = drawSectionHeader(section.title, y);
+    let col = 0;
+    section.fields.forEach(field => {
+      addField(field.l, field.v, 25 + (col % 2 * 80), y);
+      if (col % 2 === 1) y += 6;
+      col++;
+      if (y > 275) { doc.addPage(); y = 20; }
+    });
+    if (col % 2 !== 0) y += 6;
+    y += 4;
+  });
+
+  y = drawSectionHeader('Observações e Mídia', y);
+  addField('Fotos', data.photosAttached ? 'SIM' : 'NÃO', 25, y);
+  addField('Vídeo', data.videoAttached ? 'SIM' : 'NÃO', 80, y);
+  y += 8;
+  addField('Descrição Mídia', data.mediaDescription, 25, y);
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Observações Gerais:', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.generalObservations || '', 25, y + 4, { maxWidth: 160 });
+  y += 20;
+
+  if (y > 230) { doc.addPage(); y = 20; }
+  doc.setFontSize(7);
+  doc.text('O LOCATÁRIO declara que recebeu o imóvel nas condições descritas nesta vistoria, comprometendo-se a devolvê-lo no mesmo estado.', pageWidth / 2, y, { align: 'center' });
+  y += 20;
+
+  doc.setFontSize(10);
+  doc.text('__________________________', 25, y);
+  doc.text('__________________________', 115, y);
+  y += 5;
+  doc.setFontSize(8);
+  doc.text('Locatário', 45, y);
+  doc.text('Proprietário', 135, y);
+  y += 15;
+  doc.text('__________________________', 25, y);
+  y += 5;
+  doc.text('Responsável pela Vistoria', 40, y);
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+  doc.save(`VISTORIA_${data.tenantName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+
+export const generateLegalDocPDF = (data: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawHeader = (title: string) => {
+    doc.setFontSize(18);
+    doc.setTextColor(97, 121, 100);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO', pageWidth / 2, y, { align: 'center' });
+    y += 10;
+    doc.setFontSize(11);
+    doc.setTextColor(40, 40, 40);
+    doc.text(title, pageWidth / 2, y, { align: 'center' });
+    y += 12;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---' && value !== '') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+  drawHeader('FICHA DE DOCUMENTAÇÃO JURÍDICA DO IMÓVEL');
+
+  y = drawSectionHeader('Dados do Imóvel', y);
+  addField('Endereço', data.address, 25, y);
+  y += 7;
+  addField('Tipo', data.propertyType, 25, y);
+  addField('Finalidade', data.purpose, 110, y);
+  y += 7;
+  addField('Matrícula nº', data.registrationNumber, 25, y);
+  y += 7;
+  addField('CRI', data.registryOffice, 25, y);
+  y += 7;
+  addField('Inscrição IPTU', data.iptuNumber, 25, y);
+  y += 12;
+
+  y = drawSectionHeader('Dados do Proprietário', y);
+  addField('Nome', data.ownerName, 25, y);
+  y += 7;
+  addField('CPF/CNPJ', data.ownerCpfCnpj, 25, y);
+  addField('Estado Civil', data.civilStatus, 110, y);
+  y += 7;
+  addField('Regime Bens', data.assetsRegime, 25, y);
+  y += 7;
+  addField('Telefone', data.phone, 25, y);
+  addField('E-mail', data.email, 110, y);
+  y += 12;
+
+  const docSections = [
+    { title: 'Documentação do Imóvel', fields: [
+      { l: 'Matrícula Atu.', v: data.registrationUpdated }, { l: 'Ônus Reais', v: data.lienCert }, { l: 'Inteiro Teor', v: data.fullContentCert }, { l: 'Habite-se', v: data.habitese }, { l: 'Planta Aprov.', v: data.approvedPlan }, { l: 'Averbação Cons.', v: data.constructionRegistration }, { l: 'Regularid. Área', v: data.areaRegularity }
+    ]},
+    { title: 'Tributos e Encargos', fields: [
+      { l: 'IPTU Quitado', v: data.iptuPaid }, { l: 'CND Munic.', v: data.municipalDebtsCert }, { l: 'Condomínio', v: data.condoPaid }, { l: 'Taxas Adic.', v: data.additionalTaxes }
+    ]},
+    { title: 'Certidões Proprietário (PF)', fields: [
+      { l: 'Déb. Federais', v: data.federalDebtsCertPF }, { l: 'Estadual', v: data.stateCertPF }, { l: 'Municipal', v: data.municipalCertPF }, { l: 'Ações Cíveis', v: data.civilActionsCertPF }, { l: 'Ações Trab.', v: data.laborActionsCertPF }, { l: 'Protestos', v: data.protestsCertPF }, { l: 'Federal Just.', v: data.federalJusticeCertPF }, { l: 'Trab. Just.', v: data.laborJusticeCertPF }
+    ]}
+  ];
+
+  docSections.forEach(section => {
+    y = drawSectionHeader(section.title, y);
+    let col = 0;
+    section.fields.forEach(field => {
+      addField(field.l, field.v, 25 + (col % 2 * 90), y);
+      if (col % 2 === 1) y += 6;
+      col++;
+      if (y > 275) { doc.addPage(); y = 20; }
+    });
+    if (col % 2 !== 0) y += 6;
+    y += 4;
+  });
+
+  y = drawSectionHeader('Situação Jurídica', y);
+  let col = 0;
+  const sitFields = [
+    { l: 'Livre/Desemb.', v: data.freeAndClear }, { l: 'Financiamento', v: data.activeFinancing }, { l: 'Alienação Fid.', v: data.fiduciaryAlienation }, { l: 'Hipoteca', v: data.mortgage }, { l: 'Penhora', v: data.seizure }, { l: 'Usufruto', v: data.usufruct }, { l: 'Inventário', v: data.inventory }, { l: 'Divórcio/Part.', v: data.divorcePending }
+  ];
+  sitFields.forEach(f => {
+    addField(f.l, f.v, 25 + (col % 2 * 90), y);
+    if (col % 2 === 1) y += 6;
+    col++;
+  });
+  if (data.otherRestrictions) {
+    y += 4;
+    addField('Outras Restrições', data.otherRestrictions, 25, y);
+    y += 6;
+  }
+  y += 10;
+
+  y = drawSectionHeader('Parecer e Responsabilidade', y);
+  addField('Status Final', data.finalStatus, 25, y);
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Observações:', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.observations || '', 25, y + 4, { maxWidth: 160 });
+  y += 30;
+
+  if (y > 230) { doc.addPage(); y = 20; }
+  doc.setFontSize(10);
+  doc.text('__________________________', 25, y);
+  doc.text('__________________________', 115, y);
+  y += 5;
+  doc.setFontSize(8);
+  doc.text('Proprietário', 45, y);
+  doc.text('Responsável Análise', 130, y);
+  y += 15;
+  doc.setFontSize(9);
+  doc.text(`Data: ${data.date}`, pageWidth / 2, y, { align: 'center' });
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+  doc.save(`DOC_JURIDICA_${data.ownerName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+
+export const generateAfterSalesPDF = (data: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawHeader = (title: string) => {
+    doc.setFontSize(18);
+    doc.setTextColor(97, 121, 100);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO', pageWidth / 2, y, { align: 'center' });
+    y += 10;
+    doc.setFontSize(11);
+    doc.setTextColor(40, 40, 40);
+    doc.text(title, pageWidth / 2, y, { align: 'center' });
+    y += 12;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---' && value !== '') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+  drawHeader('FICHA DE PÓS-VENDA / PÓS-LOCAÇÃO');
+
+  y = drawSectionHeader('Dados do Cliente', y);
+  addField('Nome', data.clientName, 25, y);
+  y += 7;
+  addField('CPF', data.clientCpf, 25, y);
+  addField('Telefone', data.clientPhone, 110, y);
+  y += 7;
+  addField('E-mail', data.clientEmail, 25, y);
+  y += 12;
+
+  y = drawSectionHeader('Dados do Negócio', y);
+  addField('Tipo', data.dealType, 25, y);
+  addField('Data Conclusão', data.completionDate, 110, y);
+  y += 7;
+  addField('Imóvel', data.propertyAddress, 25, y);
+  y += 7;
+  addField('Corretor', data.responsibleAgent, 25, y);
+  y += 12;
+
+  y = drawSectionHeader('Avaliação e Satisfação', y);
+  addField('Recebeu como esperado?', data.receivedAsExpected, 25, y);
+  addField('Nível Satisfação', data.satisfactionLevel, 110, y);
+  y += 7;
+  addField('Clareza Info.', data.infoClarity, 25, y);
+  addField('Atend. Corretor', data.agentService, 110, y);
+  y += 7;
+  addField('Agilidade Proc.', data.processAgility, 25, y);
+  addField('Suporte Negoc.', data.negotiationSupport, 110, y);
+  y += 10;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Comentário Geral:', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.generalComment || '', 25, y + 4, { maxWidth: 160 });
+  y += 15;
+
+  y = drawSectionHeader('Indicações e Oportunidades', y);
+  addField('Indicaria?', data.wouldRecommend, 25, y);
+  addField('Deseja Indicar?', data.hasIndication, 110, y);
+  if (data.hasIndication === 'Sim') {
+    y += 7;
+    addField('Nome Indicado', data.indicatedName, 25, y);
+    addField('Tel. Indicado', data.indicatedPhone, 110, y);
+  }
+  y += 7;
+  addField('Pretendência', data.futureIntent, 25, y);
+  y += 12;
+
+  if (y > 230) { doc.addPage(); y = 20; }
+  doc.setFontSize(8);
+  doc.text('TERMO DE REGISTRO', 25, y);
+  y += 5;
+  doc.setFontSize(7);
+  doc.text('Autorizo o uso dos dados e comentários para fins de melhoria interna e estatísticas.', 25, y);
+  y += 20;
+
+  doc.setFontSize(10);
+  doc.text('__________________________', 25, y);
+  doc.text('__________________________', 115, y);
+  y += 5;
+  doc.setFontSize(8);
+  doc.text('Cliente', 45, y);
+  doc.text('Corretor', 135, y);
+  y += 15;
+  doc.setFontSize(9);
+  doc.text(`Local: Curitiba - Data: ${data.date || new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, y, { align: 'center' });
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+  doc.save(`POS_VENDA_${data.clientName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+

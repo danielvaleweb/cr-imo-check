@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Plus, MapPin, Video, Users, Clock, AlertCircle, Phone, Mail, Link as LinkIcon, Download, Check, ExternalLink, X, MessageCircle, ChevronDown, ChevronUp, ChevronRight, Building } from 'lucide-react';
+import { Calendar, Plus, MapPin, Video, Users, Clock, AlertCircle, Phone, Mail, Link as LinkIcon, Download, Check, ExternalLink, X, MessageCircle, ChevronDown, ChevronUp, ChevronRight, Building, Eye } from 'lucide-react';
 import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
 import { collection, onSnapshot, addDoc, serverTimestamp, orderBy, query, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { addLog } from '../services/logService';
-import { Trash, Edit2, Eye, User } from 'lucide-react';
+import { Trash, Edit2, User } from 'lucide-react';
 import { playAlertSound } from '../lib/audio';
+import { generateVisitFichaPDF } from '../lib/pdfGenerator';
+import { PDFPreviewModal } from './PDFPreviewModal';
 
 import { Permissions } from '../constants/permissions';
 
@@ -66,6 +68,10 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
 
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['tarefa', 'visita', 'captacao', 'reuniao']);
   const [expandedEvents, setExpandedEvents] = useState<string[]>([]);
+
+  // PDF Preview State
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUri, setPreviewUri] = useState('');
 
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => 
@@ -505,6 +511,60 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
       setSelectedDateStr(null);
     }
   }, [currentDayEvents, isDayModalOpen, selectedDateStr]);
+
+  const handleDownloadVisitTerm = () => {
+    const visitPdfData = {
+      propertyAddress: local || `${addressStreet}${addressNumber ? ', ' + addressNumber : ''} - ${addressCondo} - ${addressNeighborhood} - ${addressCity}`,
+      date: data ? new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : new Date().toLocaleDateString('pt-BR'),
+      time: horario,
+      visitorName: nomeCliente,
+      visitorPhone: telefoneCliente,
+      visitorEmail: emailCliente
+    };
+    generateVisitFichaPDF(visitPdfData);
+  };
+
+  const handlePreviewVisitTerm = () => {
+    const visitPdfData = {
+      propertyAddress: local || `${addressStreet}${addressNumber ? ', ' + addressNumber : ''} - ${addressCondo} - ${addressNeighborhood} - ${addressCity}`,
+      date: data ? new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : new Date().toLocaleDateString('pt-BR'),
+      time: horario,
+      visitorName: nomeCliente,
+      visitorPhone: telefoneCliente,
+      visitorEmail: emailCliente
+    };
+    const uri = generateVisitFichaPDF(visitPdfData, { returnUri: true }) as string;
+    setPreviewUri(uri);
+    setIsPreviewOpen(true);
+  };
+
+  const handleSendVisitTerm = () => {
+    const visitPdfData = {
+      propertyAddress: local || `${addressStreet}${addressNumber ? ', ' + addressNumber : ''} - ${addressCondo} - ${addressNeighborhood} - ${addressCity}`,
+      date: data ? new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : new Date().toLocaleDateString('pt-BR'),
+      time: horario,
+      visitorName: nomeCliente,
+      visitorPhone: telefoneCliente,
+      visitorEmail: emailCliente
+    };
+    
+    // For now, since it's a PDF generated on client, we send a message with the data 
+    // and instruct that the PDF can be downloaded and attached, 
+    // OR we just provide a link/prompt for the user to download then send.
+    // However, usually "Send" implies sending the PDF. 
+    // Since we don't have a backend to host the file and provide a link, 
+    // we'll send a templated message to the client on WhatsApp.
+    
+    if (!telefoneCliente) {
+      alert("Por favor, preencha o telefone do cliente para enviar via WhatsApp.");
+      return;
+    }
+    
+    const formattedPhone = telefoneCliente.replace(/\D/g, '');
+    const message = `${nomeCliente}, estou te enviando esse termo de visita para que assine para realizarmos sua visita no dia ${visitPdfData.date}, no horário ${visitPdfData.time}, no endereço ${visitPdfData.propertyAddress}`;
+    
+    window.open(`https://wa.me/55${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   return (
     <div className="space-y-8">
@@ -1174,26 +1234,6 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                 {/* Visita */}
                 {eventType === 'visita' && (
                   <div className="space-y-6 pt-6 border-t border-gray-100">
-                    <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${termoAssinado ? 'bg-amber-500' : 'bg-white border-2 border-amber-200'}`}>
-                          {termoAssinado && <Check className="w-4 h-4 text-white" />}
-                        </div>
-                        <span className="text-sm font-bold text-amber-900">O cliente já assinou o Termo de Visita?</span>
-                        <input type="checkbox" className="hidden" checked={termoAssinado} onChange={e => setTermoAssinado(e.target.checked)} />
-                      </label>
-                      
-                      {!termoAssinado && (
-                        <a 
-                          href="#" 
-                          className="flex items-center gap-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-4 py-2 rounded-xl transition-all"
-                        >
-                          <Download className="w-4 h-4" />
-                          Baixar PDF do Termo
-                        </a>
-                      )}
-                    </div>
-
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-500 uppercase">Onde será o encontro?</label>
                       <select 
@@ -1232,6 +1272,45 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                         <input type="text" placeholder="Nome" value={nomeCliente} onChange={e => setNomeCliente(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964]" />
                         <input type="text" placeholder="Telefone / WhatsApp" value={telefoneCliente} onChange={e => setTelefoneCliente(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964]" />
                         <input type="email" placeholder="Email (opcional)" value={emailCliente} onChange={e => setEmailCliente(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-[#617964] sm:col-span-2" />
+                      </div>
+
+                      <div className="md:col-span-2 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 mt-4">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${termoAssinado ? 'bg-amber-600 border-amber-600' : 'bg-white border-amber-200 group-hover:border-amber-400'}`}>
+                            {termoAssinado && <Check className="w-4 h-4 text-white" />}
+                          </div>
+                          <span className="text-sm font-bold text-amber-900">O cliente já assinou o Termo de Visita?</span>
+                          <input type="checkbox" className="hidden" checked={termoAssinado} onChange={e => setTermoAssinado(e.target.checked)} />
+                        </label>
+
+                        {!termoAssinado && (
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <button 
+                              type="button"
+                              onClick={handlePreviewVisitTerm}
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-xs font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 px-4 py-3 rounded-xl transition-all shadow-sm"
+                            >
+                              <Eye className="w-4 h-4" />
+                              Ver
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={handleDownloadVisitTerm}
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-4 py-3 rounded-xl transition-all shadow-md"
+                            >
+                              <Download className="w-4 h-4" />
+                              Baixar
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={handleSendVisitTerm}
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-2 text-xs font-bold text-white bg-green-600 hover:bg-green-700 px-4 py-3 rounded-xl transition-all shadow-md"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              Enviar
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1503,6 +1582,13 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PDFPreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        pdfDataUri={previewUri}
+        title="Ficha de Visita"
+      />
     </div>
   );
 }
