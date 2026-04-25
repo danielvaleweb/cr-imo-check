@@ -20,8 +20,10 @@ import {
 import { FichaCaptacaoExclusiva } from './FichaCaptacaoExclusiva';
 import { FichaCaptacaoSimples } from './FichaCaptacaoSimples';
 import { FichaCliente } from './FichaCliente';
+import { FichaVisita } from './FichaVisita';
+import { FichaProposta } from './FichaProposta';
 import { PDFPreviewModal } from './PDFPreviewModal';
-import { generateExclusivityPDF, generateNonExclusivityPDF, generateClientFichaPDF } from '../lib/pdfGenerator';
+import { generateExclusivityPDF, generateNonExclusivityPDF, generateClientFichaPDF, generateVisitFichaPDF, generateProposalFichaPDF } from '../lib/pdfGenerator';
 
 export const FICHAS = [
   { id: 'captacao_exclusiva', title: 'Captação (C/ Exclusividade)', description: 'Autorização de venda com exclusividade. Cópia dos dados internos e do proprietário.', icon: ShieldCheck, color: 'text-emerald-600', bgColor: 'bg-emerald-50', canSearch: true },
@@ -61,6 +63,10 @@ export function FichasCadastraisTab() {
       uri = generateNonExclusivityPDF({}, { returnUri: true }) as string;
     } else if (ficha.id === 'cliente') {
       uri = generateClientFichaPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'visita') {
+      uri = generateVisitFichaPDF({}, { returnUri: true }) as string;
+    } else if (ficha.id === 'proposta') {
+      uri = generateProposalFichaPDF({}, { returnUri: true }) as string;
     } else {
       alert('Modelo de visualização ainda não disponível para esta ficha.');
       return;
@@ -83,6 +89,14 @@ export function FichasCadastraisTab() {
 
   if (activeFicha === 'cliente') {
     return <FichaCliente onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  if (activeFicha === 'visita') {
+    return <FichaVisita onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
+  }
+
+  if (activeFicha === 'proposta') {
+    return <FichaProposta onBack={() => { setActiveFicha(null); setFichaMode(null); }} initialData={fichaMode === 'blank' ? 'blank' : null} />;
   }
 
   return (
@@ -110,7 +124,7 @@ export function FichasCadastraisTab() {
             key={ficha.id}
             className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group focus-within:ring-2 ring-[#617964]/20 cursor-pointer flex flex-col h-full"
             onClick={() => {
-              if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente') {
+              if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente' || ficha.id === 'visita' || ficha.id === 'proposta') {
                 setActiveFicha(ficha.id);
               } else {
                 handlePreview(ficha);
@@ -130,7 +144,7 @@ export function FichasCadastraisTab() {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente') {
+                    if (ficha.id === 'captacao_exclusiva' || ficha.id === 'captacao_simples' || ficha.id === 'cliente' || ficha.id === 'visita' || ficha.id === 'proposta') {
                       setActiveFicha(ficha.id);
                       setFichaMode('blank');
                     } else {
@@ -177,6 +191,10 @@ export function FichasCadastraisTab() {
                       generateNonExclusivityPDF({});
                     } else if (ficha.id === 'cliente') {
                       generateClientFichaPDF({});
+                    } else if (ficha.id === 'visita') {
+                      generateVisitFichaPDF({});
+                    } else if (ficha.id === 'proposta') {
+                      generateProposalFichaPDF({});
                     } else {
                       alert('Download indisponível para este modelo');
                     }

@@ -3,9 +3,10 @@ import { db, auth } from '../firebase';
 
 export interface SystemLog {
   id?: string;
-  type: 'lead' | 'property' | 'broker' | 'agenda' | 'proposal' | 'system' | 'condo' | 'user' | 'finance';
+  type: 'lead' | 'property' | 'broker' | 'agenda' | 'proposal' | 'system' | 'condo' | 'user' | 'finance' | 'photo_editor';
   action: string;
   details: string;
+  thumbnailUrl?: string;
   userId: string | null;
   userName: string | null;
   userEmail: string | null;
@@ -16,7 +17,8 @@ export const addLog = async (
   type: SystemLog['type'],
   action: string,
   details: string,
-  customUser?: { id: string; name: string; email: string }
+  customUser?: { id: string; name: string; email: string },
+  thumbnailUrl?: string
 ) => {
   try {
     const user = customUser || (auth.currentUser ? {
@@ -29,6 +31,7 @@ export const addLog = async (
       type,
       action,
       details,
+      thumbnailUrl,
       userId: user?.id || 'anonymous',
       userName: user?.name || 'Visitante',
       userEmail: user?.email || 'N/A',

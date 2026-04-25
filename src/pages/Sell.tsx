@@ -127,6 +127,7 @@ export default function Sell() {
     if (!formData.acceptedTerms) {
       setShowTermsError(true);
       checkboxContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      alert("ATENÇÃO: Você precisa ler e aceitar os termos e condições para cadastrar seu imóvel.");
       return;
     }
     

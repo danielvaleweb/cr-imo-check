@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Image as ImageIcon, Sparkles, Download, Layers, Trash2 } from 'lucide-react';
+import { addLog } from '../services/logService';
 
 interface ProcessedFile {
   originalFile: File;
+  previewUrl?: string;
   processedBase64: string | null;
   status: 'pending' | 'processing' | 'done' | 'error';
   isDark?: boolean;
@@ -43,6 +45,7 @@ export function PhotoEditorTab() {
     const validFiles = newFiles.filter(file => file.type.startsWith('image/'));
     const newProcessedFiles: ProcessedFile[] = validFiles.map(file => ({
       originalFile: file,
+      previewUrl: URL.createObjectURL(file),
       processedBase64: null,
       status: 'pending'
     }));
@@ -50,13 +53,19 @@ export function PhotoEditorTab() {
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles(prev => {
+      const fileToRemove = prev[index];
+      if (fileToRemove.previewUrl) {
+        URL.revokeObjectURL(fileToRemove.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const processImage = (fileData: ProcessedFile): Promise<ProcessedFile> => {
     return new Promise((resolve) => {
       const img = new Image();
-      const url = URL.createObjectURL(fileData.originalFile);
+      const url = fileData.previewUrl || URL.createObjectURL(fileData.originalFile);
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -171,6 +180,17 @@ export function PhotoEditorTab() {
     for (let i = 0; i < currentFiles.length; i++) {
        if (currentFiles[i].status !== 'pending') continue;
        const result = await processImage(currentFiles[i]);
+       
+       if (result.status === 'done' && result.processedBase64) {
+         addLog(
+           'photo_editor',
+           mode === 'watermark' ? 'Aplicou Marca d\'Água' : 'Editou Foto (IA)',
+           `Arquivo: ${result.originalFile.name}`,
+           undefined,
+           result.processedBase64
+         );
+       }
+
        setFiles(prev => {
           const newArr = [...prev];
           newArr[i] = result;
@@ -291,6 +311,8 @@ export function PhotoEditorTab() {
                   <div className="aspect-[4/3] bg-gray-200 relative">
                     {file.processedBase64 ? (
                       <img src={file.processedBase64} className="w-full h-full object-cover" alt="Processed" />
+                    ) : file.previewUrl ? (
+                      <img src={file.previewUrl} className="w-full h-full object-cover opacity-50" alt="Original Preview" />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                          <ImageIcon className="w-8 h-8 opacity-50" />

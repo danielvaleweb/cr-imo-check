@@ -6214,8 +6214,32 @@ export default function BrokerDashboard() {
                             </td>
                             <td className="p-6">
                               <div className="text-sm font-bold text-gray-900">{lead.ownerName}</div>
-                              <div className="text-xs text-gray-500">{lead.ownerEmail}</div>
-                              <div className="text-xs text-gray-500">{lead.ownerMobile || lead.ownerPhone}</div>
+                              <div className="flex flex-col gap-1.5 mt-1.5">
+                                {lead.ownerEmail && (
+                                  <a 
+                                    href={`mailto:${lead.ownerEmail}`}
+                                    className="text-[11px] font-bold text-gray-400 hover:text-[#617964] flex items-center gap-1.5 transition-colors group"
+                                  >
+                                    <div className="w-5 h-5 rounded-lg bg-gray-50 group-hover:bg-[#617964]/10 flex items-center justify-center transition-colors">
+                                      <Mail className="w-3 h-3" />
+                                    </div>
+                                    {lead.ownerEmail}
+                                  </a>
+                                )}
+                                {(lead.ownerMobile || lead.ownerPhone) && (
+                                  <a 
+                                    href={`https://wa.me/55${(lead.ownerMobile || lead.ownerPhone).replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[11px] font-bold text-gray-400 hover:text-green-600 flex items-center gap-1.5 transition-colors group"
+                                  >
+                                    <div className="w-5 h-5 rounded-lg bg-gray-50 group-hover:bg-green-50 flex items-center justify-center transition-colors text-gray-400 group-hover:text-green-600">
+                                      <MessageCircle className="w-3 h-3" />
+                                    </div>
+                                    {lead.ownerMobile || lead.ownerPhone}
+                                  </a>
+                                )}
+                              </div>
                             </td>
                             <td className="p-6">
                               <div className="text-sm font-bold text-gray-900 capitalize">{lead.propertyType}</div>
@@ -6322,13 +6346,36 @@ export default function BrokerDashboard() {
                                 log.type === 'proposal' ? 'bg-purple-50 text-purple-600' :
                                 log.type === 'broker' ? 'bg-amber-50 text-amber-600' :
                                 log.type === 'finance' ? 'bg-[#617964]/20 text-[#617964]' :
+                                log.type === 'photo_editor' ? 'bg-indigo-50 text-indigo-600' :
                                 'bg-gray-100 text-gray-600'
                               }`}>
                                 {log.action}
                               </span>
                             </td>
                             <td className="p-6">
-                              <p className="text-sm text-gray-500 font-medium line-clamp-2">{log.details}</p>
+                              <div className="flex items-center gap-3">
+                                {log.thumbnailUrl && (
+                                  <div className="relative group/thumb shrink-0">
+                                    <img 
+                                      src={log.thumbnailUrl} 
+                                      alt="Thumbnail" 
+                                      className="w-10 h-10 rounded-lg object-cover border border-gray-100 shadow-sm" 
+                                    />
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                      <button 
+                                         onClick={() => {
+                                           const win = window.open();
+                                           win?.document.write(`<html><body style="margin:0; background:#000; display:flex; align-items:center; justify-content:center; min-height:100vh;"><img src="${log.thumbnailUrl}" style="max-width:100%; height:auto; box-shadow: 0 0 50px rgba(0,0,0,0.5);"></body></html>`);
+                                         }}
+                                         className="text-[8px] text-white font-black uppercase"
+                                      >
+                                        Ver
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                <p className="text-sm text-gray-500 font-medium line-clamp-2">{log.details}</p>
+                              </div>
                             </td>
                           </tr>
                         ))

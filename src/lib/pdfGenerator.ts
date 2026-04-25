@@ -931,3 +931,420 @@ export const generateClientFichaPDF = (clientData: any, options: { returnUri?: b
 
   doc.save(`FICHA_CLIENTE_${clientData.name?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
 };
+
+export const generateVisitFichaPDF = (visitData: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | number | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(97, 121, 100);
+  doc.setFont('helvetica', 'bold');
+  doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+  y += 7;
+  doc.setFontSize(7);
+  doc.setTextColor(120);
+  doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO | CRECI/MG 9469', pageWidth / 2, y, { align: 'center' });
+  y += 10;
+  
+  doc.setFontSize(11);
+  doc.setTextColor(40, 40, 40);
+  doc.text('FICHA DE VISITA (COM TERMO DE PROTEÇÃO DE COMISSÃO)', pageWidth / 2, y, { align: 'center' });
+  y += 3;
+  doc.setDrawColor(97, 121, 100);
+  doc.setLineWidth(0.8);
+  doc.line(pageWidth/2 - 70, y, pageWidth/2 + 70, y);
+  y += 10;
+
+  doc.setFontSize(9);
+  addField('Data', visitData.date || new Date().toLocaleDateString('pt-BR'), 25, y, 30);
+  addField('Hora', visitData.time || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 90, y, 30);
+  y += 12;
+
+  // 1. DADOS DO IMÓVEL
+  y = drawSectionHeader('DADOS DO IMÓVEL', y);
+  y = checkPageBreak(y, 10);
+  addField('Endereço', visitData.propertyAddress, 25, y, 110);
+  addField('Código', visitData.propertyCode, 150, y, 30);
+  y += 12;
+
+  // 2. DADOS DO VISITANTE
+  y = drawSectionHeader('DADOS DO VISITANTE', y);
+  y = checkPageBreak(y, 10);
+  addField('Nome', visitData.visitorName, 25, y, 140);
+  y += 8;
+  addField('CPF', visitData.visitorCpf, 25, y, 50);
+  addField('RG', visitData.visitorRg, 90, y, 50);
+  y += 8;
+  addField('Telefone', visitData.visitorPhone, 25, y, 50);
+  addField('WhatsApp', visitData.visitorWhatsapp, 90, y, 50);
+  y += 8;
+  addField('E-mail', visitData.visitorEmail, 25, y, 140);
+  y += 12;
+
+  // 3. AVALIAÇÃO DO CLIENTE
+  y = drawSectionHeader('AVALIAÇÃO DO CLIENTE', y);
+  y = checkPageBreak(y, 10);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(100);
+  doc.text('Gostou do imóvel?', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0);
+  doc.text(`( ${visitData.liked === 'yes' ? 'X' : ' '} ) Sim    ( ${visitData.liked === 'no' ? 'X' : ' '} ) Não`, 55, y);
+  
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Interesse:', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`( ${visitData.interest === 'high' ? 'X' : ' '} ) Alto    ( ${visitData.interest === 'medium' ? 'X' : ' '} ) Médio    ( ${visitData.interest === 'low' ? 'X' : ' '} ) Baixo`, 55, y);
+  
+  y += 10;
+  addField('Pontos positivos', visitData.positivePoints, 25, y, 140);
+  y += 10;
+  addField('Pontos negativos', visitData.negativePoints, 25, y, 140);
+  y += 15;
+
+  // 4. TERMO DE PROTEÇÃO
+  y = drawSectionHeader('🔒 TERMO DE VISITA E PROTEÇÃO DE COMISSÃO', y);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const termText = [
+    "Declaro que este imóvel me foi apresentado pela imobiliária/corretor responsável, e comprometo-me a não realizar negociação direta com o proprietário, terceiros ou qualquer outro intermediador sem a participação do corretor.",
+    "Caso venha a adquirir, alugar ou realizar qualquer tipo de negociação referente a este imóvel, direta ou indiretamente, no prazo de 180 (cento e oitenta) dias, reconheço que será devida a comissão integral à imobiliária/corretor responsável pela intermediação.",
+    "Declaro estar ciente de que a atividade de intermediação imobiliária é regulamentada, sendo garantido ao corretor o direito à remuneração pela apresentação do imóvel."
+  ];
+
+  termText.forEach(text => {
+    const splitText = doc.splitTextToSize(text, pageWidth - 45);
+    y = checkPageBreak(y, (splitText.length * 4) + 4);
+    doc.text(splitText, 25, y);
+    y += (splitText.length * 4) + 4;
+  });
+
+  y += 10;
+  // DECLARAÇÃO FINAL
+  doc.setFont('helvetica', 'bold');
+  doc.text('DECLARAÇÃO FINAL', 25, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.text('Confirmo que realizei a visita ao imóvel acima descrito nesta data.', 25, y);
+  
+  y += 25;
+  doc.setLineWidth(0.2);
+  doc.line(25, y, 90, y);
+  doc.line(120, y, 185, y);
+  y += 5;
+  doc.setFontSize(7);
+  doc.text('ASSINATURA DO CLIENTE', 57.5, y, { align: 'center' });
+  doc.text('ASSINATURA DO CORRETOR', 152.5, y, { align: 'center' });
+
+  // Final Footer Call
+  drawFooter();
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+
+  doc.save(`FICHA_VISITA_${visitData.visitorName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+
+export const generateProposalFichaPDF = (proposalData: any, options: { returnUri?: boolean } = {}) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 15;
+  let pageNum = 1;
+
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Página ${pageNum}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Documento gerado eletronicamente em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, pageHeight - 10);
+  };
+
+  const drawWatermark = () => {
+    const prevSize = doc.getFontSize();
+    const prevFont = doc.getFont();
+    const prevColor = doc.getTextColor();
+
+    doc.setTextColor(220, 235, 222);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CR IMÓVEIS DE LUXO", pageWidth / 2, pageHeight / 2, { angle: 45, align: 'center', baseline: 'middle', renderingMode: 'fill' });
+    
+    doc.setTextColor(prevColor);
+    doc.setFontSize(prevSize);
+    doc.setFont(prevFont.fontName, prevFont.fontStyle);
+  };
+
+  const checkPageBreak = (currentY: number, requiredSpace: number = 10) => {
+    if (currentY + requiredSpace > pageHeight - 20) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawWatermark();
+      return 20; // New y
+    }
+    return currentY;
+  };
+
+  const drawSectionHeader = (title: string, currentY: number) => {
+    currentY = checkPageBreak(currentY, 15);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, currentY, pageWidth - 40, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 25, currentY + 5.5);
+    return currentY + 12;
+  };
+
+  const addField = (label: string, value: string | number | undefined, x: number, currentY: number, lineLength: number = 40) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`${label}:`, x, currentY);
+    
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    
+    if (value && value !== '---') {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0);
+      doc.text(`${value}`, x + labelWidth, currentY);
+    } else {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(x + labelWidth, currentY + 1, x + labelWidth + lineLength, currentY + 1);
+    }
+  };
+
+  drawWatermark();
+
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(97, 121, 100);
+  doc.setFont('helvetica', 'bold');
+  doc.text('CR IMÓVEIS DE LUXO', pageWidth / 2, y, { align: 'center' });
+  y += 7;
+  doc.setFontSize(7);
+  doc.setTextColor(120);
+  doc.text('IMOBILIÁRIA ESPECIALISTA EM MERCADO DE ALTO PADRÃO | CRECI/MG 9469', pageWidth / 2, y, { align: 'center' });
+  y += 10;
+  
+  doc.setFontSize(11);
+  doc.setTextColor(40, 40, 40);
+  doc.text('FICHA DE PROPOSTA DE COMPRA / LOCAÇÃO', pageWidth / 2, y, { align: 'center' });
+  y += 3;
+  doc.setDrawColor(97, 121, 100);
+  doc.setLineWidth(0.8);
+  doc.line(pageWidth/2 - 70, y, pageWidth/2 + 70, y);
+  y += 10;
+
+  // 1. DADOS DO PROPONENTE
+  y = drawSectionHeader('DADOS DO PROPONENTE', y);
+  y = checkPageBreak(y, 10);
+  addField('Nome', proposalData.proponentName, 25, y, 140);
+  y += 8;
+  addField('CPF', proposalData.proponentCpf, 25, y, 50);
+  addField('RG', proposalData.proponentRg, 90, y, 50);
+  y += 8;
+  addField('E-mail', proposalData.proponentEmail, 25, y, 140);
+  y += 8;
+  addField('Telefone', proposalData.proponentPhone, 25, y, 50);
+  addField('WhatsApp', proposalData.proponentWhatsapp, 90, y, 50);
+  y += 12;
+
+  // 2. DADOS DO IMÓVEL
+  y = drawSectionHeader('DADOS DO IMÓVEL', y);
+  y = checkPageBreak(y, 10);
+  addField('Endereço', proposalData.propertyAddress, 25, y, 110);
+  addField('Código', proposalData.propertyCode, 150, y, 30);
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(100);
+  doc.text('Tipo:', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0);
+  doc.text(`( ${proposalData.proposalType === 'venda' ? 'X' : ' '} ) Venda    ( ${proposalData.proposalType === 'locacao' ? 'X' : ' '} ) Locação`, 40, y);
+  y += 12;
+
+  // 3. CONDIÇÕES DA PROPOSTA
+  y = drawSectionHeader('CONDIÇÕES DA PROPOSTA', y);
+  y = checkPageBreak(y, 10);
+  addField('Valor ofertado', proposalData.offeredValue ? `R$ ${proposalData.offeredValue}` : 'R$ ', 25, y, 50);
+  y += 10;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(100);
+  doc.text('Forma de pagamento:', 25, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0);
+  doc.text(`( ${proposalData.paymentMethod === 'cash' ? 'X' : ' '} ) À vista`, 30, y);
+  doc.text(`( ${proposalData.paymentMethod === 'bank' ? 'X' : ' '} ) Financiamento bancário`, 70, y);
+  doc.text(`( ${proposalData.paymentMethod === 'fgts' ? 'X' : ' '} ) FGTS`, 130, y);
+  y += 6;
+  doc.text(`( ${proposalData.paymentMethod === 'consortium' ? 'X' : ' '} ) Consórcio`, 30, y);
+  doc.text(`( ${proposalData.paymentMethod === 'other' ? 'X' : ' '} ) Outro: ${proposalData.otherPayment || '___________________'}`, 70, y);
+  
+  y += 10;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Utilizará FGTS?', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`( ${proposalData.useFgts === 'yes' ? 'X' : ' '} ) Sim    ( ${proposalData.useFgts === 'no' ? 'X' : ' '} ) Não`, 55, y);
+  
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Oferece permuta?', 25, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`( ${proposalData.hasPermuta === 'yes' ? 'X' : ' '} ) Sim    ( ${proposalData.hasPermuta === 'no' ? 'X' : ' '} ) Não`, 55, y);
+  
+  if (proposalData.hasPermuta === 'yes' && proposalData.permutaDescription) {
+    y += 8;
+    doc.text(`Se sim, descrever: ${proposalData.permutaDescription}`, 25, y);
+  }
+  y += 12;
+
+  // 4. CONDIÇÕES FINANCEIRAS
+  y = drawSectionHeader('CONDIÇÕES FINANCEIRAS', y);
+  y = checkPageBreak(y, 10);
+  addField('Valor de entrada', proposalData.entryValue ? `R$ ${proposalData.entryValue}` : 'R$ ', 25, y, 50);
+  y += 8;
+  addField('Prazo para pagamento / financiamento', proposalData.paymentTerm, 25, y, 140);
+  y += 8;
+  addField('Instituição financeira (se houver)', proposalData.bankName, 25, y, 140);
+  y += 12;
+
+  // 5. PRAZO E VALIDADE
+  y = drawSectionHeader('PRAZO E VALIDADE', y);
+  y = checkPageBreak(y, 10);
+  addField('Esta proposta é válida até', proposalData.validUntil, 25, y, 40);
+  y += 12;
+
+  // 6. OBSERVAÇÕES
+  y = drawSectionHeader('OBSERVAÇÕES DA PROPOSTA', y);
+  if (proposalData.observations) {
+    const splitObs = doc.splitTextToSize(proposalData.observations, pageWidth - 50);
+    y = checkPageBreak(y, splitObs.length * 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(splitObs, 25, y);
+    y += (splitObs.length * 5) + 10;
+  } else {
+    y += 15;
+  }
+
+  // 7. TERMO DE RESPONSABILIDADE
+  y = drawSectionHeader('TERMO DE RESPONSABILIDADE E INTERMEDIAÇÃO', y);
+  doc.setFontSize(8);
+  const terms = [
+    "Declaro que esta proposta foi realizada por intermédio da imobiliária/corretor responsável pela apresentação do imóvel.",
+    "Reconheço que, em caso de aceitação da presente proposta pelo proprietário, comprometo-me a dar prosseguimento à negociação de boa-fé, respeitando as condições aqui estabelecidas.",
+    "Declaro ainda que:",
+    "- A presente proposta possui caráter formal e vinculativo durante seu prazo de validade, podendo sua desistência injustificada, após aceite do proprietário, gerar responsabilidade por eventuais perdas e danos, conforme legislação civil vigente;",
+    "- Caso a negociação seja concluída, direta ou indiretamente, com o proprietário ou terceiros, a partir desta intermediação, será devida a comissão à imobiliária/corretor responsável;",
+    "- Estou ciente de que a intermediação imobiliária é atividade regulamentada, nos termos da Lei nº 6.530/1978."
+  ];
+
+  doc.setFont('helvetica', 'normal');
+  terms.forEach(text => {
+    const splitText = doc.splitTextToSize(text, pageWidth - 45);
+    y = checkPageBreak(y, splitText.length * 4);
+    doc.text(splitText, 25, y);
+    y += (splitText.length * 4) + 2;
+  });
+
+  y += 20;
+  // ASSINATURAS
+  doc.setLineWidth(0.2);
+  doc.line(25, y, 75, y);
+  doc.line(82, y, 132, y);
+  doc.line(139, y, 189, y);
+  y += 5;
+  doc.setFontSize(7);
+  doc.text('PROPONENTE', 50, y, { align: 'center' });
+  doc.text('CORRETOR', 107, y, { align: 'center' });
+  doc.text('IMOBILIÁRIA', 164, y, { align: 'center' });
+  
+  y += 15;
+  addField('DATA', proposalData.currentDate || new Date().toLocaleDateString('pt-BR'), 25, y, 40);
+
+  // Final Footer Call
+  drawFooter();
+
+  if (options.returnUri) {
+    return doc.output('datauristring');
+  }
+
+  doc.save(`PROPOSTA_${proposalData.proponentName?.replace(/\s+/g, '_') || 'DOC'}.pdf`);
+};
+
