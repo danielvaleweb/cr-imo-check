@@ -51,7 +51,7 @@ export function FichaLocacao({ onBack, initialData }: Props) {
     guarantorAddress: '',
     guarantorPhone: '',
     // Meta
-    city: 'Curitiba',
+    city: '',
     date: new Date().toLocaleDateString('pt-BR')
   });
 

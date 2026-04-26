@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!tours|api|_next|static|favicon.ico|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

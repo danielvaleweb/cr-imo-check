@@ -41,6 +41,8 @@ import {
   Dumbbell,
   RotateCcw,
   BedDouble,
+  ZoomIn,
+  ZoomOut,
   Map as MapIcon
 } from 'lucide-react';
 import { useParams, useNavigate, useOutletContext, Link } from 'react-router-dom';
@@ -107,6 +109,7 @@ export default function PropertyDetail() {
   const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState(false);
   const [modalFloorPlanIndex, setModalFloorPlanIndex] = useState(0);
   const [isTour360ModalOpen, setIsTour360ModalOpen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [locationImageIndex, setLocationImageIndex] = useState(0);
   const [showControls, setShowControls] = useState(false);
@@ -153,6 +156,33 @@ export default function PropertyDetail() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const getTourUrl = (url: string) => {
+    if (!url) return '';
+    const normalized = url.startsWith('http') || url.startsWith('/') ? url : `/${url}`;
+    return normalized.includes('?') ? `${normalized}&scrollwheel=0` : `${normalized}?scrollwheel=0`;
+  };
+
+  // Handle scroll to close 360 tour
+  useEffect(() => {
+    if (!isTour360ModalOpen) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY > 40) {
+        setIsTour360ModalOpen(false);
+      }
+    };
+
+    // Small timeout to avoid accidental triggers
+    const timeout = setTimeout(() => {
+      window.addEventListener('wheel', handleWheel);
+    }, 500);
+
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, [isTour360ModalOpen]);
 
   // Delay controls for 3 seconds
   useEffect(() => {
@@ -371,7 +401,7 @@ export default function PropertyDetail() {
   return (
     <div className="bg-white min-h-screen">
       {/* Top Header */}
-      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-40 w-[1798px] max-w-[98%] pl-0 pr-14 py-4 transition-all duration-300">
+      <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-40 w-[1798px] max-w-[98%] pl-0 pr-14 py-4 transition-all duration-500 ${isTour360ModalOpen ? 'opacity-0 pointer-events-none -translate-y-full' : 'opacity-100'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -391,77 +421,112 @@ export default function PropertyDetail() {
 
       {/* Hero Gallery */}
       <section className="relative h-screen w-full bg-white overflow-hidden">
-        {(property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
-          <div className="w-full h-full flex flex-col items-center justify-center relative">
-            <img 
-              src="https://i.imgur.com/egg4k7M.png" 
-              alt="CR Imóveis" 
-              className="absolute inset-0 w-full h-full object-contain opacity-5 p-12 md:p-32"
-              referrerPolicy="no-referrer"
+        {isTour360ModalOpen && property.tour360Url ? (
+          <div className="w-full h-full relative z-50 overflow-hidden bg-black">
+            <iframe 
+              src={getTourUrl(property.tour360Url)} 
+              className="w-full h-full border-none"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             />
-            <Home className="w-16 h-16 text-marromescuro/20 mb-4 relative z-10" />
-            <span className="text-xl font-bold text-marromescuro/40 relative z-10 uppercase tracking-widest">Imóvel sem foto</span>
+            
+            {/* UI Overlay for Immersion Mode */}
+            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 z-[60]">
+              <button 
+                onClick={() => setIsTour360ModalOpen(false)}
+                className="p-4 bg-white/40 backdrop-blur-xl text-black rounded-full hover:bg-white/60 transition-all border border-white/40 shadow-2xl flex items-center gap-2 group"
+              >
+                <X className="w-6 h-6 transition-transform group-hover:rotate-90" />
+                <span className="text-sm font-bold uppercase tracking-widest hidden md:block">Fechar Tour</span>
+              </button>
+
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 0.6, y: 0 }}
+                transition={{ delay: 1 }}
+                className="flex flex-col items-center gap-2 text-white text-[10px] font-bold uppercase tracking-[0.2em] pointer-events-none text-center"
+              >
+                <span className="opacity-100 mb-1">Você está no modo imersivo</span>
+                <span className="opacity-50">clique em fechar para sair</span>
+              </motion.div>
+            </div>
           </div>
         ) : (
-          <img 
-            src={property.images[activeImage]} 
-            alt="Property" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        )}
+          <>
+            {(property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
+              <div className="w-full h-full flex flex-col items-center justify-center relative">
+                <img 
+                  src="https://i.imgur.com/egg4k7M.png" 
+                  alt="CR Imóveis" 
+                  className="absolute inset-0 w-full h-full object-contain opacity-5 p-12 md:p-32"
+                  referrerPolicy="no-referrer"
+                />
+                <Home className="w-16 h-16 text-marromescuro/20 mb-4 relative z-10" />
+                <span className="text-xl font-bold text-marromescuro/40 relative z-10 uppercase tracking-widest">Imóvel sem foto</span>
+              </div>
+            ) : (
+              <img 
+                src={property.images[activeImage]} 
+                alt="Property" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            )}
 
-        {/* Property Title Overlay */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="flex flex-col items-center gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ 
-                opacity: !showControls && activeImage === 0 ? 1 : 0.5,
-                y: 0
-              }}
-              transition={{ 
-                duration: 1.5,
-                ease: "easeOut"
-              }}
-              className="text-center px-6"
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 1, delay: 0.5 }}
-                className="flex justify-center"
-              >
-                <motion.h1 
+            {/* Property Title Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <div className="flex flex-col items-center gap-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ 
-                    backgroundPosition: ["-200% 0", "200% 0"] 
+                    opacity: !showControls && activeImage === 0 ? 1 : 0.5,
+                    y: 0
                   }}
                   transition={{ 
-                    duration: 6, 
-                    repeat: Infinity, 
-                    ease: "linear" 
+                    duration: 1.5,
+                    ease: "easeOut"
                   }}
-                  className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold tracking-tight italic bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] bg-[length:200%_auto] bg-clip-text text-transparent drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)] py-4 px-4 leading-relaxed"
+                  className="text-center px-6"
                 >
-                  {property.title}
-                </motion.h1>
-              </motion.div>
-            </motion.div>
-          </div>
-        </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 1, delay: 0.5 }}
+                    className="flex justify-center"
+                  >
+                    <motion.h1 
+                      animate={{ 
+                        backgroundPosition: ["-200% 0", "200% 0"] 
+                      }}
+                      transition={{ 
+                        duration: 6, 
+                        repeat: Infinity, 
+                        ease: "linear" 
+                      }}
+                      className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold tracking-tight italic bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] bg-[length:200%_auto] bg-clip-text text-transparent drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)] py-4 px-4 leading-relaxed"
+                    >
+                      {property.title}
+                    </motion.h1>
+                  </motion.div>
+                </motion.div>
+              </div>
+            </div>
 
-        {/* Bottom Gradient Overlay */}
-        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+            {/* Bottom Gradient Overlay */}
+            <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+          </>
+        )}
         
         {/* Navigation Arrows - Removed as requested */}
         <AnimatePresence>
-          {showControls && (
+          {showControls && !isTour360ModalOpen && (
             <>
               {/* Thumbnails Overlay - Delayed */}
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-2 w-[95vw] md:w-auto overflow-x-auto no-scrollbar snap-x"
+                exit={{ opacity: 0, y: 20 }}
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-2 w-[95vw] md:w-auto overflow-x-auto no-scrollbar snap-x z-20"
               >
                 {((property.floorPlanUrls && property.floorPlanUrls.length > 0 && property.floorPlanUrls[0] !== '') || property.floorPlanUrl) && (
                   <button 
@@ -933,7 +998,7 @@ export default function PropertyDetail() {
                 </div>
                 <div className="relative aspect-video w-full rounded-[32px] overflow-hidden shadow-2xl bg-gray-100 border border-marromescuro/5 group">
                   <iframe 
-                    src={property.tour360Url} 
+                    src={getTourUrl(property.tour360Url)} 
                     className="w-full h-full border-none"
                     allowFullScreen
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -1503,34 +1568,6 @@ export default function PropertyDetail() {
                     ))}
                   </div>
                 )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* 360 Tour Modal */}
-        <AnimatePresence>
-          {isTour360ModalOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
-            >
-              <button 
-                onClick={() => setIsTour360ModalOpen(false)}
-                className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all z-50"
-              >
-                <X className="w-6 h-6" />
-              </button>
-
-              <div className="relative w-full max-w-6xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl">
-                <iframe 
-                  src={property.tour360Url} 
-                  className="w-full h-full border-none"
-                  allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                />
               </div>
             </motion.div>
           )}
