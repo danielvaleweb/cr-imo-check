@@ -159,7 +159,17 @@ export default function PropertyDetail() {
 
   const getTourUrl = (url: string) => {
     if (!url) return '';
-    const normalized = url.startsWith('http') || url.startsWith('/') ? url : `/${url}`;
+    // Ensure absolute path from root
+    let normalized = url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`);
+    
+    // Ensure it points to index.html if it looks like a directory path
+    if (!normalized.includes('.') && !normalized.endsWith('/')) {
+      normalized = `${normalized}/index.html`;
+    } else if (normalized.endsWith('/')) {
+      normalized = `${normalized}index.html`;
+    }
+    
+    // Add scrollwheel parameter
     return normalized.includes('?') ? `${normalized}&scrollwheel=0` : `${normalized}?scrollwheel=0`;
   };
 

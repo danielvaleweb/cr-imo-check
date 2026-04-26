@@ -1,7 +1,22 @@
 {
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/tours/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ],
   "rewrites": [
     {
-      "source": "/((?!tours|api|_next|static|favicon.ico|.*\\..*).*)",
+      "source": "/tours/:path*",
+      "destination": "/tours/:path*"
+    },
+    {
+      "source": "/((?!tours|api|_next|static|favicon.ico).*)",
       "destination": "/index.html"
     }
   ]
