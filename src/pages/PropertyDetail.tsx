@@ -921,6 +921,39 @@ export default function PropertyDetail() {
               </div>
             </section>
 
+            {/* Tour Virtual Section */}
+            {property.tour360Url && (
+              <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-marromescuro">Tour Virtual 360º</h2>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-[#617964]/10 text-[#617964] rounded-full text-[10px] font-black uppercase tracking-wider">
+                    <RotateCcw className="w-3 h-3 animate-spin-slow" />
+                    Imersivo
+                  </div>
+                </div>
+                <div className="relative aspect-video w-full rounded-[32px] overflow-hidden shadow-2xl bg-gray-100 border border-marromescuro/5 group">
+                  <iframe 
+                    src={property.tour360Url} 
+                    className="w-full h-full border-none"
+                    allowFullScreen
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  />
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => setIsTour360ModalOpen(true)}
+                      className="p-3 bg-white/90 backdrop-blur-md text-marromescuro rounded-2xl shadow-xl hover:scale-105 transition-all"
+                      title="Ver em tela cheia"
+                    >
+                      <Maximize className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-marromescuro/40 font-medium italic">
+                  * Navegue pelo ambiente utilizando o mouse ou gestos no celular.
+                </p>
+              </section>
+            )}
+
             <section className="space-y-8">
               <h2 className="text-2xl font-bold text-marromescuro">Localização</h2>
               <div className="bg-linear-to-r from-[#132014] to-[#617964] p-8 rounded-[32px] shadow-sm border border-white/10 relative overflow-hidden">

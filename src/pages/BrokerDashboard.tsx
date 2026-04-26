@@ -140,6 +140,7 @@ import {
   Link,
   Instagram,
   ArrowLeft,
+  RotateCcw,
   Lock,
   LogIn,
   KeyRound,
@@ -3603,6 +3604,20 @@ export default function BrokerDashboard() {
                                 value={newPropertyData.videoUrl}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, videoUrl: e.target.value})}
                                 placeholder="https://youtube.com/watch?v=..."
+                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link do Tour 360 (Pano2VR)</label>
+                            <div className="relative">
+                              <RotateCcw className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input 
+                                type="text" 
+                                value={newPropertyData.tour360Url}
+                                onChange={(e) => setNewPropertyData({...newPropertyData, tour360Url: e.target.value})}
+                                placeholder="https://exemplo.com/tour-virtual/index.html"
                                 className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>

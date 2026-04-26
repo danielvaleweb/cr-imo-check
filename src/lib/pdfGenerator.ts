@@ -322,7 +322,8 @@ export const generateExclusivityPDF = (property: any, options: { returnUri?: boo
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(60, 60, 60);
-  const locationDate = `Juiz de Fora/MG, ${new Date(property.signatureDate || new Date()).toLocaleDateString('pt-BR')}`;
+  const dateStr = property.signatureDate ? new Date(property.signatureDate).toLocaleDateString('pt-BR') : '___/___/____';
+  const locationDate = `Juiz de Fora/MG, ${dateStr}`;
   doc.text(locationDate, pageWidth / 2, y, { align: 'center' });
 
   // Final Footer Call for the last page
@@ -649,7 +650,8 @@ export const generateNonExclusivityPDF = (property: any, options: { returnUri?: 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(60, 60, 60);
-  const locationDate = `Juiz de Fora/MG, ${new Date(property.signatureDate || new Date()).toLocaleDateString('pt-BR')}`;
+  const dateStr = property.signatureDate ? new Date(property.signatureDate).toLocaleDateString('pt-BR') : '___/___/____';
+  const locationDate = `Juiz de Fora/MG, ${dateStr}`;
   doc.text(locationDate, pageWidth / 2, y, { align: 'center' });
 
   // Final Footer Call for the last page
@@ -1025,8 +1027,8 @@ export const generateVisitFichaPDF = (visitData: any, options: { returnUri?: boo
   y += 10;
 
   doc.setFontSize(9);
-  addField('Data', visitData.date || new Date().toLocaleDateString('pt-BR'), 25, y, 30);
-  addField('Hora', visitData.time || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 90, y, 30);
+  addField('Data', visitData.date || '___/___/____', 25, y, 30);
+  addField('Hora', visitData.time || '__:__', 90, y, 30);
   y += 12;
 
   // 1. DADOS DO IMÓVEL
@@ -1241,7 +1243,7 @@ export const generateProposalFichaPDF = (proposalData: any, options: { returnUri
   // 3. CONDIÇÕES DA PROPOSTA
   y = drawSectionHeader('CONDIÇÕES DA PROPOSTA', y);
   y = checkPageBreak(y, 10);
-  addField('Valor ofertado', proposalData.offeredValue ? `R$ ${proposalData.offeredValue}` : 'R$ ', 25, y, 50);
+  addField('Valor ofertado', proposalData.offeredValue ? `R$ ${proposalData.offeredValue}` : 'R$ ___', 25, y, 50);
   y += 10;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
@@ -1278,7 +1280,7 @@ export const generateProposalFichaPDF = (proposalData: any, options: { returnUri
   // 4. CONDIÇÕES FINANCEIRAS
   y = drawSectionHeader('CONDIÇÕES FINANCEIRAS', y);
   y = checkPageBreak(y, 10);
-  addField('Valor de entrada', proposalData.entryValue ? `R$ ${proposalData.entryValue}` : 'R$ ', 25, y, 50);
+  addField('Valor de entrada', proposalData.entryValue ? `R$ ${proposalData.entryValue}` : 'R$ ___', 25, y, 50);
   y += 8;
   addField('Prazo para pagamento / financiamento', proposalData.paymentTerm, 25, y, 140);
   y += 8;
@@ -1336,7 +1338,7 @@ export const generateProposalFichaPDF = (proposalData: any, options: { returnUri
   doc.text('IMOBILIÁRIA', 164, y, { align: 'center' });
   
   y += 15;
-  addField('DATA', proposalData.currentDate || new Date().toLocaleDateString('pt-BR'), 25, y, 40);
+  addField('DATA', proposalData.currentDate || '___/___/____', 25, y, 40);
 
   // Final Footer Call
   drawFooter();
@@ -1479,9 +1481,9 @@ export const generateReserveFichaPDF = (reserveData: any, options: { returnUri?:
   // 4. VALOR E RESERVA
   y = drawSectionHeader('VALOR E RESERVA', y);
   y = checkPageBreak(y, 10);
-  addField('Valor da proposta', reserveData.proposalValue ? `R$ ${reserveData.proposalValue}` : 'R$ ', 25, y, 50);
+  addField('Valor da proposta', reserveData.proposalValue ? `R$ ${reserveData.proposalValue}` : 'R$ ___', 25, y, 50);
   y += 8;
-  addField('Valor do sinal (arras)', reserveData.signalValue ? `R$ ${reserveData.signalValue}` : 'R$ ', 25, y, 50);
+  addField('Valor do sinal (arras)', reserveData.signalValue ? `R$ ${reserveData.signalValue}` : 'R$ ___', 25, y, 50);
   y += 10;
   doc.setFont('helvetica', 'bold');
   doc.text('Forma de pagamento do sinal:', 25, y);
@@ -1579,7 +1581,7 @@ export const generateReserveFichaPDF = (reserveData: any, options: { returnUri?:
   doc.text('IMOBILIÁRIA', 152.5, y, { align: 'center' });
 
   y += 15;
-  addField('DATA', reserveData.currentDate || new Date().toLocaleDateString('pt-BR'), 25, y, 40);
+  addField('DATA', reserveData.currentDate || '___/___/____', 25, y, 40);
 
   // Final Footer Call
   drawFooter();
@@ -1804,6 +1806,9 @@ export const generateCreditAnalysisPDF = (analysisData: any, options: { returnUr
   doc.text('PRETENDENTE', 50, y, { align: 'center' });
   doc.text('FIADOR', 107, y, { align: 'center' });
   doc.text('RESPONSÁVEL ANÁLISE', 164, y, { align: 'center' });
+  
+  y += 15;
+  addField('DATA', analysisData.date || '___/___/____', 25, y, 40);
 
   drawFooter();
 
@@ -1929,12 +1934,12 @@ export const generateRentalFichaPDF = (data: any, options: { returnUri?: boolean
   addField('Tipo', data.propertyType, 25, y);
   addField('Finalidade', data.propertyPurpose, 90, y);
   y += 8;
-  addField('Valor do aluguel', `R$ ${data.rentAmount}`, 25, y);
-  addField('Encargos', `R$ ${data.chargesAmount}`, 90, y);
-  addField('Total mensal', `R$ ${data.totalAmount}`, 145, y);
+  addField('Valor do aluguel', `R$ ${data.rentAmount || '0,00'}`, 25, y);
+  addField('Encargos', `R$ ${data.chargesAmount || '0,00'}`, 90, y);
+  addField('Total mensal', `R$ ${data.totalAmount || '0,00'}`, 145, y);
   y += 8;
   addField('Início', data.startDate, 25, y);
-  addField('Prazo', `${data.contractTerm} meses`, 90, y);
+  addField('Prazo', `${data.contractTerm || '___'} meses`, 90, y);
   addField('Término', data.endDate, 145, y);
   y += 12;
 
@@ -1960,7 +1965,7 @@ export const generateRentalFichaPDF = (data: any, options: { returnUri?: boolean
     addField('RG', data.guarantorRg, 90, y);
     y += 8;
     addField('Profissão', data.guarantorProfession, 25, y);
-    addField('Renda mensal', `R$ ${data.guarantorIncome}`, 90, y);
+    addField('Renda mensal', `R$ ${data.guarantorIncome || '0,00'}`, 90, y);
     y += 8;
     addField('Endereço', data.guarantorAddress, 25, y);
     y += 8;
@@ -2000,7 +2005,7 @@ export const generateRentalFichaPDF = (data: any, options: { returnUri?: boolean
   doc.text('Data', 140, y);
   y += 10;
   doc.setFontSize(9);
-  doc.text(`Local: ${data.city || 'Curitiba'} - Data: ${data.date || new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, y, { align: 'center' });
+  doc.text(`Local: ${data.city || '___________'} - Data: ${data.date || '___/___/____'}`, pageWidth / 2, y, { align: 'center' });
 
   if (options.returnUri) {
     return doc.output('datauristring');
@@ -2098,7 +2103,7 @@ export const generateInspectionPDF = (data: any, options: { returnUri?: boolean 
 
   y = drawSectionHeader('Dados Gerais', y);
   addField('Tipo', data.type, 25, y);
-  addField('Data', data.date, 80, y);
+  addField('Data', data.date, 80, y, 40);
   addField('Hora', data.time, 140, y);
   y += 8;
   addField('Endereço', data.address, 25, y);
@@ -2361,7 +2366,7 @@ export const generateLegalDocPDF = (data: any, options: { returnUri?: boolean } 
   doc.text('Responsável Análise', 130, y);
   y += 15;
   doc.setFontSize(9);
-  doc.text(`Data: ${data.date}`, pageWidth / 2, y, { align: 'center' });
+  doc.text(`Data: ${data.date || '___/___/____'}`, pageWidth / 2, y, { align: 'center' });
 
   if (options.returnUri) {
     return doc.output('datauristring');
@@ -2520,7 +2525,7 @@ export const generateAfterSalesPDF = (data: any, options: { returnUri?: boolean 
   doc.text('Corretor', 135, y);
   y += 15;
   doc.setFontSize(9);
-  doc.text(`Local: Curitiba - Data: ${data.date || new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, y, { align: 'center' });
+  doc.text(`Local: ${data.city || '___________'} - Data: ${data.date || '___/___/____'}`, pageWidth / 2, y, { align: 'center' });
 
   if (options.returnUri) {
     return doc.output('datauristring');
