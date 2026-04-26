@@ -159,18 +159,7 @@ export default function PropertyDetail() {
 
   const getTourUrl = (url: string) => {
     if (!url) return '';
-    // Ensure absolute path from root
-    let normalized = url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`);
-    
-    // Ensure it points to index.html if it looks like a directory path
-    if (!normalized.includes('.') && !normalized.endsWith('/')) {
-      normalized = `${normalized}/index.html`;
-    } else if (normalized.endsWith('/')) {
-      normalized = `${normalized}index.html`;
-    }
-    
-    // Add scrollwheel parameter
-    return normalized.includes('?') ? `${normalized}&scrollwheel=0` : `${normalized}?scrollwheel=0`;
+    return url.startsWith('http') || url.startsWith('/') ? url : `/${url}`;
   };
 
   // Handle scroll to close 360 tour
@@ -178,15 +167,16 @@ export default function PropertyDetail() {
     if (!isTour360ModalOpen) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY > 40) {
+      // Small threshold to avoid accidental triggers
+      if (Math.abs(e.deltaY) > 20) {
         setIsTour360ModalOpen(false);
       }
     };
 
-    // Small timeout to avoid accidental triggers
+    // Delay adding the listener to give the iframe time to load
     const timeout = setTimeout(() => {
-      window.addEventListener('wheel', handleWheel);
-    }, 500);
+      window.addEventListener('wheel', handleWheel, { passive: true });
+    }, 1000);
 
     return () => {
       clearTimeout(timeout);
@@ -437,7 +427,8 @@ export default function PropertyDetail() {
               src={getTourUrl(property.tour360Url)} 
               className="w-full h-full border-none"
               allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; webxr"
+              loading="eager"
             />
             
             {/* UI Overlay for Immersion Mode */}

@@ -45,7 +45,7 @@ export const PROPERTIES = [
     categorySlug: "imovel-na-planta",
     code: "VT3TOS",
     listingType: "venda",
-    tour360Url: "tours/a-34/index.html"
+    tour360Url: "/tours/a-34/"
   },
   {
     id: 4,
