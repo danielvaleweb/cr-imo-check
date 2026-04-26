@@ -3610,17 +3610,22 @@ export default function BrokerDashboard() {
                           </div>
 
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link do Tour 360 (Pano2VR)</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
+                              <RotateCcw className="w-3 h-3" /> Tour Virtual 360º (Matterport ou Pano2VR)
+                            </label>
                             <div className="relative">
-                              <RotateCcw className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <ExternalLink className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                               <input 
                                 type="text" 
                                 value={newPropertyData.tour360Url}
                                 onChange={(e) => setNewPropertyData({...newPropertyData, tour360Url: e.target.value})}
-                                placeholder="https://exemplo.com/tour-virtual/index.html"
+                                placeholder="/tours/meu-imovel/index.html ou https://matterport.com/..."
                                 className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
                             </div>
+                            <p className="px-1 text-[10px] text-gray-400 font-medium italic">
+                              * Para tours locais (Pano2VR), coloque em uma pasta dentro de /public/tours/ e use o caminho relativo.
+                            </p>
                           </div>
                           
                           <div className="space-y-4">
@@ -3680,20 +3685,6 @@ export default function BrokerDashboard() {
                                   </div>
                                 </div>
                               ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link do Tour 360º</label>
-                            <div className="relative">
-                              <ExternalLink className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                              <input 
-                                type="text" 
-                                value={newPropertyData.tour360Url}
-                                onChange={(e) => setNewPropertyData({...newPropertyData, tour360Url: e.target.value})}
-                                placeholder="Link do tour virtual (Matterport, Kuula, etc)"
-                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
-                              />
                             </div>
                           </div>
 
@@ -4778,17 +4769,22 @@ export default function BrokerDashboard() {
                 {/* Media Links */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link da Imagem 360º</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
+                      <RotateCcw className="w-3 h-3" /> Tour Virtual 360º (Matterport ou Pano2VR)
+                    </label>
                     <div className="relative">
                       <ExternalLink className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input 
                         type="text" 
                         value={newCondoData.image360Url}
                         onChange={(e) => setNewCondoData({...newCondoData, image360Url: e.target.value})}
-                        placeholder="https://..."
+                        placeholder="/tours/meu-condominio/index.html ou https://matterport.com/..."
                         className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-6 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                       />
                     </div>
+                    <p className="px-1 text-[10px] text-gray-400 font-medium italic">
+                      * Para tours locais (Pano2VR), coloque em uma pasta dentro de /public/tours/ e use o caminho relativo.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link da Logo</label>

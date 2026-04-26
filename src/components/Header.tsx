@@ -181,7 +181,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
         : (shouldShow ? "#617964" : "transparent"));
 
   return (
-    <header ref={headerRef} className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[98%] max-w-[1800px] flex items-center gap-4">
+    <header ref={headerRef} className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[98%] max-w-[1800px] flex items-center gap-4 pointer-events-none">
       <motion.nav 
         initial={false}
         animate={{
@@ -192,7 +192,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
           boxShadow: shouldShow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "0 0px 0px 0px rgba(0, 0, 0, 0)",
         }}
         transition={{ duration: 0.4, ease: "easeInOut" }}
-        className="relative z-10 flex-1 rounded-full py-3 px-8 flex items-center justify-between border-transparent"
+        className="relative z-10 flex-1 rounded-full py-3 px-8 flex items-center justify-between border-transparent pointer-events-auto"
       >
         {/* Logo Section - Fade in on scroll */}
         <AnimatePresence>
@@ -350,7 +350,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className={`hidden lg:flex items-center gap-2 shrink-0 ${isCondoDetail ? 'drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]' : ''}`}
+                className={`hidden lg:flex items-center gap-2 shrink-0 pointer-events-auto ${isCondoDetail ? 'drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]' : ''}`}
               >
                 {/* Favorites Icon */}
                 <button 

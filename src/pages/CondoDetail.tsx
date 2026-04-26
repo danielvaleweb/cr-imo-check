@@ -32,7 +32,8 @@ import {
   Home,
   ChevronLeft,
   ChevronRight,
-  Compass
+  Compass,
+  RotateCcw
 } from 'lucide-react';
 import { useCondos } from '../context/CondoContext';
 import { useProperties } from '../context/PropertyContext';
@@ -202,6 +203,42 @@ export default function CondoDetail() {
   const [isGyroEnabled, setIsGyroEnabled] = useState(false);
   const [visibleProperties, setVisibleProperties] = useState(12);
 
+  const getTourUrl = (url: string) => {
+    if (!url) return '';
+    let normalized = url.startsWith('http') || url.startsWith('/') ? url : `/${url}`;
+    
+    // If it's a Pano2VR folder path, ensure it targets index.html
+    if (!normalized.includes('.') && !normalized.endsWith('/')) {
+      normalized = `${normalized}/index.html`;
+    } else if (normalized.endsWith('/')) {
+      normalized = `${normalized}index.html`;
+    }
+    
+    return normalized;
+  };
+
+  // Handle scroll to close 360 tour
+  useEffect(() => {
+    if (!is360Open) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Small threshold to avoid accidental triggers
+      if (Math.abs(e.deltaY) > 20) {
+        setIs360Open(false);
+      }
+    };
+
+    // Delay adding the listener to give the iframe/canvas time to load
+    const timeout = setTimeout(() => {
+      window.addEventListener('wheel', handleWheel, { passive: true });
+    }, 1000);
+
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, [is360Open]);
+
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 1000], [0, 300]);
   const heroOpacity = useTransform(scrollY, [0, 800], [1, 0.3]);
@@ -314,7 +351,7 @@ export default function CondoDetail() {
                     onClick={() => setIs360Open(true)}
                     className="px-8 py-4 bg-white/20 backdrop-blur-md border border-white/40 text-white rounded-full font-bold uppercase tracking-widest hover:bg-gradient-to-r hover:from-[#617964] hover:to-[#435B45] hover:border-transparent transition-all flex items-center gap-3 shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(97,121,100,0.4)]"
                   >
-                    <Eye className="w-5 h-5" />
+                    <RotateCcw className="w-5 h-5 animate-spin-slow" />
                     Ver em 360º
                   </button>
                 )}
@@ -322,22 +359,22 @@ export default function CondoDetail() {
             </motion.div>
           )}
         </AnimatePresence>
-        
-        {/* Back Button Overlay */}
-        <AnimatePresence>
-          {!is360Open && (
-            <motion.button 
-              initial={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              onClick={() => navigate(-1)}
-              className="absolute top-32 left-8 flex items-center gap-2 text-white/80 hover:text-white transition-colors font-bold group bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm z-10"
-            >
-              <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-              Voltar
-            </motion.button>
-          )}
-        </AnimatePresence>
       </div>
+
+      {/* Back Button Overlay */}
+      <AnimatePresence>
+        {!is360Open && (
+          <motion.button 
+            initial={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            onClick={() => navigate(-1)}
+            className="fixed top-32 left-8 flex items-center gap-2 text-white/80 hover:text-white transition-colors font-bold group bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm z-[70] shadow-xl"
+          >
+            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+            Voltar
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Content that scrolls over the hero */}
       <div className="relative z-20 mt-[50vh] md:mt-[70vh] min-h-screen">
@@ -524,61 +561,95 @@ export default function CondoDetail() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 1 }}
+            transition={{ duration: 0.5 }}
             className="fixed inset-0 z-[100] bg-black"
           >
-            <motion.div
-              initial={{ scale: 1.2, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 1.2, ease: [0.4, 0, 0.2, 1] }}
-              className="w-full h-full relative"
-            >
-              <button 
-                onClick={() => setIs360Open(false)}
-                className="absolute top-8 right-8 z-50 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full transition-all border border-white/20"
+            {/* Determine if it's a Pano2VR link (iframe) or a direct image (Three.js) */}
+            {condo.image360Url && (condo.image360Url.includes('.html') || !condo.image360Url.match(/\.(jpg|jpeg|png|webp)$|^https:\/\/i\.imgur\.com/)) ? (
+              <div className="w-full h-full relative">
+                <iframe 
+                  src={getTourUrl(condo.image360Url)} 
+                  className="w-full h-full border-none"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; webxr"
+                  loading="eager"
+                />
+                
+                {/* UI Overlay for Immersion Mode */}
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 z-[60]">
+                  <button 
+                    onClick={() => setIs360Open(false)}
+                    className="p-4 bg-white/40 backdrop-blur-xl text-black rounded-full hover:bg-white/60 transition-all border border-white/40 shadow-2xl flex items-center gap-2 group"
+                  >
+                    <X className="w-6 h-6 transition-transform group-hover:rotate-90" />
+                    <span className="text-sm font-bold uppercase tracking-widest hidden md:block">Fechar Tour</span>
+                  </button>
+
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 0.6, y: 0 }}
+                    transition={{ delay: 1 }}
+                    className="flex flex-col items-center gap-2 text-white text-[10px] font-bold uppercase tracking-[0.2em] pointer-events-none text-center"
+                  >
+                    <span className="opacity-100 mb-1">Você está no modo imersivo</span>
+                    <span className="opacity-50 font-medium italic">clique em fechar para sair</span>
+                  </motion.div>
+                </div>
+              </div>
+            ) : (
+              <motion.div
+                initial={{ scale: 1.2, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, duration: 1.2, ease: [0.4, 0, 0.2, 1] }}
+                className="w-full h-full relative"
               >
-                <X className="w-6 h-6" />
-              </button>
-              
-              <div className="absolute top-8 left-8 z-50 flex flex-col gap-3">
-                <div className="bg-black/40 backdrop-blur-md px-6 py-3 rounded-full text-white text-xs font-bold flex items-center gap-3 border border-white/10">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  MODO IMERSIVO: ARRASTE PARA EXPLORAR
+                <button 
+                  onClick={() => setIs360Open(false)}
+                  className="absolute top-8 right-8 z-50 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full transition-all border border-white/20"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                
+                <div className="absolute top-8 left-8 z-50 flex flex-col gap-3">
+                  <div className="bg-black/40 backdrop-blur-md px-6 py-3 rounded-full text-white text-xs font-bold flex items-center gap-3 border border-white/10">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    MODO IMERSIVO: ARRASTE PARA EXPLORAR
+                  </div>
+                  
+                  <button 
+                    onClick={toggleGyro}
+                    className={`px-6 py-3 rounded-full text-xs font-bold flex items-center gap-3 border transition-all backdrop-blur-md ${
+                      isGyroEnabled 
+                        ? 'bg-[#617964] border-[#617964] text-white shadow-[0_0_15px_rgba(97,121,100,0.4)]' 
+                        : 'bg-black/40 border-white/10 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Compass className={`w-4 h-4 ${isGyroEnabled ? 'animate-spin-slow' : ''}`} />
+                    {isGyroEnabled ? 'GIROSCÓPIO ATIVADO' : 'ATIVAR GIROSCÓPIO'}
+                  </button>
                 </div>
                 
-                <button 
-                  onClick={toggleGyro}
-                  className={`px-6 py-3 rounded-full text-xs font-bold flex items-center gap-3 border transition-all backdrop-blur-md ${
-                    isGyroEnabled 
-                      ? 'bg-[#617964] border-[#617964] text-white shadow-[0_0_15px_rgba(97,121,100,0.4)]' 
-                      : 'bg-black/40 border-white/10 text-white hover:bg-white/10'
-                  }`}
+                <Canvas 
+                  key={condo.image360Url || "default-360"}
+                  camera={{ position: [0, 0, 0.1], fov: 75 }}
+                  style={{ width: '100vw', height: '100vh' }}
+                  gl={{ antialias: true }}
                 >
-                  <Compass className={`w-4 h-4 ${isGyroEnabled ? 'animate-spin-slow' : ''}`} />
-                  {isGyroEnabled ? 'GIROSCÓPIO ATIVADO' : 'ATIVAR GIROSCÓPIO'}
-                </button>
-              </div>
-              
-              <Canvas 
-                key={condo.image360Url || "default-360"}
-                camera={{ position: [0, 0, 0.1], fov: 75 }}
-                style={{ width: '100vw', height: '100vh' }}
-                gl={{ antialias: true }}
-              >
-                <OrbitControls 
-                  enableZoom={false} 
-                  autoRotate={!isGyroEnabled} 
-                  autoRotateSpeed={0.4}
-                  rotateSpeed={-0.5} // Reverse for more natural feel
-                />
-                <React.Suspense fallback={null}>
-                  <Sphere360 
-                    imageUrl={condo.image360Url || "https://i.imgur.com/Gp90UvK.png"} 
-                    gyroEnabled={isGyroEnabled}
+                  <OrbitControls 
+                    enableZoom={false} 
+                    autoRotate={!isGyroEnabled} 
+                    autoRotateSpeed={0.4}
+                    rotateSpeed={-0.5} // Reverse for more natural feel
                   />
-                </React.Suspense>
-              </Canvas>
-            </motion.div>
+                  <React.Suspense fallback={null}>
+                    <Sphere360 
+                      imageUrl={condo.image360Url || "https://i.imgur.com/Gp90UvK.png"} 
+                      gyroEnabled={isGyroEnabled}
+                    />
+                  </React.Suspense>
+                </Canvas>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
