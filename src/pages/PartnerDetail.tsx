@@ -186,12 +186,7 @@ export default function PartnerDetail() {
                       Ligar para {partner.name}
                     </a>
                   )}
-                  {partner.email && (
-                    <a href={`mailto:${partner.email}`} className="flex items-center gap-3 text-sm font-bold text-gray-900 hover:text-[#617964] transition-colors">
-                      <Mail className="w-4 h-4 text-[#617964]" />
-                      E-Mail
-                    </a>
-                  )}
+
                   {partner.address && (
                     <a 
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partner.address)}`}
@@ -209,6 +204,11 @@ export default function PartnerDetail() {
               <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 space-y-4">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Redes Sociais</p>
                 <div className="flex gap-4">
+                  {partner.email && (
+                    <a href={`mailto:${partner.email}`} className="p-3 bg-white rounded-2xl shadow-sm text-gray-400 hover:text-[#617964] transition-all">
+                      <Mail className="w-6 h-6" />
+                    </a>
+                  )}
                   {partner.instagram && (
                     <a href={`https://instagram.com/${partner.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="p-3 bg-white rounded-2xl shadow-sm text-gray-400 hover:text-[#E4405F] transition-all">
                       <Instagram className="w-6 h-6" />
