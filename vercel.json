@@ -1,21 +1,7 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": true,
-  "headers": [
-    {
-      "source": "/tours/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
-      ]
-    }
-  ],
   "rewrites": [
     {
-      "source": "/tours/:path*",
-      "destination": "/tours/:path*"
-    },
-    {
-      "source": "/((?!tours|api|_next|static|favicon.ico).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
