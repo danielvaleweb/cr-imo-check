@@ -164,11 +164,22 @@ export default function Layout() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [whatsappForm, setWhatsappForm] = useState({ name: '', message: '' });
   const location = useLocation();
-  const isExcluded = 
-    location.pathname.startsWith('/admin') || 
-    location.pathname.startsWith('/editor') || 
-    location.pathname.startsWith('/parceiro') ||
-    (location.pathname.length > 1 && !['/', '/comprar', '/alugar', '/lancamentos', '/permuta', '/vender', '/condominios', '/sobre', '/contato', '/favoritos', '/exclusivos'].some(p => location.pathname.startsWith(p)));
+  const isExcluded = useMemo(() => {
+    const publicBaseRoutes = [
+      '/comprar', '/alugar', '/lancamentos', '/permuta', 
+      '/vender', '/condominios', '/condominio/', '/exclusivos', 
+      '/sobre', '/contato', '/imovel/', '/categoria/', 
+      '/favoritos', '/corretor/', '/proposta-compra/'
+    ];
+    
+    const isHome = location.pathname === '/';
+    const isPublic = publicBaseRoutes.some(route => location.pathname.startsWith(route));
+    
+    const isInternal = location.pathname.startsWith('/admin') || location.pathname.startsWith('/editor');
+    const isPartnerById = location.pathname.startsWith('/parceiro');
+
+    return isInternal || isPartnerById || (!isHome && !isPublic);
+  }, [location.pathname]);
 
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -9,6 +9,7 @@ export const INITIAL_PARTNERS = [
     website: "https://exemplo.com",
     email: "",
     phone: "(32) 99999-9999",
+    address: "",
     instagram: "@parceiro1",
     youtube: "",
     linkedin: ""
@@ -23,6 +24,7 @@ export const INITIAL_PARTNERS = [
     website: "https://exemplo.com",
     email: "",
     phone: "(32) 88888-8888",
+    address: "",
     instagram: "@parceiro2",
     youtube: "",
     linkedin: ""

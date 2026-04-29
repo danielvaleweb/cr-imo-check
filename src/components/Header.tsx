@@ -180,10 +180,22 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
         ? (shouldShow ? "rgba(55, 64, 1, 0.3)" : "rgba(55, 64, 1, 0)")
         : (shouldShow ? "#617964" : "transparent"));
 
-  const isExcluded = 
-    location.pathname.startsWith('/editor') || 
-    location.pathname.startsWith('/parceiro') ||
-    (location.pathname.length > 1 && !['/', '/comprar', '/alugar', '/lancamentos', '/permuta', '/vender', '/condominios', '/sobre', '/contato', '/favoritos', '/exclusivos'].some(p => location.pathname.startsWith(p)));
+  const isExcluded = (() => {
+    const publicBaseRoutes = [
+      '/comprar', '/alugar', '/lancamentos', '/permuta', 
+      '/vender', '/condominios', '/condominio/', '/exclusivos', 
+      '/sobre', '/contato', '/imovel/', '/categoria/', 
+      '/favoritos', '/corretor/', '/proposta-compra/'
+    ];
+    
+    const isHome = location.pathname === '/';
+    const isPublic = publicBaseRoutes.some(route => location.pathname.startsWith(route));
+    
+    const isInternal = location.pathname.startsWith('/admin') || location.pathname.startsWith('/editor');
+    const isPartnerById = location.pathname.startsWith('/parceiro');
+
+    return isInternal || isPartnerById || (!isHome && !isPublic);
+  })();
 
   if (isExcluded) return null;
 

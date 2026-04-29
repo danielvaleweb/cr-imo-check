@@ -166,6 +166,7 @@
         "videoUrl": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
+        "address": { "type": "string" },
         "website": { "type": "string" },
         "instagram": { "type": "string" },
         "youtube": { "type": "string" },

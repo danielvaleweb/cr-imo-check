@@ -43,6 +43,7 @@ export interface Partner {
   email: string;
   website: string;
   phone: string;
+  address: string;
   instagram: string;
   youtube: string;
   linkedin: string;
@@ -67,6 +68,7 @@ export const PartnersTab = () => {
     email: '',
     website: '',
     phone: '',
+    address: '',
     instagram: '',
     youtube: '',
     linkedin: ''
@@ -96,6 +98,7 @@ export const PartnersTab = () => {
       email: '',
       website: '',
       phone: '',
+      address: '',
       instagram: '',
       youtube: '',
       linkedin: ''
@@ -133,6 +136,7 @@ export const PartnersTab = () => {
       email: partner.email || '',
       website: partner.website || '',
       phone: partner.phone || '',
+      address: partner.address || '',
       instagram: partner.instagram || '',
       youtube: partner.youtube || '',
       linkedin: partner.linkedin || ''
@@ -396,6 +400,16 @@ export const PartnersTab = () => {
                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
                       />
                     </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Endereço</label>
+                       <input 
+                         type="text" 
+                         placeholder="Ex: Rua Exemplo, 123 - Centro"
+                         className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:border-[#617964] transition-all font-medium"
+                         value={formData.address}
+                         onChange={(e) => setFormData({...formData, address: e.target.value})}
+                       />
+                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Instagram (@)</label>

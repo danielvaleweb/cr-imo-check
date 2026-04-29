@@ -10,6 +10,7 @@ import {
   Linkedin, 
   Phone, 
   Mail,
+  MapPin,
   ArrowLeft,
   MessageCircle,
   ExternalLink,
@@ -29,6 +30,7 @@ interface Partner {
   email: string;
   website: string;
   phone: string;
+  address: string;
   instagram: string;
   youtube: string;
   linkedin: string;
@@ -188,6 +190,17 @@ export default function PartnerDetail() {
                     <a href={`mailto:${partner.email}`} className="flex items-center gap-3 text-sm font-bold text-gray-900 hover:text-[#617964] transition-colors">
                       <Mail className="w-4 h-4 text-[#617964]" />
                       E-Mail
+                    </a>
+                  )}
+                  {partner.address && (
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partner.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-sm font-bold text-gray-900 hover:text-[#617964] transition-colors"
+                    >
+                      <MapPin className="w-4 h-4 text-[#617964]" />
+                      Endereço
                     </a>
                   )}
                 </div>
