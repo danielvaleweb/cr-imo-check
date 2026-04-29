@@ -121,7 +121,7 @@ export default function PartnerDetail() {
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="flex items-center gap-2 text-sm font-black text-gray-900 group"
           >
             <div className="p-2 bg-gray-50 rounded-xl group-hover:bg-gray-100 transition-all">
