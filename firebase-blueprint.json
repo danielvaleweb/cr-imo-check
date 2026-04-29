@@ -149,9 +149,37 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["propertyType", "transactionType", "ownerName", "ownerEmail", "acceptedTerms"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "A business partner of the agency",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "slug": { "type": "string" },
+        "bio": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "headerLogoUrl": { "type": "string" },
+        "coverImageUrl": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "website": { "type": "string" },
+        "instagram": { "type": "string" },
+        "youtube": { "type": "string" },
+        "linkedin": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "logoUrl"]
     }
   },
   "firestore": {
+    "partners": {
+      "schema": { "$ref": "#/entities/Partner" },
+      "description": "Collection of all business partners"
+    },
     "property_leads": {
       "schema": { "$ref": "#/entities/PropertyLead" },
       "description": "Collection of all property leads"

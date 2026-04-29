@@ -164,7 +164,11 @@ export default function Layout() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [whatsappForm, setWhatsappForm] = useState({ name: '', message: '' });
   const location = useLocation();
-  const isDashboard = location.pathname.startsWith('/admin');
+  const isExcluded = 
+    location.pathname.startsWith('/admin') || 
+    location.pathname.startsWith('/editor') || 
+    location.pathname.startsWith('/parceiro') ||
+    (location.pathname.length > 1 && !['/', '/comprar', '/alugar', '/lancamentos', '/permuta', '/vender', '/condominios', '/sobre', '/contato', '/favoritos', '/exclusivos'].some(p => location.pathname.startsWith(p)));
 
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,7 +229,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen selection:bg-brand-rust/20 font-sans overflow-x-hidden">
-      {!isDashboard && (
+      {!isExcluded && (
         <>
           <Header 
             isScrolled={isScrolled} 
@@ -279,7 +283,7 @@ export default function Layout() {
         )}
       </AnimatePresence>
 
-      {!isDashboard && <Footer />}
+      {!isExcluded && <Footer />}
 
       <LoginModal 
         isOpen={isLoginModalOpen} 
@@ -364,7 +368,7 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Floating WhatsApp Button */}
-      {!isDashboard && (
+      {!isExcluded && (
         <motion.button
           onClick={() => setIsWhatsAppModalOpen(true)}
           initial={{ scale: 0, opacity: 0 }}

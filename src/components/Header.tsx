@@ -180,10 +180,15 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
         ? (shouldShow ? "rgba(55, 64, 1, 0.3)" : "rgba(55, 64, 1, 0)")
         : (shouldShow ? "#617964" : "transparent"));
 
-  if (location.pathname === '/editor') return null;
+  const isExcluded = 
+    location.pathname.startsWith('/editor') || 
+    location.pathname.startsWith('/parceiro') ||
+    (location.pathname.length > 1 && !['/', '/comprar', '/alugar', '/lancamentos', '/permuta', '/vender', '/condominios', '/sobre', '/contato', '/favoritos', '/exclusivos'].some(p => location.pathname.startsWith(p)));
+
+  if (isExcluded) return null;
 
   return (
-    <header ref={headerRef} className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[98%] max-w-[1800px] flex items-center gap-4 pointer-events-none">
+    <header ref={headerRef} className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[98%] max-w-[1800px] flex items-center gap-4 pointer-events-none">
       <motion.nav 
         initial={false}
         animate={{

@@ -258,7 +258,7 @@ export function PhotoEditorTab() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 sm:p-6 mx-auto">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 mx-auto">
         <div className="flex bg-gray-100 p-1.5 rounded-2xl w-full max-w-md mx-auto mb-6 sm:mb-8">
             <button
               onClick={() => setMode('edit')}
@@ -321,7 +321,7 @@ export function PhotoEditorTab() {
 
         {/* Upload Area */}
         <div 
-          className={`border-2 border-dashed rounded-[2rem] p-8 sm:p-12 flex flex-col items-center justify-center transition-all cursor-pointer group ${
+          className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 flex flex-col items-center justify-center transition-all cursor-pointer group ${
             isDragging ? 'border-[#617964] bg-[#617964]/5' : 'border-gray-100 hover:border-[#617964]/30 bg-gray-50/50'
           }`}
           onDragOver={handleDragOver}
@@ -376,7 +376,18 @@ export function PhotoEditorTab() {
                     {file.processedBase64 ? (
                       <img src={file.processedBase64} className="w-full h-full object-cover" alt="Processed" />
                     ) : file.previewUrl ? (
-                      <img src={file.previewUrl} className="w-full h-full object-cover opacity-50" alt="Original Preview" />
+                      <>
+                        <img src={file.previewUrl} className="w-full h-full object-cover opacity-50" alt="Original Preview" />
+                        {mode === 'watermark' && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
+                            <img 
+                              src={targetLogo === 'black' ? 'https://i.imgur.com/PsQnJ9g.png' : 'https://i.imgur.com/FLnyJIe.png'} 
+                              className="w-1/2 h-auto opacity-30 object-contain" 
+                              alt="Watermark Overlay"
+                            />
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                          <ImageIcon className="w-8 h-8 opacity-50" />
@@ -441,7 +452,7 @@ export function PhotoEditorTab() {
               <div className="flex justify-center mt-8">
                  <button
                    onClick={downloadAll}
-                   className="w-full sm:w-auto px-8 py-4 text-[10px] font-black uppercase tracking-widest text-white bg-marromescuro hover:bg-black rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-black/10"
+                   className="w-full sm:w-auto px-8 py-4 text-[10px] font-black uppercase tracking-widest text-white bg-marromescuro hover:bg-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-black/10"
                  >
                    <Download className="w-4 h-4" />
                    Baixar Tudo Concluído

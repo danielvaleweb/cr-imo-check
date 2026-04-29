@@ -23,6 +23,7 @@ import { CondoProvider } from './context/CondoContext';
 import CondoDetail from './pages/CondoDetail';
 import Condos from './pages/Condos';
 import EditorPage from './pages/EditorPage';
+import PartnerDetail from './pages/PartnerDetail';
 import ErrorBoundary from './components/ErrorBoundary';
 import SiteLoader from './components/SiteLoader';
 
@@ -52,9 +53,11 @@ export default function App() {
                   <Route path="favoritos" element={<Favorites />} />
                   <Route path="corretor/:id" element={<BrokerProfile />} />
                   <Route path="editor" element={<EditorPage />} />
+                  <Route path="parceiro/:id" element={<PartnerDetail />} />
                   <Route path="admin" element={<BrokerDashboard />} />
                   <Route path="dashboard-corretor" element={<Navigate to="/admin" replace />} />
                   <Route path="proposta-compra/:id" element={<PurchaseProposal />} />
+                  <Route path="/:id" element={<PartnerDetail />} />
                 </Route>
               </Routes>
             </BrowserRouter>

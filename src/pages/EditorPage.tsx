@@ -98,14 +98,13 @@ export default function EditorPage() {
   };
 
   return (
-    <div className="pt-10 pb-20 px-4 sm:px-6 bg-[#f0f4f0] min-h-screen relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#f0f4f0] relative overflow-x-hidden">
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b from-[#617964]/20 via-[#617964]/5 to-transparent pointer-events-none" />
       
-      <div className="max-w-6xl mx-auto space-y-12 relative z-10">
-        
-        {/* Navigation Bar */}
-        <div className="flex items-center justify-between">
+      {/* Sticky Navigation Bar */}
+      <div className="sticky top-0 z-[100] bg-[#f0f4f0]/80 backdrop-blur-xl border-b border-marromescuro/5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
           <button 
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-marromescuro/60 hover:text-marromescuro transition-all group"
@@ -120,9 +119,11 @@ export default function EditorPage() {
              <span className="text-[10px] font-black uppercase tracking-widest text-marromescuro/40">Studio de Criação</span>
           </div>
         </div>
+      </div>
 
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 space-y-12 relative z-10">
         {/* 1. PHOTO STUDIO (GREEN IDENTITY) */}
-        <section className="bg-gradient-to-br from-[#617964] to-[#4a5c4c] rounded-[3rem] p-6 sm:p-10 text-white shadow-2xl relative overflow-hidden group">
+        <section className="bg-gradient-to-br from-[#617964] to-[#4a5c4c] rounded-2xl p-6 sm:p-10 text-white shadow-2xl relative overflow-hidden group">
           {/* Logo Branding */}
           <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
              <Sparkles className="w-40 h-40" />
@@ -153,7 +154,7 @@ export default function EditorPage() {
         {/* 2. DESCRIPTION GENERATOR (RESTYLED WITH GREEN IDENTITY) */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          <div className="bg-gradient-to-br from-[#617964] to-[#4a5c4c] rounded-[3rem] p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-[#617964] to-[#4a5c4c] rounded-2xl p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 transform translate-x-4 -translate-y-4 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
                <Wand2 className="w-32 h-32" />
             </div>
@@ -232,7 +233,7 @@ export default function EditorPage() {
                 <button 
                   onClick={generateAIContent}
                   disabled={isGenerating || !formData.title}
-                  className="w-full py-5 bg-white text-[#617964] rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4 disabled:opacity-50"
+                  className="w-full py-5 bg-white text-[#617964] rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4 disabled:opacity-50"
                 >
                   <Sparkles className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
                   {isGenerating ? 'Sincronizando com Gemini...' : 'Gerar Descrição de Luxo'}
@@ -242,7 +243,7 @@ export default function EditorPage() {
           </div>
 
           {/* AI Result Side with Green Identity */}
-          <div className="bg-gradient-to-br from-[#617964] to-[#4a5c4c] rounded-[3rem] p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col h-full group">
+          <div className="bg-gradient-to-br from-[#617964] to-[#4a5c4c] rounded-2xl p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col h-full group">
              <div className="absolute top-0 right-0 p-8 transform translate-x-4 -translate-y-4 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
                 <Sparkles className="w-32 h-32" />
              </div>
@@ -268,7 +269,7 @@ export default function EditorPage() {
                    )}
                 </div>
 
-                <div className="flex-1 bg-black/10 rounded-[2rem] border border-white/5 p-6 overflow-hidden">
+                <div className="flex-1 bg-black/10 rounded-2xl border border-white/5 p-6 overflow-hidden">
                    {formData.description ? (
                      <textarea 
                         value={formData.description}
@@ -299,11 +300,11 @@ export default function EditorPage() {
 
         {/* Property Picker Modal */}
         {showPropertyPicker && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-marromescuro/90 backdrop-blur-md">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-marromescuro/90 backdrop-blur-md">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              className="bg-white w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
+              className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
             >
               <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
                 <div>

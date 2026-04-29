@@ -8,6 +8,7 @@ import { CATEGORIES } from '../constants/categories';
 import { useNavigate } from 'react-router-dom';
 import { useProperties } from '../context/PropertyContext';
 import { useBrokers } from '../context/BrokerContext';
+import { PartnersSection } from '../components/PartnersSection';
 
 const TypewriterVerse = () => {
   const text = '"Mas busquem em primeiro lugar o Reino de Deus e a sua justiça, e todas estas coisas lhes serão acrescentadas"';
@@ -389,6 +390,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <PartnersSection />
 
       </div>
     );
