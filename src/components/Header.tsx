@@ -435,7 +435,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
             exit={{ opacity: 0, y: -40, scale: 0.95 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             style={{ left: dropdownLeft, top: '100%' }}
-            className="absolute -translate-x-1/2 mt-2 w-64 rounded-[2rem] shadow-2xl border border-white/10 overflow-hidden p-2 z-0"
+            className="absolute -translate-x-1/2 mt-2 w-64 rounded-[2rem] shadow-2xl border border-white/10 overflow-hidden p-2 z-[100] pointer-events-auto"
             onMouseEnter={handleCondoMouseEnter}
             onMouseLeave={handleCondoMouseLeave}
           >
@@ -488,7 +488,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
             exit={{ opacity: 0, y: -40, scale: 0.95 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             style={{ left: launchDropdownLeft, top: '100%' }}
-            className="absolute -translate-x-1/2 mt-2 w-72 rounded-[2rem] shadow-2xl border border-white/10 overflow-hidden p-2 z-0"
+            className="absolute -translate-x-1/2 mt-2 w-72 rounded-[2rem] shadow-2xl border border-white/10 overflow-hidden p-2 z-[100] pointer-events-auto"
             onMouseEnter={handleLaunchMouseEnter}
             onMouseLeave={handleLaunchMouseLeave}
           >

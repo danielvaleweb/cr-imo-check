@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Heart, ArrowLeft, Trash2, MapPin, Building2, Waves, Dumbbell, UtensilsCrossed, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Heart, ChevronLeft, Trash2, MapPin, Building2, Waves, Dumbbell, UtensilsCrossed, ShieldCheck, ChevronRight } from 'lucide-react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import React, { useState } from 'react';
 import { useProperties } from '../context/PropertyContext';
@@ -38,9 +38,9 @@ export default function Favorites() {
           <div className="space-y-4">
             <button 
               onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-sm font-bold text-marromescuro hover:opacity-80 transition-all"
+              className="flex items-center gap-2 text-sm font-bold text-marromescuro hover:opacity-80 transition-all group"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               <span>Voltar</span>
             </button>
           </div>

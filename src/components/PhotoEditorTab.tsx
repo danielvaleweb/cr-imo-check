@@ -12,6 +12,7 @@ interface ProcessedFile {
 
 export function PhotoEditorTab() {
   const [mode, setMode] = useState<'edit' | 'watermark'>('edit');
+  const [targetLogo, setTargetLogo] = useState<'auto' | 'white' | 'black'>('auto');
   const [files, setFiles] = useState<ProcessedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,43 +105,58 @@ export function PhotoEditorTab() {
           let contrast = 100;
           
           if (avgBrightness < 80) { // Very dark
-            brightness = 120;
-            contrast = 105;
+            brightness = 125;
+            contrast = 110;
           } else if (avgBrightness < 110) { // Slightly dark
-            brightness = 110;
-            contrast = 103;
+            brightness = 115;
+            contrast = 105;
           } else if (isBlownOut) { // Highlights blown out
             brightness = 90;
-            contrast = 105;
+            contrast = 108;
           } else if (avgBrightness > 190) { // Too bright overall
             brightness = 95;
-            contrast = 102;
+            contrast = 105;
           }
 
-          ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+          ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(105%)`;
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0);
           
-          const processedUrl = canvas.toDataURL('image/jpeg', 0.95);
+          const processedUrl = canvas.toDataURL('image/jpeg', 0.92);
           resolve({ ...fileData, processedBase64: processedUrl, status: 'done', isDark });
 
         } else if (mode === 'watermark') {
           // Add Watermark
-          const watermarkUrl = isDark 
-            ? 'https://i.imgur.com/FLnyJIe.png' // White for dark images
-            : 'https://i.imgur.com/PsQnJ9g.png'; // Black for light images
+          let watermarkUrl = 'https://i.imgur.com/FLnyJIe.png'; // Default White
+          
+          if (targetLogo === 'white') {
+            watermarkUrl = 'https://i.imgur.com/FLnyJIe.png';
+          } else if (targetLogo === 'black') {
+            watermarkUrl = 'https://i.imgur.com/PsQnJ9g.png';
+          } else {
+            // Auto detection logic
+            watermarkUrl = isDark 
+              ? 'https://i.imgur.com/FLnyJIe.png' // White for dark images
+              : 'https://i.imgur.com/PsQnJ9g.png'; // Black for light images
+          }
 
           const wmImg = new Image();
           wmImg.crossOrigin = 'Anonymous';
           wmImg.onload = () => {
-            ctx.globalAlpha = 0.4; // 40% opacity as requested
+            // First draw the clean image
+            ctx.filter = 'none';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+
+            ctx.globalAlpha = 0.5; // Slightly increased opacity for better visibility
             
-            // Adjust watermark size (e.g., 40% of the image width)
-            const maxWmWidth = canvas.width * 0.4;
+            // Adjust watermark size (45% of the shortest side)
+            const shortestSide = Math.min(canvas.width, canvas.height);
+            const maxWmWidth = shortestSide * 0.45;
             let scale = maxWmWidth / wmImg.width;
             
-            // Prevent watermark from getting extremely large if image is too large
-            if (scale > 2) scale = 1.5;
+            // Scale constraints
+            if (scale > 3) scale = 3;
             
             const wmW = wmImg.width * scale;
             const wmH = wmImg.height * scale;
@@ -151,10 +167,11 @@ export function PhotoEditorTab() {
             ctx.drawImage(wmImg, x, y, wmW, wmH);
             ctx.globalAlpha = 1.0;
             
-            const processedUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const processedUrl = canvas.toDataURL('image/jpeg', 0.92);
             resolve({ ...fileData, processedBase64: processedUrl, status: 'done', isDark });
           };
           wmImg.onerror = () => {
+            // If watermark fails, return error rather than unwatermarked image
             resolve({ ...fileData, status: 'error' });
           }
           wmImg.src = watermarkUrl;
@@ -169,32 +186,45 @@ export function PhotoEditorTab() {
   };
 
   const processAll = async () => {
-    // mark all pending as processing
+    const filesToProcess = files.filter(f => f.status === 'pending');
+    if (filesToProcess.length === 0) return;
+
+    // First mark all as processing to show UI feedback
     setFiles(prev => prev.map(f => f.status === 'pending' ? { ...f, status: 'processing' } : f));
     
-    // Process one by one or Promise.all. For performance, let's do Promise.all chunks, 
-    // but a simple map with Promise.all is fine for normal numbers of images in browser
-    
-    // To prevent React state getting messy with parallel async updates, process loop:
-    const currentFiles = [...files];
-    for (let i = 0; i < currentFiles.length; i++) {
-       if (currentFiles[i].status !== 'pending') continue;
-       const result = await processImage(currentFiles[i]);
-       
-       if (result.status === 'done' && result.processedBase64) {
-         addLog(
-           'photo_editor',
-           mode === 'watermark' ? 'Aplicou Marca d\'Água' : 'Editou Foto (IA)',
-           `Arquivo: ${result.originalFile.name}`
-         );
-       }
+    // Process all pending files in parallel
+    const processPromises = filesToProcess.map(async (file) => {
+      try {
+        const result = await processImage(file);
+        
+        if (result.status === 'done' && result.processedBase64) {
+          addLog(
+            'photo_editor',
+            mode === 'watermark' ? 'Aplicou Marca d\'Água' : 'Editou Foto (IA)',
+            `Arquivo: ${result.originalFile.name}`
+          );
+        }
+        return result;
+      } catch (error) {
+        console.error(`Erro ao processar ${file.originalFile.name}:`, error);
+        return { ...file, status: 'error' as const };
+      }
+    });
 
-       setFiles(prev => {
-          const newArr = [...prev];
-          newArr[i] = result;
-          return newArr;
-       });
-    }
+    const results = await Promise.all(processPromises);
+
+    // Update state for all processed files at once
+    setFiles(prev => {
+      const newFiles = [...prev];
+      let resultIdx = 0;
+      
+      return newFiles.map(f => {
+        if (f.status === 'processing') {
+          return results[resultIdx++] || f;
+        }
+        return f;
+      });
+    });
   };
 
   const doDownload = (base64Data: string, originalName: string) => {
@@ -252,6 +282,41 @@ export function PhotoEditorTab() {
                Marca d'Água
              </button>
         </div>
+
+        {mode === 'watermark' && (
+          <div className="flex justify-center gap-4 mb-8">
+            <button
+              onClick={() => setTargetLogo('auto')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                targetLogo === 'auto' 
+                  ? 'bg-gray-900 text-white border-gray-900' 
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              Logo Automático
+            </button>
+            <button
+              onClick={() => setTargetLogo('white')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                targetLogo === 'white' 
+                  ? 'bg-white text-gray-900 border-gray-900 shadow-sm' 
+                  : 'bg-gray-100 text-gray-400 border-gray-200'
+              }`}
+            >
+              Forçar Logo Branco
+            </button>
+            <button
+              onClick={() => setTargetLogo('black')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                targetLogo === 'black' 
+                  ? 'bg-gray-900 text-white border-gray-900' 
+                  : 'bg-white text-gray-900 border-gray-200'
+              }`}
+            >
+              Forçar Logo Preto
+            </button>
+          </div>
+        )}
 
         {/* Upload Area */}
         <div 

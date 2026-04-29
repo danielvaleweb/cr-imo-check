@@ -364,15 +364,13 @@ export default function CondoDetail() {
       {/* Back Button Overlay */}
       <AnimatePresence>
         {!is360Open && (
-          <motion.button 
-            initial={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+          <button 
             onClick={() => navigate(-1)}
             className="fixed top-32 left-8 flex items-center gap-2 text-white/80 hover:text-white transition-colors font-bold group bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm z-[70] shadow-xl"
           >
-            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+            <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             Voltar
-          </motion.button>
+          </button>
         )}
       </AnimatePresence>
 

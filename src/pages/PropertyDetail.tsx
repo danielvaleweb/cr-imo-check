@@ -415,13 +415,13 @@ export default function PropertyDetail() {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => navigate(-1)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-2xl ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-2xl group ${
                 scrolled 
                   ? 'bg-white text-black opacity-100 border border-black/10' 
                   : 'bg-white/10 backdrop-blur-md border border-white/20 text-white opacity-90 hover:bg-white/20'
               }`}
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               <span>Voltar</span>
             </button>
           </div>
@@ -430,7 +430,8 @@ export default function PropertyDetail() {
 
       {/* Hero Gallery */}
       <section className="relative h-screen w-full bg-white overflow-hidden">
-        {(property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
+            {/* Hero Gallery Image */}
+            {(property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
               <div className="w-full h-full flex flex-col items-center justify-center relative">
                 <img 
                   src="https://i.imgur.com/egg4k7M.png" 
@@ -615,9 +616,9 @@ export default function PropertyDetail() {
                   referrerPolicy="no-referrer"
                 />
                 
-                {/* Watermark */}
+                {/* Text Watermark */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-                  <div className="flex flex-col items-center justify-center opacity-50">
+                  <div className="flex flex-col items-center justify-center opacity-20">
                     <span className="text-white text-base md:text-2xl font-bold tracking-widest uppercase -rotate-12 whitespace-nowrap drop-shadow-lg">
                       Direitos reservados CR Imóveis 2026 ©
                     </span>

@@ -1,15 +1,24 @@
 import { motion } from 'motion/react';
-import { Award, Target, Heart, Phone, Mail, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Award, Target, Heart, Phone, Mail, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useBrokers } from '../context/BrokerContext';
 import { useProperties } from '../context/PropertyContext';
 
 export default function About() {
   const { brokers } = useBrokers();
   const { properties } = useProperties();
+  const navigate = useNavigate();
   return (
     <div className="pt-32 pb-20 px-6 bg-brand-cream min-h-screen">
       <div className="max-w-7xl mx-auto space-y-24">
+        {/* Back Button */}
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm font-bold text-marromescuro/60 hover:text-marromescuro transition-all group"
+        >
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span>Voltar</span>
+        </button>
         {/* Story Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="relative">

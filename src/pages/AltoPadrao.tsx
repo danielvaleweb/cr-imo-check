@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Search } from 'lucide-react';
+import { Search, ChevronLeft } from 'lucide-react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import React from 'react';
 import { useProperties } from '../context/PropertyContext';
@@ -18,6 +18,17 @@ export default function AltoPadrao() {
   return (
     <div className="pt-32 pb-20 px-6 bg-brancobg min-h-screen">
       <div className="max-w-7xl mx-auto space-y-12">
+        {/* Header */}
+        <div className="space-y-6">
+          <button 
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-marromescuro/60 hover:text-marromescuro transition-colors group"
+          >
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span>Voltar</span>
+          </button>
+        </div>
+
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProperties.length > 0 ? (
