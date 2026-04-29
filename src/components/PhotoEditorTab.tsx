@@ -103,26 +103,32 @@ export function PhotoEditorTab() {
           // Subtle AI-like enhancement logic
           let brightness = 100;
           let contrast = 100;
+          let saturation = 105;
           
-          if (avgBrightness < 80) { // Very dark
-            brightness = 125;
-            contrast = 110;
-          } else if (avgBrightness < 110) { // Slightly dark
-            brightness = 115;
-            contrast = 105;
-          } else if (isBlownOut) { // Highlights blown out
-            brightness = 90;
+          if (avgBrightness < 80) { // Muito escuro
+            brightness = 130;
+            contrast = 115;
+            saturation = 112;
+          } else if (avgBrightness < 110) { // Um pouco escuro
+            brightness = 118;
             contrast = 108;
-          } else if (avgBrightness > 190) { // Too bright overall
+            saturation = 108;
+          } else if (isBlownOut) { // Estourado / Muito claro
+            brightness = 92;
+            contrast = 106;
+            saturation = 100;
+          } else if (avgBrightness > 190) { // Muito claro geral
             brightness = 95;
-            contrast = 105;
+            contrast = 104;
+            saturation = 100;
           }
 
-          ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(105%)`;
+          // Aplicando correção de nitidez e vibração
+          ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0);
           
-          const processedUrl = canvas.toDataURL('image/jpeg', 0.92);
+          const processedUrl = canvas.toDataURL('image/jpeg', 0.90);
           resolve({ ...fileData, processedBase64: processedUrl, status: 'done', isDark });
 
         } else if (mode === 'watermark') {
@@ -251,45 +257,40 @@ export function PhotoEditorTab() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Editor de Fotos IA</h1>
-        <p className="text-sm lg:text-base text-gray-500 font-medium">Melhore detalhes de luzes ou adicione marca d'água automaticamente.</p>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-4xl mx-auto">
-        <div className="flex bg-gray-100 p-1 rounded-xl w-full max-w-md mx-auto mb-8">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 sm:p-6 mx-auto">
+        <div className="flex bg-gray-100 p-1.5 rounded-2xl w-full max-w-md mx-auto mb-6 sm:mb-8">
             <button
               onClick={() => setMode('edit')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+              className={`flex-1 py-3 px-4 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                 mode === 'edit'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-white text-marromescuro shadow-sm'
+                  : 'text-marromescuro/40 hover:text-marromescuro'
               }`}
             >
-              <Sparkles className="w-4 h-4" />
-              Editar Foto
+              <Sparkles className="w-3.5 h-3.5" />
+              Editar
             </button>
             <button
                onClick={() => setMode('watermark')}
-               className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+               className={`flex-1 py-3 px-4 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                  mode === 'watermark'
-                   ? 'bg-white text-gray-900 shadow-sm'
-                   : 'text-gray-500 hover:text-gray-900'
+                   ? 'bg-white text-marromescuro shadow-sm'
+                   : 'text-marromescuro/40 hover:text-marromescuro'
                }`}
              >
-               <Layers className="w-4 h-4" />
+               <Layers className="w-3.5 h-3.5" />
                Marca d'Água
              </button>
         </div>
 
         {mode === 'watermark' && (
-          <div className="flex justify-center gap-4 mb-8">
+          <div className="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
             <button
               onClick={() => setTargetLogo('auto')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+              className={`flex-1 sm:flex-none min-w-[120px] px-3 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight transition-all border ${
                 targetLogo === 'auto' 
-                  ? 'bg-gray-900 text-white border-gray-900' 
+                  ? 'bg-gray-900 text-white border-gray-900 shadow-md' 
                   : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -297,31 +298,31 @@ export function PhotoEditorTab() {
             </button>
             <button
               onClick={() => setTargetLogo('white')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+              className={`flex-1 sm:flex-none min-w-[120px] px-3 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight transition-all border ${
                 targetLogo === 'white' 
-                  ? 'bg-white text-gray-900 border-gray-900 shadow-sm' 
-                  : 'bg-gray-100 text-gray-400 border-gray-200'
+                  ? 'bg-white text-gray-900 border-marromescuro shadow-sm' 
+                  : 'bg-gray-50 text-gray-400 border-gray-200'
               }`}
             >
-              Forçar Logo Branco
+              Forçar Branco
             </button>
             <button
               onClick={() => setTargetLogo('black')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+              className={`flex-1 sm:flex-none min-w-[120px] px-3 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight transition-all border ${
                 targetLogo === 'black' 
-                  ? 'bg-gray-900 text-white border-gray-900' 
+                  ? 'bg-gray-900 text-white border-gray-900 shadow-md' 
                   : 'bg-white text-gray-900 border-gray-200'
               }`}
             >
-              Forçar Logo Preto
+              Forçar Preto
             </button>
           </div>
         )}
 
         {/* Upload Area */}
         <div 
-          className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center transition-colors cursor-pointer ${
-            isDragging ? 'border-[#617964] bg-[#617964]/5' : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+          className={`border-2 border-dashed rounded-[2rem] p-8 sm:p-12 flex flex-col items-center justify-center transition-all cursor-pointer group ${
+            isDragging ? 'border-[#617964] bg-[#617964]/5' : 'border-gray-100 hover:border-[#617964]/30 bg-gray-50/50'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -336,34 +337,34 @@ export function PhotoEditorTab() {
             multiple 
             accept="image/*" 
           />
-          <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-            <Upload className="w-8 h-8 text-gray-400" />
+          <div className="bg-white p-5 rounded-2xl shadow-sm mb-4 group-hover:scale-110 transition-transform">
+            <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-[#617964]" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Upload de Imagens</h3>
-          <p className="text-sm text-gray-500 text-center max-w-sm">
-            Arraste e solte fotos aqui ou clique para procurar no seu dispositivo. Processamento em lote suportado.
+          <h3 className="text-sm sm:text-base font-black text-marromescuro mb-1 uppercase tracking-tight">Upload de Fotos</h3>
+          <p className="text-[10px] sm:text-xs text-marromescuro/40 text-center max-w-[200px] sm:max-w-sm font-bold uppercase tracking-wider">
+            Arraste fotos ou clique aqui para selecionar
           </p>
         </div>
 
         {/* File List */}
         {files.length > 0 && (
           <div className="mt-8 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Imagens ({files.length})</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h3 className="text-sm sm:text-lg font-black text-marromescuro uppercase tracking-tight">Imagens Selecionadas ({files.length})</h3>
               <div className="flex gap-2">
                 <button
                   onClick={() => setFiles([])}
-                  className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-red-600 transition-colors"
+                  className="flex-1 sm:flex-none px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-marromescuro/40 hover:text-red-600 transition-colors bg-gray-50 rounded-xl"
                 >
                   Limpar
                 </button>
                 <button
                   onClick={processAll}
                   disabled={!files.some(f => f.status === 'pending')}
-                  className="px-4 py-2 text-sm font-medium text-white bg-[#617964] hover:bg-[#4a5c4c] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-[#617964] hover:bg-[#4a5c4c] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#617964]/20"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Processar Imagens
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Processar
                 </button>
               </div>
             </div>
@@ -437,13 +438,13 @@ export function PhotoEditorTab() {
             </div>
 
             {files.some(f => f.status === 'done') && (
-              <div className="flex justify-center mt-6">
+              <div className="flex justify-center mt-8">
                  <button
                    onClick={downloadAll}
-                   className="px-6 py-2.5 text-sm font-medium text-white bg-gray-900 hover:bg-black rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+                   className="w-full sm:w-auto px-8 py-4 text-[10px] font-black uppercase tracking-widest text-white bg-marromescuro hover:bg-black rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-black/10"
                  >
                    <Download className="w-4 h-4" />
-                   Baixar Todas as Concluídas
+                   Baixar Tudo Concluído
                  </button>
               </div>
             )}

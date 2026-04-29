@@ -180,6 +180,8 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
         ? (shouldShow ? "rgba(55, 64, 1, 0.3)" : "rgba(55, 64, 1, 0)")
         : (shouldShow ? "#617964" : "transparent"));
 
+  if (location.pathname === '/editor') return null;
+
   return (
     <header ref={headerRef} className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[98%] max-w-[1800px] flex items-center gap-4 pointer-events-none">
       <motion.nav 
