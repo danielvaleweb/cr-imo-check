@@ -3020,6 +3020,24 @@ export default function BrokerDashboard() {
                       exit={{ opacity: 0, x: -20 }}
                       className="space-y-6"
                     >
+                      {/* Review Comments Header Alert */}
+                      {newPropertyData.reviewComments && Object.keys(newPropertyData.reviewComments).length > 0 && (
+                        <div className="mb-8 p-6 bg-red-50 border border-red-100 rounded-[32px] flex flex-col gap-4 shadow-sm">
+                          <div className="flex items-center gap-3 text-red-600">
+                            <AlertCircle className="w-6 h-6 shrink-0" />
+                            <h4 className="font-black text-sm uppercase tracking-widest">Este imóvel possui pendências de avaliação</h4>
+                          </div>
+                          
+                          {newPropertyData.reviewComments.other && (
+                            <div className="p-4 bg-white/50 rounded-2xl border border-red-100">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-[#617964] mb-1">Observação Geral da Diretoria:</p>
+                              <p className="text-xs text-red-700 font-medium italic">"{newPropertyData.reviewComments.other}"</p>
+                            </div>
+                          )}
+                          <p className="text-xs text-red-600/70 font-medium">Por favor, verifique os campos destacados em vermelho abaixo e realize os ajustes necessários.</p>
+                        </div>
+                      )}
+
                       <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
                         <Info className="w-4 h-4" /> Informações Básicas
                       </h4>
