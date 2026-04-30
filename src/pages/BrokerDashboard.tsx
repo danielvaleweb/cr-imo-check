@@ -482,9 +482,10 @@ export default function BrokerDashboard() {
         await addDoc(collection(db, 'notificacoes'), {
           userId: propertyToReview.brokerId,
           title: 'Pendências no Imóvel',
-          message: `Imóvel [${propertyToReview.title}] está pendente`,
+          message: `Olá, verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendências. Clique aqui para ver.`,
           type: 'review_pending',
           relatedId: propertyToReview.id.toString(),
+          tabPath: 'pending', // Special field for automatic redirect
           read: false,
           createdAt: serverTimestamp()
         });
@@ -496,7 +497,7 @@ export default function BrokerDashboard() {
             from: myId,
             to: propertyToReview.brokerId,
             room: `${myId}_${propertyToReview.brokerId}`,
-            text: `Seu imóvel "${propertyToReview.title}" está com pendências. Por favor, verifique as observações em vermelho no painel de edição.`,
+            text: `Seu imóvel "${propertyToReview.title}" está com pendências. Clique aqui para ver: [Link para Pendências]`,
             createdAt: serverTimestamp(),
             senderName: user?.displayName || 'Sistema',
             read: false
@@ -1867,26 +1868,24 @@ export default function BrokerDashboard() {
     try {
       let finalCondoId = newPropertyData.condoId;
 
-      // Ensure the main 'image' field matches the first image in the 'images' array if provided
       const propertyToSave = {
         ...newPropertyData,
         condoId: finalCondoId,
-        brokerId: auth.currentUser?.uid,
+        brokerId: newPropertyData.brokerId || auth.currentUser?.uid,
         approvalStatus: (isAdmin ? 'published' : 'under_review') as any,
-        reviewComments: {}, // Reset comments on save
+        reviewComments: isAdmin ? newPropertyData.reviewComments : {}, // Reset comments on save if broker
         image: newPropertyData.images.length > 0 && newPropertyData.images[0] !== '' 
           ? newPropertyData.images[0] 
           : (newPropertyData.image && !newPropertyData.image.includes('pe07Ikg.png') ? newPropertyData.image : (newPropertyData.images[0] || 'https://i.imgur.com/pe07Ikg.png'))
       };
 
       if (!isEditing) {
+        const newDocRef = doc(collection(db, 'properties'));
+        const finalPropertyToSave = { ...propertyToSave, id: newDocRef.id, createdAt: serverTimestamp() };
+
         if (!isAdmin) {
-          // Notify admins about new property to review
           const adminsSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', ['admin', 'ceo', 'manager'])));
           const batch = writeBatch(db);
-          
-          const newDocRef = doc(collection(db, 'properties'));
-          const finalPropertyToSave = { ...propertyToSave, id: newDocRef.id };
           
           adminsSnap.forEach(adminDoc => {
             const notifRef = doc(collection(db, 'notificacoes'));
@@ -1901,12 +1900,11 @@ export default function BrokerDashboard() {
             });
           });
 
-          // Also notify the broker that it's in analysis
           const brokerNotifRef = doc(collection(db, 'notificacoes'));
           batch.set(brokerNotifRef, {
             userId: auth.currentUser?.uid,
             title: 'Imóvel em Análise',
-            message: `Imóvel [${propertyToSave.title}] está em análise`,
+            message: `Olá, seu imóvel [${propertyToSave.title}] foi enviado para análise da diretoria.`,
             type: 'review_pending',
             relatedId: newDocRef.id,
             read: false,
@@ -1914,23 +1912,21 @@ export default function BrokerDashboard() {
           });
 
           await batch.commit();
-          
           await setDoc(newDocRef, finalPropertyToSave);
-          await addLog('property', 'Cadastrou imóvel (Aguardando Aprovação)', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
+          await addLog('property', 'Cadastrou imóvel (Aguardando Aprovação)', `Imóvel: ${propertyToSave.title}`);
         } else {
           await addProperty(propertyToSave);
-          await addLog('property', 'Cadastrou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
+          await addLog('property', 'Cadastrou imóvel', `Imóvel: ${propertyToSave.title}`);
         }
       } else {
         await updateProperty(newPropertyData.id, propertyToSave);
-        await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
+        await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title}`);
         
-        // Notify broker that update was sent back to review
         if (!isAdmin) {
           await addDoc(collection(db, 'notificacoes'), {
             userId: auth.currentUser?.uid,
             title: 'Atualização em Análise',
-            message: `Imóvel [${propertyToSave.title}] está em análise`,
+            message: `As correções do imóvel [${propertyToSave.title}] foram enviadas para nova análise.`,
             type: 'review_pending',
             relatedId: newPropertyData.id.toString(),
             read: false,
@@ -2328,7 +2324,10 @@ export default function BrokerDashboard() {
         await updateDoc(doc(db, 'notificacoes', notif.id), { read: true });
       }
       
-      if (notif.actionLink === 'agenda-pending') {
+      if (notif.tabPath === 'pending') {
+        setActiveTab('properties');
+        setPropertyStatusFilter('pending');
+      } else if (notif.actionLink === 'agenda-pending') {
         setActiveTab('calendar');
         setTimeout(() => {
           document.getElementById('solicitacoes-pendentes')?.scrollIntoView({ behavior: 'smooth' });
@@ -4148,15 +4147,22 @@ export default function BrokerDashboard() {
                     </button>
                   </div>
                   
-                  <div className="flex gap-3">
+                   <div className="flex gap-3">
                     {currentStep < 5 ? (
                       <>
                         {isEditing && (
                           <button
                             type="submit"
-                            className="px-8 py-4 bg-[#617964]/10 text-[#617964] rounded-2xl text-sm font-black hover:bg-[#617964]/20 transition-all flex items-center gap-2"
+                            className={`px-8 py-4 rounded-2xl text-sm font-black transition-all flex items-center gap-2 ${
+                              newPropertyData.reviewComments && Object.keys(newPropertyData.reviewComments).length > 0
+                                ? 'bg-orange-500 text-white hover:bg-orange-600'
+                                : 'bg-[#617964]/10 text-[#617964] hover:bg-[#617964]/20'
+                            }`}
                           >
-                            <Save className="w-5 h-5" /> Atualizar
+                            <Save className="w-5 h-5" /> 
+                            {newPropertyData.reviewComments && Object.keys(newPropertyData.reviewComments).length > 0 
+                              ? 'Atualizar Imediatamente' 
+                              : 'Atualizar'}
                           </button>
                         )}
                         <button
@@ -4173,9 +4179,16 @@ export default function BrokerDashboard() {
                     ) : (
                       <button
                         type="submit"
-                        className="px-10 py-4 bg-[#617964] text-white rounded-2xl text-sm font-black shadow-lg shadow-[#617964]/20 hover:scale-105 transition-all flex items-center gap-2"
+                        className={`px-10 py-4 rounded-2xl text-sm font-black shadow-lg transition-all flex items-center gap-2 ${
+                          newPropertyData.reviewComments && Object.keys(newPropertyData.reviewComments).length > 0
+                            ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20'
+                            : 'bg-[#617964] text-white shadow-[#617964]/20 hover:scale-105'
+                        }`}
                       >
-                        <Save className="w-5 h-5" /> {isEditing ? 'Atualizar' : 'Finalizar Cadastro'}
+                        <Save className="w-5 h-5" /> 
+                        {newPropertyData.reviewComments && Object.keys(newPropertyData.reviewComments).length > 0 
+                          ? 'Atualizar e Enviar para Revisão' 
+                          : (isEditing ? 'Atualizar' : 'Finalizar Cadastro')}
                       </button>
                     )}
                   </div>
