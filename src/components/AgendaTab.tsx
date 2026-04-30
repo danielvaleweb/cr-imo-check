@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Plus, MapPin, Video, Users, Clock, AlertCircle, Phone, Mail, Link as LinkIcon, Download, Check, ExternalLink, X, MessageCircle, ChevronDown, ChevronUp, ChevronRight, Building, Eye } from 'lucide-react';
 import { useBrokers } from '../context/BrokerContext';
@@ -16,12 +16,29 @@ import { Permissions } from '../constants/permissions';
 interface AgendaTabProps {
   calendarOnly?: boolean;
   permissions?: Permissions;
+  isMyCalendar?: boolean;
 }
 
-export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps) {
+export function AgendaTab({ calendarOnly = false, permissions, isMyCalendar = false }: AgendaTabProps) {
   const { brokers } = useBrokers();
   const { condos } = useCondos();
   const [events, setEvents] = useState<any[]>([]);
+  
+  const currentUserBroker = brokers.find(b => b.email?.toLowerCase() === auth.currentUser?.email?.toLowerCase());
+  const currentUserName = currentUserBroker?.name || auth.currentUser?.displayName || '';
+
+  const filteredEvents = useMemo(() => {
+    if (!isMyCalendar) return events;
+    return events.filter(e => {
+      const isCreator = e.createdBy?.uid === auth.currentUser?.uid;
+      const isMentioned = e.envolveQuem?.includes(currentUserName) || e.quemVai?.includes(currentUserName);
+      return isCreator || isMentioned;
+    });
+  }, [events, isMyCalendar, auth.currentUser, currentUserName]);
+
+  // Separating events
+  const pendingEvents = filteredEvents.filter(e => e.status === 'pending');
+  const confirmedEvents = filteredEvents.filter(e => e.status !== 'pending');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -443,10 +460,6 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
-  // Separating events
-  const pendingEvents = events.filter(e => e.status === 'pending');
-  const confirmedEvents = events.filter(e => e.status !== 'pending');
-
   const getMapsLink = (address: string) => {
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
   };
@@ -548,13 +561,6 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
       visitorEmail: emailCliente
     };
     
-    // For now, since it's a PDF generated on client, we send a message with the data 
-    // and instruct that the PDF can be downloaded and attached, 
-    // OR we just provide a link/prompt for the user to download then send.
-    // However, usually "Send" implies sending the PDF. 
-    // Since we don't have a backend to host the file and provide a link, 
-    // we'll send a templated message to the client on WhatsApp.
-    
     if (!telefoneCliente) {
       alert("Por favor, preencha o telefone do cliente para enviar via WhatsApp.");
       return;
@@ -589,13 +595,13 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
       {/* Calendar Top View */}
       <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-6 lg:p-8">
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={handlePrevMonth} className="w-8 h-8 flex items-center justify-center bg-gray-50 rounded-full hover:bg-gray-100 text-gray-600 transition-all">{'<'}</button>
+          <button onClick={handlePrevMonth} className="w-8 h-8 flex items-center justify-center bg-gray-50 rounded-full hover:bg-gray-100 text-gray-600 transition-all">{"<"}</button>
           <h2 className="text-xl font-bold text-gray-900 w-40 text-center">{monthNames[currentMonth]} {currentYear}</h2>
-          <button onClick={handleNextMonth} className="w-8 h-8 flex items-center justify-center bg-gray-50 rounded-full hover:bg-gray-100 text-gray-600 transition-all">{'>'}</button>
+          <button onClick={handleNextMonth} className="w-8 h-8 flex items-center justify-center bg-gray-50 rounded-full hover:bg-gray-100 text-gray-600 transition-all">{">"}</button>
         </div>
 
         <div className="grid grid-cols-7 gap-2">
-          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(day => (
             <div key={day} className="text-center text-xs font-bold text-gray-400 py-2 uppercase tracking-tight">{day}</div>
           ))}
           
@@ -693,7 +699,7 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                           onClick={() => {
                             const formatted = event.telefoneCliente.replace(/\D/g, '');
                             const msg = `Olá ${event.nomeCliente}, passando para confirmar sobre nossa visita ao imóvel no local ${event.local} no dia ${new Date(event.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} às ${event.horario}.`;
-                            window.open(`https://wa.me/55${formatted}?text=${encodeURIComponent(msg)}`, '_blank');
+                            window.open(`https://wa.me/55${formatted}?text=${encodeURIComponent(msg)}`, "_blank");
                           }}
                           className="p-1.5 bg-[#25D366]/10 text-[#25D366] rounded-lg hover:bg-[#25D366]/20 transition-all ml-2"
                           title="Falar no WhatsApp"
@@ -781,52 +787,57 @@ export function AgendaTab({ calendarOnly = false, permissions }: AgendaTabProps)
                             return (
                               <div key={event.id} className="relative bg-gray-50 rounded-3xl p-5 border border-gray-100 hover:border-[#617964]/30 transition-all group overflow-hidden">
                                 <div className="absolute top-3 right-3 flex gap-2">
-                                  {permissions?.canManageAgenda && (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleToggleDone(event.id, !!event.done);
-                                      }}
-                                      className={`p-1.5 rounded-lg shadow-sm border transition-all ${event.done ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-400 border-gray-100 hover:bg-emerald-50 hover:text-emerald-500'}`}
-                                      title={event.done ? 'Marcar como pendente' : 'Marcar como concluído'}
-                                    >
-                                      <Check className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  {permissions?.canManageAgenda && (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditRequest(event);
-                                      }}
-                                      className="p-1.5 bg-white rounded-lg text-[#617964] shadow-sm border border-gray-100 hover:bg-gray-50 transition-all"
-                                      title="Editar"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  {permissions?.canDeleteAgenda && (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(event.id);
-                                      }}
-                                      className="p-1.5 bg-white rounded-lg text-red-500 shadow-sm border border-gray-100 hover:bg-red-50 transition-all"
-                                      title="Excluir"
-                                    >
-                                      <Trash className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-3 mb-3 pr-20">
-                                  <div className={`w-2 h-2 rounded-full ${event.done ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : cat.text.replace('text-', 'bg-')}`} />
-                                  <h5 className={`font-bold text-sm truncate ${event.done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                                    {event.type === 'captacao' ? 'Nova Captação' : event.type === 'visita' ? 'Atendimento / Visita' : event.type === 'tarefa' ? event.titulo : 'Reunião'}
-                                  </h5>
-                                  {event.done && (
-                                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-widest">Concluído</span>
-                                  )}
+                                  {(() => {
+                                    const isAdminEmail = auth.currentUser?.email?.toLowerCase() === 'danielvaleweb@gmail.com';
+                                    const isCreator = event.createdBy?.uid === auth.currentUser?.uid;
+                                    const canModify = isAdminEmail || isCreator;
+                                    
+                                    return (
+                                      <>
+                                        {canModify && permissions?.canManageAgenda && (
+                                          <button 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToggleDone(event.id, !!event.done);
+                                            }}
+                                            className={`p-1.5 rounded-lg shadow-sm border transition-all ${event.done ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-400 border-gray-100 hover:bg-emerald-50 hover:text-emerald-500'}`}
+                                            title={event.done ? 'Marcar como pendente' : 'Marcar como concluído'}
+                                          >
+                                            <Check className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                        {canModify && permissions?.canManageAgenda && (
+                                          <button 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleEditRequest(event);
+                                            }}
+                                            className="p-1.5 bg-white rounded-lg text-[#617964] shadow-sm border border-gray-100 hover:bg-gray-50 transition-all"
+                                            title="Editar"
+                                          >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                        {!canModify && (
+                                          <div className="p-1.5 bg-gray-100 rounded-lg text-gray-400 shadow-sm border border-gray-200" title="Apenas Visualização">
+                                            <Eye className="w-3.5 h-3.5" />
+                                          </div>
+                                        )}
+                                        {canModify && permissions?.canDeleteAgenda && (
+                                          <button 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDelete(event.id);
+                                            }}
+                                            className="p-1.5 bg-white rounded-lg text-red-500 shadow-sm border border-gray-100 hover:bg-red-50 transition-all"
+                                            title="Excluir"
+                                          >
+                                            <Trash className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                                 
                                 <div className="space-y-2 mb-4">

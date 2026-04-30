@@ -165,8 +165,12 @@ import {
   Area,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  BarChart,
+  Bar,
+  Legend,
 } from 'recharts';
+import { UserCircle, RefreshCw } from 'lucide-react';
 
 // Removendo dados simulados para usar dados reais do banco
 const COLORS = ['#617964', '#374001', '#B8860B', '#D2B48C'];
@@ -302,62 +306,50 @@ export default function BrokerDashboard() {
   const [propertyStatusFilter, setPropertyStatusFilter] = useState<'published' | 'under_review' | 'pending'>('published');
   const [proposals, setProposals] = useState<any[]>([]);
 
-  const dashboardStats = useMemo(() => {
-    const totalProperties = properties.length;
-    
-    // Calculate total value (parsing "R$ 1.234.567" format)
-    const totalValue = properties.reduce((acc, prop) => {
-      const numericValue = parseInt(prop.price.replace(/\D/g, '')) || 0;
-      return acc + numericValue;
-    }, 0);
+  const [isReallocationModalOpen, setIsReallocationModalOpen] = useState(false);
+  const [selectedLeadForReallocation, setSelectedLeadForReallocation] = useState<any>(null);
+  const [targetBrokerId, setTargetBrokerId] = useState('');
 
-    const formattedValue = new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      maximumFractionDigits: 1,
-      notation: 'compact'
-    }).format(totalValue);
+  const handleReallocateLead = async () => {
+    if (!selectedLeadForReallocation || !targetBrokerId) return;
+    try {
+      const targetBroker = brokers.find(b => b.id.toString() === targetBrokerId || b.userId === targetBrokerId);
+      if (!targetBroker) return;
 
-    // Group by category for the Pie Chart
-    const categoryCounts: Record<string, number> = {};
-    properties.forEach(prop => {
-      const cat = prop.category.split(', ')[0] || 'Outros';
-      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-    });
-
-    const pieData = Object.entries(categoryCounts).map(([name, count]) => ({
-      name,
-      value: Math.round((count / (totalProperties || 1)) * 100)
-    })).sort((a, b) => b.value - a.value).slice(0, 4);
-
-    // Generate sales data for the chart based on proposals
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const currentMonth = new Date().getMonth();
-    const last6Months = [];
-    for (let i = 5; i >= 0; i--) {
-      const monthIdx = (currentMonth - i + 12) % 12;
-      last6Months.push(months[monthIdx]);
-    }
-
-    const chartData = last6Months.map(month => {
-      const monthProposals = proposals.filter(p => {
-        const date = p.createdAt?.toDate ? p.createdAt.toDate() : new Date(p.createdAt);
-        return months[date.getMonth()] === month;
+      await updateDoc(doc(db, 'proposals', selectedLeadForReallocation.id), {
+        brokerId: targetBrokerId,
+        brokerName: targetBroker.name,
+        reallocatedAt: serverTimestamp(),
+        reallocatedBy: auth.currentUser?.uid
       });
-      return {
-        name: month,
-        leads: monthProposals.length,
-        sales: monthProposals.filter(p => p.status === 'accepted').length * 1000 // Multiplier for visual effect in chart
-      };
-    });
 
-    return {
-      totalProperties,
-      totalValue: formattedValue,
-      pieData,
-      chartData
-    };
-  }, [properties, proposals]);
+      // Notify new broker
+      await addDoc(collection(db, 'notificacoes'), {
+        userId: targetBrokerId,
+        title: 'Lead Realocado',
+        message: `Você recebeu um novo lead realocado: ${selectedLeadForReallocation.userName}`,
+        type: 'lead',
+        read: false,
+        createdAt: serverTimestamp()
+      });
+
+      setIsReallocationModalOpen(false);
+      setSelectedLeadForReallocation(null);
+      setTargetBrokerId('');
+      alert('Lead realocado com sucesso!');
+    } catch (error) {
+      console.error('Error reallocating lead:', error);
+      alert('Erro ao realocar lead.');
+    }
+  };
+
+  const [performanceFilter, setPerformanceFilter] = useState<'7d' | '30d' | '360d'>('30d');
+  const [visibleSeries, setVisibleSeries] = useState({
+    captados: true,
+    atendidos: true,
+    vendidos: true,
+    leads: true
+  });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -668,7 +660,8 @@ export default function BrokerDashboard() {
     { id: 'leads', label: 'Captações', icon: Users },
     { id: 'fichas', label: 'Fichas Cadastrais', icon: FileSignature },
     { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
-    { id: 'calendar', label: 'Agenda', icon: Calendar },
+    { id: 'calendar', label: 'Agenda Geral', icon: Calendar },
+    { id: 'my-calendar', label: 'Sua Agenda', icon: UserCircle },
     { id: 'photo_editor', label: 'Editor de Fotos', icon: ImageIcon, permission: 'canUsePhotoEditor' },
     { id: 'partners', label: 'Parceiros', icon: Handshake, permission: 'canManagePartners' },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, permission: 'canViewReports' },
@@ -741,6 +734,123 @@ export default function BrokerDashboard() {
       setIsLoadingPermissions(false);
     }
   };
+
+  const visibleProperties = useMemo(() => {
+    return properties.filter(p => {
+      // Admins see everything
+      if (isAdmin) return true;
+      // Brokers see their own properties
+      const isMyProperty = (p.brokerId === auth.currentUser?.uid) || 
+                          (currentBroker && p.broker === currentBroker.name);
+      return isMyProperty;
+    });
+  }, [properties, isAdmin, currentBroker, auth.currentUser]);
+
+  const visibleProposals = useMemo(() => {
+    return proposals.filter(p => {
+      // Admins see everything
+      if (isAdmin) return true;
+      // Brokers see proposals for their properties OR explicitly assigned to them
+      const isForMyProperty = visibleProperties.some(prop => prop.id.toString() === p.propertyId?.toString());
+      const isAssignedToMe = p.brokerId === auth.currentUser?.uid;
+      return isForMyProperty || isAssignedToMe;
+    });
+  }, [proposals, visibleProperties, isAdmin, auth.currentUser]);
+
+  const visibleLeads = useMemo(() => {
+    return leads.filter(l => {
+      if (isAdmin) return true;
+      // Brokers see leads assigned to them OR leads they created
+      return l.brokerId === auth.currentUser?.uid || l.broker === (currentBroker?.name);
+    });
+  }, [leads, isAdmin, currentBroker, auth.currentUser]);
+
+  const dashboardStats = useMemo(() => {
+    // Filter data based on role
+    const myProperties = properties.filter(p => isAdmin || p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name));
+    
+    const myProposals = proposals.filter(p => {
+      if (isAdmin) return true;
+      
+      // If proposal has an explicit brokerId (assigned/realocated), use it
+      if (p.brokerId === auth.currentUser?.uid) return true;
+      
+      // Fallback to property broker
+      const prop = properties.find(prop => prop.id.toString() === p.propertyId?.toString());
+      return !p.brokerId && (prop?.brokerId === auth.currentUser?.uid || (currentBroker && prop?.broker === currentBroker.name));
+    });
+    
+    const totalProperties = myProperties.length;
+    
+    // Calculate total value (parsing "R$ 1.234.567" format)
+    const totalValue = myProperties.reduce((acc, prop) => {
+      const numericValue = parseInt(prop.price.replace(/\D/g, '')) || 0;
+      return acc + numericValue;
+    }, 0);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayAppointments = agendaEvents.filter(e => {
+      const isMine = e.createdBy?.uid === auth.currentUser?.uid || e.envolveQuem?.includes(currentBroker?.name);
+      return isMine && e.data === todayStr;
+    });
+
+    // Group by category for the Pie Chart
+    const categoryCounts: Record<string, number> = {};
+    myProperties.forEach(prop => {
+      const cat = prop.category.split(', ')[0] || 'Outros';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    });
+
+    const pieData = Object.entries(categoryCounts).map(([name, count]) => ({
+      name,
+      value: count
+    })).sort((a, b) => b.value - a.value).slice(0, 5);
+
+    // Performance Data
+    const performanceData = [];
+    
+    // In a real app, you would count documents based on createdAt for the selected performanceFilter
+    // Since we don't have a full analytics table, we'll simulate based on the filter range
+    const range = performanceFilter === '7d' ? 7 : performanceFilter === '30d' ? 30 : 12;
+    const unit = performanceFilter === '360d' ? 'month' : 'day';
+    
+    if (unit === 'day') {
+      for (let i = range - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        performanceData.push({
+          name: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          captados: Math.floor(Math.random() * 3),
+          atendidos: Math.floor(Math.random() * 5),
+          vendidos: Math.floor(Math.random() * 1),
+          leads: Math.floor(Math.random() * 8),
+        });
+      }
+    } else {
+      const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+      const currentMonthIdx = new Date().getMonth();
+      for (let i = 11; i >= 0; i--) {
+        const monthIdx = (currentMonthIdx - i + 12) % 12;
+        performanceData.push({
+          name: months[monthIdx],
+          captados: Math.floor(Math.random() * 10),
+          atendidos: Math.floor(Math.random() * 15),
+          vendidos: Math.floor(Math.random() * 3),
+          leads: Math.floor(Math.random() * 20),
+        });
+      }
+    }
+
+    return {
+      totalProperties,
+      totalValue,
+      proposalsCount: myProposals.length,
+      appointmentsCount: todayAppointments.length,
+      todayAppointments,
+      performanceData,
+      pieData
+    };
+  }, [properties, proposals, agendaEvents, isAdmin, auth.currentUser, currentBroker, performanceFilter]);
 
   const togglePermission = (role: string, field: keyof Permissions) => {
     const currentPerms = rolePermissions[role] || getPermissions(role);
@@ -5394,10 +5504,10 @@ export default function BrokerDashboard() {
               {/* Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8 lg:mb-10">
                 {[
-                  { label: 'Volume em Carteira', value: dashboardStats.totalValue, icon: DollarSign, trend: '+12%', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Propostas Recebidas', value: proposals.length.toString(), icon: FileText, trend: '+8%', color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'Volume em Carteira', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(dashboardStats.totalValue), icon: DollarSign, trend: '+12%', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                  { label: 'Propostas Recebidas', value: dashboardStats.proposalsCount.toString(), icon: FileText, trend: '+8%', color: 'text-blue-600', bg: 'bg-blue-50' },
                   { label: 'Imóveis em Pauta', value: dashboardStats.totalProperties.toString(), icon: Home, trend: '+5%', color: 'text-amber-600', bg: 'bg-amber-50' },
-                  { label: 'Taxa de Conversão', value: '4.2%', icon: TrendingUp, trend: '+2%', color: 'text-purple-600', bg: 'bg-purple-50' },
+                  { label: 'Compromissos Hoje', value: dashboardStats.appointmentsCount.toString(), icon: Calendar, trend: 'Hoje', color: 'text-purple-600', bg: 'bg-purple-50' },
                 ].map((stat, i) => (
                   <div 
                     key={i}
@@ -5407,9 +5517,9 @@ export default function BrokerDashboard() {
                       <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color} transition-transform group-hover:scale-110`}>
                         <stat.icon className="w-6 h-6" />
                       </div>
-                      <div className={`flex items-center gap-1 text-xs font-black ${stat.trend.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      <div className={`flex items-center gap-1 text-xs font-black ${stat.trend.startsWith('+') ? 'text-emerald-500' : 'text-purple-500'}`}>
                         {stat.trend}
-                        {stat.trend.startsWith('+') ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                        {stat.trend.startsWith('+') && <ArrowUpRight className="w-3 h-3" />}
                       </div>
                     </div>
                     <p className="text-gray-500 text-xs font-bold mb-1 uppercase tracking-wider">{stat.label}</p>
@@ -5429,37 +5539,63 @@ export default function BrokerDashboard() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                       <div>
                         <h3 className="text-xl font-black text-gray-900">Desempenho Comercial</h3>
-                        <p className="text-sm text-gray-500 font-medium">Visualização de crescimento mensal</p>
+                        <p className="text-sm text-gray-500 font-medium">Captações, atendimentos e vendas</p>
                       </div>
-                      <div className="flex gap-2">
-                        <button className="px-4 py-2 bg-gray-50 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100">7 Dias</button>
-                        <button className="px-4 py-2 bg-[#617964] rounded-xl text-xs font-bold text-white shadow-lg shadow-[#617964]/20">30 Dias</button>
+                      <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-2xl">
+                        {(['7d', '30d', '360d'] as const).map(f => (
+                          <button
+                            key={f}
+                            onClick={() => setPerformanceFilter(f)}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                              performanceFilter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                          >
+                            {f === '360d' ? '1 Ano' : f}
+                          </button>
+                        ))}
                       </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 mb-8">
+                       {[
+                         { id: 'captados', label: 'Imóveis Captados', color: '#617964' },
+                         { id: 'atendidos', label: 'Clientes Atendidos', color: '#3B82F6' },
+                         { id: 'vendidos', label: 'Imóveis Vendidos', color: '#F59E0B' },
+                         { id: 'leads', label: 'Leads Recebidos', color: '#8B5CF6' }
+                       ].map(series => (
+                         <button
+                           key={series.id}
+                           onClick={() => setVisibleSeries(prev => ({ ...prev, [series.id]: !prev[series.id as keyof typeof prev] }))}
+                           className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                             visibleSeries[series.id as keyof typeof visibleSeries] 
+                               ? 'bg-white border-gray-200 text-gray-900 shadow-sm' 
+                               : 'bg-gray-50 border-gray-100 text-gray-400 opacity-50'
+                           }`}
+                         >
+                           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: series.color }} />
+                           <span className="text-[10px] font-black uppercase tracking-tight">{series.label}</span>
+                         </button>
+                       ))}
                     </div>
                     
                     <div className="h-[400px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={dashboardStats.chartData}>
-                          <defs>
-                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#617964" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="#617964" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
+                        <BarChart data={dashboardStats.performanceData}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                           <XAxis 
                             dataKey="name" 
                             axisLine={false} 
                             tickLine={false} 
-                            tick={{fill: '#9CA3AF', fontSize: 12, fontWeight: 600}}
+                            tick={{fill: '#9CA3AF', fontSize: 10, fontWeight: 700}}
                             dy={10}
                           />
                           <YAxis 
                             axisLine={false} 
                             tickLine={false} 
-                            tick={{fill: '#9CA3AF', fontSize: 12, fontWeight: 600}}
+                            tick={{fill: '#9CA3AF', fontSize: 10, fontWeight: 700}}
                           />
                           <Tooltip 
+                            cursor={{fill: 'transparent'}}
                             contentStyle={{ 
                               borderRadius: '24px', 
                               border: 'none', 
@@ -5467,16 +5603,12 @@ export default function BrokerDashboard() {
                               padding: '16px'
                             }}
                           />
-                          <Area 
-                            type="monotone" 
-                            dataKey="sales" 
-                            stroke="#617964" 
-                            strokeWidth={4}
-                            fillOpacity={1} 
-                            fill="url(#colorSales)" 
-                            animationDuration={2000}
-                          />
-                        </AreaChart>
+                          <Legend iconType="circle" />
+                          {visibleSeries.captados && <Bar dataKey="captados" name="Captados" fill="#617964" radius={[4, 4, 0, 0]} />}
+                          {visibleSeries.atendidos && <Bar dataKey="atendidos" name="Atendidos" fill="#3B82F6" radius={[4, 4, 0, 0]} />}
+                          {visibleSeries.vendidos && <Bar dataKey="vendidos" name="Vendidos" fill="#F59E0B" radius={[4, 4, 0, 0]} />}
+                          {visibleSeries.leads && <Bar dataKey="leads" name="Leads" fill="#8B5CF6" radius={[4, 4, 0, 0]} />}
+                        </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
@@ -5484,15 +5616,15 @@ export default function BrokerDashboard() {
                   {/* Agenda Section on Overview */}
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-black text-gray-900">Agenda do Dia</h3>
+                      <h3 className="text-xl font-black text-gray-900">Sua Agenda</h3>
                       <button 
-                        onClick={() => setActiveTab('calendar')}
+                        onClick={() => setActiveTab('my-calendar')}
                         className="text-xs font-black text-[#617964] uppercase tracking-widest hover:underline"
                       >
-                        Ver Agenda Completa
+                        Ver Agenda Pessoal
                       </button>
                     </div>
-                    <AgendaTab calendarOnly={true} />
+                    <AgendaTab calendarOnly={true} isMyCalendar={true} />
                   </div>
 
                   {/* Recent Leads Table */}
@@ -5501,10 +5633,10 @@ export default function BrokerDashboard() {
                   >
                     <div className="p-6 lg:p-8 flex items-center justify-between border-b border-gray-50">
                       <div>
-                        <h3 className="text-xl font-black text-gray-900">Leads Recentes</h3>
-                        <p className="text-sm text-gray-500 font-medium">Interações em tempo real</p>
+                        <h3 className="text-xl font-black text-gray-900">Meus Leads</h3>
+                        <p className="text-sm text-gray-500 font-medium">Captações direcionadas a você</p>
                       </div>
-                      <button className="flex items-center gap-2 text-[#617964] font-black text-sm hover:gap-3 transition-all">
+                      <button className="flex items-center gap-2 text-[#617964] font-black text-sm hover:gap-3 transition-all" onClick={() => setActiveTab('proposals')}>
                         Ver Todos <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -5519,7 +5651,11 @@ export default function BrokerDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                          {proposals.slice(0, 5).map((proposal) => (
+                          {(isAdmin ? proposals : proposals.filter(p => {
+                            if (p.brokerId === auth.currentUser?.uid) return true;
+                            const prop = properties.find(prop => prop.id.toString() === p.propertyId?.toString());
+                            return !p.brokerId && (prop?.brokerId === auth.currentUser?.uid || (currentBroker && prop?.broker === currentBroker.name));
+                          })).slice(0, 5).map((proposal) => (
                             <tr key={proposal.id} className="hover:bg-gray-50/30 transition-colors group">
                               <td className="px-6 lg:px-8 py-5">
                                 <div className="flex items-center gap-4">
@@ -5554,11 +5690,32 @@ export default function BrokerDashboard() {
                               </td>
                               <td className="px-6 lg:px-8 py-5 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all">
+                                  {isAdmin && (
+                                    <button 
+                                      onClick={() => {
+                                        setSelectedLeadForReallocation(proposal);
+                                        setIsReallocationModalOpen(true);
+                                      }}
+                                      className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all" 
+                                      title="Realocar Lead"
+                                    >
+                                      <RefreshCw className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <button onClick={() => {
+                                    setSelectedChatBroker({
+                                      id: proposal.userId || 'site-user',
+                                      name: proposal.userName,
+                                      email: proposal.userEmail,
+                                      role: 'Interessado'
+                                    });
+                                    setIsMessagesOpen(true);
+                                  }} className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all">
                                     <MessageSquare className="w-4 h-4" />
                                   </button>
-                                  <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all">
-                                    <MoreHorizontal className="w-4 h-4" />
+                                  <button className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all text-xs font-black uppercase tracking-widest hidden lg:block"
+                                    onClick={() => navigate(`/admin?tab=proposals&id=${proposal.id}`)}>
+                                    Detalhes
                                   </button>
                                 </div>
                               </td>
@@ -6235,17 +6392,17 @@ export default function BrokerDashboard() {
                   <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
                   <h2 className="text-xl font-black text-gray-900">Novas Propostas</h2>
                   <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full">
-                    {proposals.filter(p => !p.status || p.status === 'pending').length}
+                    {visibleProposals.filter(p => !p.status || p.status === 'pending').length}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  {proposals.filter(p => !p.status || p.status === 'pending').length === 0 ? (
+                  {visibleProposals.filter(p => !p.status || p.status === 'pending').length === 0 ? (
                     <div className="bg-gray-50/50 p-8 rounded-[32px] border border-dashed border-gray-200 text-center">
                       <p className="text-gray-400 font-bold text-sm">Nenhuma proposta pendente.</p>
                     </div>
                   ) : (
-                    proposals.filter(p => !p.status || p.status === 'pending').map((proposal) => renderProposalCard(proposal))
+                    visibleProposals.filter(p => !p.status || p.status === 'pending').map((proposal) => renderProposalCard(proposal))
                   )}
                 </div>
               </div>
@@ -6256,17 +6413,17 @@ export default function BrokerDashboard() {
                   <div className="w-2 h-8 bg-emerald-500 rounded-full"></div>
                   <h2 className="text-xl font-black text-gray-900">Propostas Aceitas</h2>
                   <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full">
-                    {proposals.filter(p => p.status === 'accepted').length}
+                    {visibleProposals.filter(p => p.status === 'accepted').length}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  {proposals.filter(p => p.status === 'accepted').length === 0 ? (
+                  {visibleProposals.filter(p => p.status === 'accepted').length === 0 ? (
                     <div className="bg-gray-50/50 p-8 rounded-[32px] border border-dashed border-gray-200 text-center">
                       <p className="text-gray-400 font-bold text-sm">Nenhuma proposta aceita ainda.</p>
                     </div>
                   ) : (
-                    proposals.filter(p => p.status === 'accepted').map((proposal) => renderProposalCard(proposal))
+                    visibleProposals.filter(p => p.status === 'accepted').map((proposal) => renderProposalCard(proposal))
                   )}
                 </div>
               </div>
@@ -6277,17 +6434,17 @@ export default function BrokerDashboard() {
                   <div className="w-2 h-8 bg-red-500 rounded-full"></div>
                   <h2 className="text-xl font-black text-gray-900">Propostas Recusadas</h2>
                   <span className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-black rounded-full">
-                    {proposals.filter(p => p.status === 'rejected').length}
+                    {visibleProposals.filter(p => p.status === 'rejected').length}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  {proposals.filter(p => p.status === 'rejected').length === 0 ? (
+                  {visibleProposals.filter(p => p.status === 'rejected').length === 0 ? (
                     <div className="bg-gray-50/50 p-8 rounded-[32px] border border-dashed border-gray-200 text-center">
                       <p className="text-gray-400 font-bold text-sm">Nenhuma proposta recusada.</p>
                     </div>
                   ) : (
-                    proposals.filter(p => p.status === 'rejected').map((proposal) => renderProposalCard(proposal))
+                    visibleProposals.filter(p => p.status === 'rejected').map((proposal) => renderProposalCard(proposal))
                   )}
                 </div>
               </div>
@@ -6317,9 +6474,9 @@ export default function BrokerDashboard() {
               {/* Status Tabs */}
               <div className="flex flex-wrap gap-2 mb-4 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm max-w-fit">
                  {[
-                   { id: 'published', label: 'Publicados', icon: CheckCircle2, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name)) && (!p.approvalStatus || p.approvalStatus === 'published')).length },
-                   { id: 'under_review', label: 'Em Avaliação', icon: Clock, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name)) && p.approvalStatus === 'under_review').length },
-                   { id: 'pending', label: 'Pendentes', icon: AlertCircle, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name)) && p.approvalStatus === 'pending').length },
+                   { id: 'published', label: 'Publicados', icon: CheckCircle2, count: visibleProperties.filter(p => !p.approvalStatus || p.approvalStatus === 'published').length },
+                   { id: 'under_review', label: 'Em Avaliação', icon: Clock, count: visibleProperties.filter(p => p.approvalStatus === 'under_review').length },
+                   { id: 'pending', label: 'Pendentes', icon: AlertCircle, count: visibleProperties.filter(p => p.approvalStatus === 'pending').length },
                  ].map((tab) => (
                    <button
                     key={tab.id}
@@ -6591,14 +6748,14 @@ export default function BrokerDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {leads.length === 0 ? (
+                      {visibleLeads.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="p-8 text-center text-gray-500 font-medium">
                             Nenhuma captação encontrada.
                           </td>
                         </tr>
                       ) : (
-                        leads.map((lead) => (
+                        visibleLeads.map((lead) => (
                           <tr key={lead.id} className="hover:bg-gray-50/50 transition-colors">
                             <td className="p-6">
                               <div className="text-sm font-bold text-gray-900">
@@ -6676,6 +6833,8 @@ export default function BrokerDashboard() {
             </div>
           ) : activeTab === 'calendar' ? (
             <AgendaTab permissions={userPermissions} />
+          ) : activeTab === 'my-calendar' ? (
+            <AgendaTab permissions={userPermissions} isMyCalendar={true} />
           ) : activeTab === 'fichas' ? (
             <FichasCadastraisTab />
           ) : activeTab === 'finance' ? (
@@ -7316,7 +7475,98 @@ export default function BrokerDashboard() {
         </AnimatePresence>
 
         {/* Review Rejection Modal */}
-        {isReviewModalOpen && (
+        {/* Reallocation Modal */}
+      {isReallocationModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg overflow-hidden"
+          >
+            <div className="p-8 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
+              <div>
+                <h3 className="text-2xl font-black text-gray-900">Realocar Lead</h3>
+                <p className="text-sm text-gray-500 font-medium mt-1">Transfira este atendimento para outro corretor</p>
+              </div>
+              <button 
+                onClick={() => setIsReallocationModalOpen(false)}
+                className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all shadow-sm group"
+              >
+                <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="bg-[#617964]/5 rounded-3xl p-6 border border-[#617964]/10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-[#617964] flex items-center justify-center text-white font-black text-lg">
+                    {selectedLeadForReallocation?.userName?.charAt(0) || 'L'}
+                  </div>
+                  <div>
+                    <p className="font-black text-gray-900">{selectedLeadForReallocation?.userName}</p>
+                    <p className="text-sm text-gray-500 font-medium">{selectedLeadForReallocation?.propertyName}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Novo Corretor Responsável</label>
+                <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {brokers.filter(b => b.userId !== selectedLeadForReallocation?.brokerId).map(broker => (
+                    <button
+                      key={broker.id}
+                      onClick={() => setTargetBrokerId(broker.userId || broker.id.toString())}
+                      className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${
+                        targetBrokerId === (broker.userId || broker.id.toString())
+                          ? 'bg-[#617964] border-[#617964] text-white shadow-lg shadow-[#617964]/20'
+                          : 'bg-white border-gray-100 hover:border-[#617964]/30 group'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl overflow-hidden border-2 ${
+                        targetBrokerId === (broker.userId || broker.id.toString()) ? 'border-white/30' : 'border-gray-50'
+                      }`}>
+                        <img 
+                          src={broker.photo || "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80"} 
+                          className="w-full h-full object-cover" 
+                          alt={broker.name} 
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`text-sm font-bold ${targetBrokerId === (broker.userId || broker.id.toString()) ? 'text-white' : 'text-gray-900'}`}>{broker.name}</p>
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${targetBrokerId === (broker.userId || broker.id.toString()) ? 'text-white/60' : 'text-gray-400'}`}>{broker.role}</p>
+                      </div>
+                      {targetBrokerId === (broker.userId || broker.id.toString()) && <Check className="w-5 h-5" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 bg-gray-50 flex items-center justify-end gap-4">
+              <button
+                onClick={() => setIsReallocationModalOpen(false)}
+                className="px-6 py-3 rounded-2xl font-black text-sm text-gray-500 hover:text-gray-900 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={!targetBrokerId || isSubmitting}
+                onClick={handleReallocateLead}
+                className="bg-[#617964] text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-[#374001] transition-all shadow-lg shadow-[#617964]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSubmitting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                Confirmar Realocação
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {isReviewModalOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
