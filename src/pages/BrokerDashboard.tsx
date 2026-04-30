@@ -443,6 +443,19 @@ export default function BrokerDashboard() {
           read: false,
           createdAt: serverTimestamp()
         });
+
+        // Chat message
+        const sortedIds = [myId, targetBrokerId].sort();
+        const stableRoomId = sortedIds.join('_');
+        await addDoc(collection(db, 'mensagens'), {
+          from: myId,
+          to: targetBrokerId,
+          room: stableRoomId,
+          text: `Olá, seu imóvel [${prop.title}] foi aprovado e já está publicado!`,
+          createdAt: serverTimestamp(),
+          senderName: 'Diretoria',
+          read: false
+        });
       }
       
       alert("Imóvel aprovado e publicado com sucesso!");
@@ -811,28 +824,34 @@ export default function BrokerDashboard() {
         setChatMessages(messagesData);
         
         // Mark as read
+        const batch = writeBatch(db);
+        let hasChanges = false;
         messagesData.forEach((msg: any) => {
           if (msg.to === myId && msg.read === false) {
-            updateDoc(doc(db, 'mensagens', msg.id), { read: true }).catch(console.error);
+            batch.update(doc(db, 'mensagens', msg.id), { read: true });
+            hasChanges = true;
           }
         });
+        if (hasChanges) batch.commit().catch(console.error);
 
         // Also mark as read any matching notifications
         if (selectedChatBroker) {
-          const otherId = selectedChatBroker.userId || selectedChatBroker.id.toString();
           const qNotif = query(
             collection(db, 'notificacoes'),
             where('userId', '==', myId),
-            where('type', '==', 'message'),
             where('read', '==', false)
           );
           getDocs(qNotif).then(snap => {
+            const nBatch = writeBatch(db);
+            let nChanges = false;
             snap.docs.forEach(d => {
               const ndata = d.data();
-              // Simplified check: if it's a message type and we are in chat with someone, we mark as read
-              // Ideally we'd check fromId if we stored it in notifications
-              updateDoc(doc(db, 'notificacoes', d.id), { read: true });
+              if (ndata.type === 'message' || (ndata.message && ndata.message.includes(selectedChatBroker.name))) {
+                nBatch.update(d.ref, { read: true });
+                nChanges = true;
+              }
             });
+            if (nChanges) nBatch.commit();
           });
         }
 
@@ -889,20 +908,29 @@ export default function BrokerDashboard() {
     
     if (myId) {
       // Listener for all messages involving me
-      // Note: we fetch both to/from to maintain sorting by recency
-      const q = query(
-        collection(db, 'mensagens'),
-        or(where('to', '==', myId), where('from', '==', myId))
-      );
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-        setAllUserMessages(messages);
-      }, (error) => {
-        console.error("Error listening messages for user:", error);
+      const unsubscribeTo = onSnapshot(query(collection(db, 'mensagens'), where('to', '==', myId)), (snap) => {
+        const toMe = snap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        setAllUserMessages(prev => {
+          const fromMe = prev.filter(m => m.from === myId);
+          const combined = [...toMe, ...fromMe];
+          // Remove duplicates if any
+          return combined.filter((m, index, self) => index === self.findIndex((t) => t.id === m.id));
+        });
       });
 
-      return () => unsubscribe();
+      const unsubscribeFrom = onSnapshot(query(collection(db, 'mensagens'), where('from', '==', myId)), (snap) => {
+        const fromMe = snap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        setAllUserMessages(prev => {
+          const toMe = prev.filter(m => m.to === myId);
+          const combined = [...toMe, ...fromMe];
+          return combined.filter((m, index, self) => index === self.findIndex((t) => t.id === m.id));
+        });
+      });
+
+      return () => {
+        unsubscribeTo();
+        unsubscribeFrom();
+      };
     }
   }, [currentBroker, auth.currentUser]);
 
@@ -1992,6 +2020,18 @@ export default function BrokerDashboard() {
         await updateProperty(newPropertyData.id, propertyToSave);
         await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title}`);
         
+        if (isAdmin && propertyToSave.brokerId && propertyToSave.brokerId !== auth.currentUser?.uid) {
+          await addDoc(collection(db, 'notificacoes'), {
+            userId: propertyToSave.brokerId,
+            title: 'Imóvel Editado',
+            message: `A diretoria fez alterações no seu imóvel [${propertyToSave.title}]. Clique para ver.`,
+            type: 'system',
+            relatedId: newPropertyData.id.toString(),
+            read: false,
+            createdAt: serverTimestamp()
+          });
+        }
+
         if (!isAdmin) {
           const adminsSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', ['admin', 'ceo', 'manager'])));
           const batch = writeBatch(db);
@@ -2890,7 +2930,7 @@ export default function BrokerDashboard() {
                           .sort((m1, m2) => (m2.createdAt?.toMillis?.() || 0) - (m1.createdAt?.toMillis?.() || 0))[0];
                         return latest ? (
                           <p className="text-[10px] text-gray-400 font-medium italic truncate max-w-[150px]">
-                            {latest.text.slice(0, 30)}{latest.text.length > 30 ? '...' : ''}
+                            {latest.text.slice(0, 35)}{latest.text.length > 35 ? '...' : ''}
                           </p>
                         ) : (
                           <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
@@ -2970,7 +3010,7 @@ export default function BrokerDashboard() {
                     </div>
                   ) : (
                     [...brokers]
-                      .filter(b => b.id.toString() !== auth.currentUser?.uid)
+                      .filter(b => (b.userId || b.id.toString()) !== auth.currentUser?.uid && b.email?.toLowerCase() !== auth.currentUser?.email?.toLowerCase())
                       .sort((a, b) => {
                          const latestA = allUserMessages
                            .filter(m => m.from === a.id.toString() || m.to === a.id.toString() || m.from === a.userId || m.to === a.userId)
@@ -3019,7 +3059,7 @@ export default function BrokerDashboard() {
                             
                             return latest ? (
                               <p className="text-[10px] text-gray-400 font-medium italic truncate">
-                                {latest.text.slice(0, 30)}{latest.text.length > 30 ? '...' : ''}
+                                {latest.text.slice(0, 35)}{latest.text.length > 35 ? '...' : ''}
                               </p>
                             ) : (
                               <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
