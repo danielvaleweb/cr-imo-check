@@ -1859,12 +1859,11 @@ export default function BrokerDashboard() {
       };
 
       if (!isEditing) {
-        // Notification for admins about new property to review
         if (!isAdmin) {
+          // Notify admins about new property to review
           const adminsSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', ['admin', 'ceo', 'manager'])));
           const batch = writeBatch(db);
-          // For new properties, we don't have the ID yet, we'll get it after addProperty
-          // Actually, we can generate it now
+          
           const newDocRef = doc(collection(db, 'properties'));
           const finalPropertyToSave = { ...propertyToSave, id: newDocRef.id };
           
@@ -1882,16 +1881,18 @@ export default function BrokerDashboard() {
           });
           await batch.commit();
           
-          // Use the pre-generated ID
           await setDoc(newDocRef, finalPropertyToSave);
+          await addLog('property', 'Cadastrou imóvel (Aguardando Aprovação)', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
         } else {
           await addProperty(propertyToSave);
+          await addLog('property', 'Cadastrou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
         }
       } else {
         await updateProperty(newPropertyData.id, propertyToSave);
+        await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
       }
 
-      // Final fallback for image
+      // Final fallback for image (just in case)
       if (!propertyToSave.image || propertyToSave.image.includes('pe07Ikg.png')) {
         if (newPropertyData.images.length > 0 && newPropertyData.images[0] !== '') {
           propertyToSave.image = newPropertyData.images[0];
@@ -1903,12 +1904,10 @@ export default function BrokerDashboard() {
       setEditingPropertyId(null);
       setCurrentStep(1);
 
-      if (isEditing && editingPropertyId !== null) {
-        await updateProperty(editingPropertyId, propertyToSave);
-        await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
-      } else {
-        await addProperty(propertyToSave);
-        await addLog('property', 'Cadastrou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
+      // Auto-switch to review tab for non-admins to show success
+      if (!isAdmin) {
+        setPropertyStatusFilter('under_review');
+        setActiveTab('properties');
       }
 
       // Reset form

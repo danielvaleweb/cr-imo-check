@@ -10,6 +10,19 @@ service cloud.firestore {
       );
     }
 
+    match /properties/{propertyId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (resource.data.brokerId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /notificacoes/{id} {
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
     match /{document=**} {
       allow read: if true;
       allow write: if isAdmin();

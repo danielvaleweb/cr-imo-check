@@ -61,13 +61,13 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
           brokerUnsubscribe = onSnapshot(brokerQuery, (snapshot) => {
             if (!snapshot.empty) {
               const brokerData = snapshot.docs[0].data();
-              setProfilePhoto(brokerData.photo || currentUser.photoURL);
+              setProfilePhoto(brokerData.photo || userDoc.data()?.photoURL || userDoc.data()?.photo || currentUser.photoURL);
             } else {
-              setProfilePhoto(currentUser.photoURL);
+              setProfilePhoto(userDoc.data()?.photoURL || userDoc.data()?.photo || currentUser.photoURL);
             }
           }, (error) => {
             console.error("Error listening to broker profile:", error);
-            setProfilePhoto(currentUser.photoURL);
+            setProfilePhoto(userDoc.data()?.photoURL || userDoc.data()?.photo || currentUser.photoURL);
           });
 
           // Always show the user in the header if they exist in Firestore or are the admin
