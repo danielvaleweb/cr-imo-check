@@ -477,7 +477,25 @@ export default function BrokerDashboard() {
       if (!targetBrokerId && propertyToReview.broker) {
         const brokerObj = brokers.find(b => b.name === propertyToReview.broker);
         if (brokerObj) {
-          targetBrokerId = brokerObj.userId || brokerObj.id.toString();
+          // If userId is missing in broker document, try to find it in the users collection by email
+          if (!brokerObj.userId && brokerObj.email) {
+            try {
+              const usersRef = collection(db, 'users');
+              const q = query(usersRef, where('email', '==', brokerObj.email.toLowerCase()));
+              const userSnap = await getDocs(q);
+              if (!userSnap.empty) {
+                targetBrokerId = userSnap.docs[0].id;
+                // Also update the broker document for future use
+                await updateBroker(brokerObj.id, { userId: targetBrokerId });
+              }
+            } catch (e) {
+              console.warn("Could not find broker UID by email fallback:", e);
+            }
+          }
+          
+          if (!targetBrokerId) {
+            targetBrokerId = brokerObj.userId || brokerObj.id.toString();
+          }
         }
       }
 
@@ -490,10 +508,12 @@ export default function BrokerDashboard() {
 
       // Notify broker
       if (targetBrokerId) {
+        const msgText = `Olá verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendencias Clique aqui para ver`;
+        
         await addDoc(collection(db, 'notificacoes'), {
           userId: targetBrokerId,
           title: 'Pendências no Imóvel',
-          message: `Olá verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendencias Clique aqui para ver`,
+          message: msgText,
           type: 'review_pending',
           relatedId: propertyToReview.id.toString(),
           tabPath: 'pending', 
@@ -512,7 +532,7 @@ export default function BrokerDashboard() {
             from: myId,
             to: targetBrokerId,
             room: stableRoomId,
-            text: `Olá verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendencias Clique aqui para ver: [Link para Pendências]`,
+            text: `${msgText}: [Link para Pendências]`,
             createdAt: serverTimestamp(),
             senderName: user?.displayName || 'Diretoria',
             read: false
@@ -837,7 +857,7 @@ export default function BrokerDashboard() {
   // Global Unread Messages Listener
   useEffect(() => {
     if (!currentBroker?.id && !auth.currentUser?.uid) return;
-    const myId = currentBroker?.id?.toString() || auth.currentUser?.uid;
+    const myId = auth.currentUser?.uid || currentBroker?.id?.toString();
     
     if (myId) {
       const q = query(
@@ -901,7 +921,7 @@ export default function BrokerDashboard() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setFilteredNotifications(data.filter((n: any) => 
-        ['tarefa', 'commitment', 'lead', 'system', 'daily_summary', 'captacao', 'visita', 'reuniao'].includes(n.type)
+        ['tarefa', 'commitment', 'lead', 'system', 'daily_summary', 'captacao', 'visita', 'reuniao', 'review_pending', 'approved', 'message'].includes(n.type)
       ));
     }, (error) => {
       console.warn("Notifications read error:", error);
@@ -2850,7 +2870,7 @@ export default function BrokerDashboard() {
                     </div>
                   ) : (
                     chatMessages.map((msg) => {
-                      const myId = currentBroker?.id?.toString() || auth.currentUser?.uid;
+                      const myId = auth.currentUser?.uid || currentBroker?.id?.toString();
                       const isMe = msg.from === myId;
                       return (
                       <div 

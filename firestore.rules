@@ -23,6 +23,22 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
+    match /brokers/{brokerId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.email == request.auth.token.email || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /mensagens/{id} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if request.auth != null && (resource.data.from == request.auth.uid || isAdmin());
+    }
+
     match /{document=**} {
       allow read: if true;
       allow write: if isAdmin();
