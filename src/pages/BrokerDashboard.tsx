@@ -419,15 +419,25 @@ export default function BrokerDashboard() {
   const handleApproveProperty = async (id: string | number) => {
     try {
       const prop = properties.find(p => p.id === id);
-      await updateProperty(id, { approvalStatus: 'published', reviewComments: {} });
-      await addLog('property', 'Aprovou imóvel', `Imóvel: ${prop?.title} (Cód: ${prop?.code})`);
+      if (!prop) return;
+
+      // Ensure we have a valid target UID for notification
+      let targetBrokerId = prop.brokerId;
+      if (!targetBrokerId && prop.broker) {
+        const bObj = brokers.find(b => b.name === prop.broker);
+        if (bObj) targetBrokerId = bObj.userId || bObj.id.toString();
+      }
+
+      await updateProperty(id, { approvalStatus: 'published', reviewComments: {}, brokerId: targetBrokerId || prop.brokerId });
+      await addLog('property', 'Aprovou imóvel', `Imóvel: ${prop.title} (Cód: ${prop.code})`);
       
+      const myId = auth.currentUser?.uid;
       // Notify broker
-      if (prop?.brokerId) {
+      if (targetBrokerId && targetBrokerId !== myId) {
         await addDoc(collection(db, 'notificacoes'), {
-          userId: prop.brokerId,
+          userId: targetBrokerId,
           title: 'Imóvel Aprovado!',
-          message: `Imóvel [${prop.title}] foi aprovado`,
+          message: `Imóvel [${prop.title}] foi aprovado pela diretoria`,
           type: 'approved',
           relatedId: id.toString(),
           read: false,
@@ -473,12 +483,18 @@ export default function BrokerDashboard() {
         return;
       }
 
-      // Try to find the brokerId if it's missing on the property
+      // Try to find the brokerId if it's missing on the property or matches the reviewer
       let targetBrokerId = propertyToReview.brokerId;
-      if (!targetBrokerId && propertyToReview.broker) {
+      const myId = auth.currentUser?.uid;
+      
+      // If targetBrokerId is null OR it points to the reviewer (admin), let's try to find the actual broker by name
+      if ((!targetBrokerId || targetBrokerId === myId) && propertyToReview.broker) {
         const brokerObj = brokers.find(b => b.name === propertyToReview.broker);
         if (brokerObj) {
-          // If userId is missing in broker document, try to find it in the users collection by email
+          // Priority to userId if found in brokers list
+          targetBrokerId = brokerObj.userId || brokerObj.id.toString();
+          
+          // Re-verify if it's not pointing to the admin again (fallback protection)
           if (!brokerObj.userId && brokerObj.email) {
             try {
               const usersRef = collection(db, 'users');
@@ -486,16 +502,11 @@ export default function BrokerDashboard() {
               const userSnap = await getDocs(q);
               if (!userSnap.empty) {
                 targetBrokerId = userSnap.docs[0].id;
-                // Also update the broker document for future use
                 await updateBroker(brokerObj.id, { userId: targetBrokerId });
               }
             } catch (e) {
               console.warn("Could not find broker UID by email fallback:", e);
             }
-          }
-          
-          if (!targetBrokerId) {
-            targetBrokerId = brokerObj.userId || brokerObj.id.toString();
           }
         }
       }
@@ -504,11 +515,11 @@ export default function BrokerDashboard() {
       await updateProperty(propertyToReview.id, { 
         approvalStatus: 'pending', 
         reviewComments: comments,
-        brokerId: targetBrokerId || propertyToReview.brokerId // Persist the ID if we found it
+        brokerId: targetBrokerId || propertyToReview.brokerId // Persist the ID
       });
 
       // Notify broker
-      if (targetBrokerId) {
+      if (targetBrokerId && targetBrokerId !== myId) {
         const msgText = `Olá verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendencias Clique aqui para ver`;
         
         await addDoc(collection(db, 'notificacoes'), {
@@ -523,7 +534,6 @@ export default function BrokerDashboard() {
         });
 
         // Chat message logic
-        const myId = auth.currentUser?.uid;
         if (myId) {
           // Sort IDs to ensure stable room name regardless of who sends first
           const sortedIds = [myId, targetBrokerId].sort();
@@ -806,6 +816,25 @@ export default function BrokerDashboard() {
             updateDoc(doc(db, 'mensagens', msg.id), { read: true }).catch(console.error);
           }
         });
+
+        // Also mark as read any matching notifications
+        if (selectedChatBroker) {
+          const otherId = selectedChatBroker.userId || selectedChatBroker.id.toString();
+          const qNotif = query(
+            collection(db, 'notificacoes'),
+            where('userId', '==', myId),
+            where('type', '==', 'message'),
+            where('read', '==', false)
+          );
+          getDocs(qNotif).then(snap => {
+            snap.docs.forEach(d => {
+              const ndata = d.data();
+              // Simplified check: if it's a message type and we are in chat with someone, we mark as read
+              // Ideally we'd check fromId if we stored it in notifications
+              updateDoc(doc(db, 'notificacoes', d.id), { read: true });
+            });
+          });
+        }
 
         setTimeout(() => {
           if (chatScrollRef.current) {
@@ -2855,7 +2884,18 @@ export default function BrokerDashboard() {
                     <img src={selectedChatBroker.photo || "https://i.imgur.com/2mOeELD.jpeg"} className="w-10 h-10 rounded-xl object-cover" />
                     <div>
                       <h3 className="text-sm font-black text-gray-900">{selectedChatBroker.name}</h3>
-                      <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
+                      {(() => {
+                        const latest = allUserMessages
+                          .filter(m => m.from === (selectedChatBroker.userId || selectedChatBroker.id.toString()) || m.to === (selectedChatBroker.userId || selectedChatBroker.id.toString()))
+                          .sort((m1, m2) => (m2.createdAt?.toMillis?.() || 0) - (m1.createdAt?.toMillis?.() || 0))[0];
+                        return latest ? (
+                          <p className="text-[10px] text-gray-400 font-medium italic truncate max-w-[150px]">
+                            {latest.text.slice(0, 30)}{latest.text.length > 30 ? '...' : ''}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Online</p>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -2964,13 +3004,27 @@ export default function BrokerDashboard() {
                         </div>
                         <div className="text-left flex-1 min-w-0">
                           <p className={`text-sm font-black truncate ${unreadCount > 0 ? 'text-red-900' : 'text-gray-900'}`}>{broker.name}</p>
-                          {unreadCount > 0 ? (
-                             <p className="text-[10px] text-red-500 font-bold uppercase truncate animate-pulse tracking-wider">
-                               {unreadCount} nova{unreadCount > 1 ? 's' : ''} mensagem{unreadCount > 1 ? 'ns' : ''}
-                             </p>
-                          ) : (
-                             <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
-                          )}
+                          {(() => {
+                            const latest = allUserMessages
+                              .filter(m => m.from === broker.id.toString() || m.to === broker.id.toString() || m.from === broker.userId || m.to === broker.userId)
+                              .sort((m1, m2) => (m2.createdAt?.toMillis?.() || 0) - (m1.createdAt?.toMillis?.() || 0))[0];
+                            
+                            if (unreadCount > 0) {
+                              return (
+                                <p className="text-[10px] text-red-500 font-bold uppercase truncate animate-pulse tracking-wider">
+                                  {unreadCount} nova{unreadCount > 1 ? 's' : ''} mensagem{unreadCount > 1 ? 'ns' : ''}
+                                </p>
+                              );
+                            }
+                            
+                            return latest ? (
+                              <p className="text-[10px] text-gray-400 font-medium italic truncate">
+                                {latest.text.slice(0, 30)}{latest.text.length > 30 ? '...' : ''}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
+                            );
+                          })()}
                         </div>
                         <div className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-all ${unreadCount > 0 ? 'bg-red-500 text-white font-black text-xs' : 'bg-gray-100 text-gray-400 group-hover:bg-[#25D366] group-hover:text-white'}`}>
                           {unreadCount > 0 ? unreadCount : <MessageCircle className="w-4 h-4" />}
