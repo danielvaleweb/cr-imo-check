@@ -32,6 +32,7 @@ import {
   addDoc,
   getDocs,
   where,
+  or,
   serverTimestamp,
   writeBatch 
 } from 'firebase/firestore';
@@ -367,7 +368,7 @@ export default function BrokerDashboard() {
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [selectedChatBroker, setSelectedChatBroker] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [unreadMessages, setUnreadMessages] = useState<any[]>([]);
+  const [allUserMessages, setAllUserMessages] = useState<any[]>([]);
   const [newMessageText, setNewMessageText] = useState('');
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -837,41 +838,41 @@ export default function BrokerDashboard() {
         room: stableRoomId,
         text,
         createdAt: serverTimestamp(),
-        senderName: currentBroker?.name || auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Usuário',
+        senderName: currentBroker?.name || auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Diretoria',
         read: false
-      });
-      
-      await addDoc(collection(db, 'notificacoes'), {
-        userId: otherId,
-        title: 'Nova Mensagem',
-        message: `${currentBroker?.name || auth.currentUser.displayName || 'Alguém'} enviou uma mensagem para você.`,
-        type: 'message',
-        read: false,
-        createdAt: serverTimestamp()
       });
     } catch (error) {
       console.error("Error sending message:", error);
     }
   };
 
-  // Global Unread Messages Listener
+  // Derived message states
+  const unreadMessages = useMemo(() => {
+    const myId = auth.currentUser?.uid || currentBroker?.id?.toString();
+    if (!myId) return [];
+    return allUserMessages.filter(m => m.to === myId && m.read === false);
+  }, [allUserMessages, auth.currentUser, currentBroker]);
+
+  // Global Messages Listener (both unread and recent for sorting)
   useEffect(() => {
-    if (!currentBroker?.id && !auth.currentUser?.uid) return;
+    if (!auth.currentUser?.uid && !currentBroker?.id) return;
     const myId = auth.currentUser?.uid || currentBroker?.id?.toString();
     
     if (myId) {
+      // Listener for all messages involving me
+      // Note: we fetch both to/from to maintain sorting by recency
       const q = query(
         collection(db, 'mensagens'),
-        where('to', '==', myId)
+        or(where('to', '==', myId), where('from', '==', myId))
       );
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-        // Filtrar e processar read == false localmente para evitar erro de index do firestore
-        setUnreadMessages(messagesData.filter(m => m.read === false));
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        setAllUserMessages(messages);
       }, (error) => {
-        console.error("Error listening unread messages:", error);
+        console.error("Error listening messages for user:", error);
       });
+
       return () => unsubscribe();
     }
   }, [currentBroker, auth.currentUser]);
@@ -2931,12 +2932,24 @@ export default function BrokerDashboard() {
                     [...brokers]
                       .filter(b => b.id.toString() !== auth.currentUser?.uid)
                       .sort((a, b) => {
-                         const countA = unreadMessages.filter(m => m.from === a.id.toString()).length;
-                         const countB = unreadMessages.filter(m => m.from === b.id.toString()).length;
+                         const latestA = allUserMessages
+                           .filter(m => m.from === a.id.toString() || m.to === a.id.toString() || m.from === a.userId || m.to === a.userId)
+                           .sort((m1, m2) => (m2.createdAt?.toMillis?.() || 0) - (m1.createdAt?.toMillis?.() || 0))[0];
+                         const latestB = allUserMessages
+                           .filter(m => m.from === b.id.toString() || m.to === b.id.toString() || m.from === b.userId || m.to === b.userId)
+                           .sort((m1, m2) => (m2.createdAt?.toMillis?.() || 0) - (m1.createdAt?.toMillis?.() || 0))[0];
+                           
+                         const timeA = latestA?.createdAt?.toMillis?.() || 0;
+                         const timeB = latestB?.createdAt?.toMillis?.() || 0;
+                         
+                         if (timeA !== timeB) return timeB - timeA;
+
+                         const countA = unreadMessages.filter(m => m.from === a.id.toString() || m.from === a.userId).length;
+                         const countB = unreadMessages.filter(m => m.from === b.id.toString() || m.from === b.userId).length;
                          return countB - countA;
                       })
                       .map((broker) => {
-                      const unreadCount = unreadMessages.filter(m => m.from === broker.id.toString()).length;
+                      const unreadCount = unreadMessages.filter(m => m.from === broker.id.toString() || m.from === broker.userId).length;
                       return (
                       <button
                         key={broker.id}
@@ -2959,13 +2972,8 @@ export default function BrokerDashboard() {
                              <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{broker.role || 'Corretor'}</p>
                           )}
                         </div>
-                        <div className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-all ${unreadCount > 0 ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-[#25D366] group-hover:text-white'}`}>
-                          <MessageCircle className="w-4 h-4" />
-                          {unreadCount > 0 && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                              {unreadCount}
-                            </span>
-                          )}
+                        <div className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-all ${unreadCount > 0 ? 'bg-red-500 text-white font-black text-xs' : 'bg-gray-100 text-gray-400 group-hover:bg-[#25D366] group-hover:text-white'}`}>
+                          {unreadCount > 0 ? unreadCount : <MessageCircle className="w-4 h-4" />}
                         </div>
                       </button>
                     )})
@@ -5160,9 +5168,7 @@ export default function BrokerDashboard() {
             >
               <MessageSquare className="w-5 h-5" />
               {unreadMessages.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full shadow-lg border-2 border-white animate-bounce-short">
-                  {unreadMessages.length}
-                </span>
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
               )}
             </button>
             <button 
