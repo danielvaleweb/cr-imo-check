@@ -472,37 +472,54 @@ export default function BrokerDashboard() {
         return;
       }
 
+      // Try to find the brokerId if it's missing on the property
+      let targetBrokerId = propertyToReview.brokerId;
+      if (!targetBrokerId && propertyToReview.broker) {
+        const brokerObj = brokers.find(b => b.name === propertyToReview.broker);
+        if (brokerObj) {
+          targetBrokerId = brokerObj.userId || brokerObj.id.toString();
+        }
+      }
+
+      // Update the property with status, comments AND ensure brokerId is saved
       await updateProperty(propertyToReview.id, { 
         approvalStatus: 'pending', 
-        reviewComments: comments 
+        reviewComments: comments,
+        brokerId: targetBrokerId || propertyToReview.brokerId // Persist the ID if we found it
       });
 
       // Notify broker
-      if (propertyToReview.brokerId) {
+      if (targetBrokerId) {
         await addDoc(collection(db, 'notificacoes'), {
-          userId: propertyToReview.brokerId,
+          userId: targetBrokerId,
           title: 'Pendências no Imóvel',
-          message: `Olá, verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendências. Clique aqui para ver.`,
+          message: `Olá verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendencias Clique aqui para ver`,
           type: 'review_pending',
           relatedId: propertyToReview.id.toString(),
-          tabPath: 'pending', // Special field for automatic redirect
+          tabPath: 'pending', 
           read: false,
           createdAt: serverTimestamp()
         });
 
-        // Chat message
+        // Chat message logic
         const myId = auth.currentUser?.uid;
         if (myId) {
+          // Sort IDs to ensure stable room name regardless of who sends first
+          const sortedIds = [myId, targetBrokerId].sort();
+          const stableRoomId = sortedIds.join('_');
+
           await addDoc(collection(db, 'mensagens'), {
             from: myId,
-            to: propertyToReview.brokerId,
-            room: `${myId}_${propertyToReview.brokerId}`,
-            text: `Seu imóvel "${propertyToReview.title}" está com pendências. Clique aqui para ver: [Link para Pendências]`,
+            to: targetBrokerId,
+            room: stableRoomId,
+            text: `Olá verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendencias Clique aqui para ver: [Link para Pendências]`,
             createdAt: serverTimestamp(),
-            senderName: user?.displayName || 'Sistema',
+            senderName: user?.displayName || 'Diretoria',
             read: false
           });
         }
+      } else {
+        console.warn("Could not find brokerId for notification. Broker name:", propertyToReview.broker);
       }
 
       setIsReviewModalOpen(false);
@@ -740,15 +757,15 @@ export default function BrokerDashboard() {
 
   useEffect(() => {
     if (isMessagesOpen && selectedChatBroker && auth.currentUser) {
-      const myId = currentBroker?.id?.toString() || auth.currentUser.uid;
-      const otherId = selectedChatBroker.id.toString();
+      const myId = auth.currentUser.uid;
+      const otherId = selectedChatBroker.userId || selectedChatBroker.id.toString();
+      
+      const sortedIds = [myId, otherId].sort();
+      const stableRoomId = sortedIds.join('_');
       
       const q = query(
         collection(db, 'mensagens'),
-        where('room', 'in', [
-          `${myId}_${otherId}`,
-          `${otherId}_${myId}`
-        ])
+        where('room', '==', stableRoomId)
       );
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -787,14 +804,17 @@ export default function BrokerDashboard() {
 
     try {
       const text = newMessageText;
-      const myId = currentBroker?.id?.toString() || auth.currentUser.uid;
-      const otherId = selectedChatBroker.id.toString();
+      const myId = auth.currentUser.uid;
+      const otherId = selectedChatBroker.userId || selectedChatBroker.id.toString();
       
+      const sortedIds = [myId, otherId].sort();
+      const stableRoomId = sortedIds.join('_');
+
       setNewMessageText('');
       await addDoc(collection(db, 'mensagens'), {
         from: myId,
         to: otherId,
-        room: `${myId}_${otherId}`,
+        room: stableRoomId,
         text,
         createdAt: serverTimestamp(),
         senderName: currentBroker?.name || auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'Usuário',
@@ -1923,7 +1943,24 @@ export default function BrokerDashboard() {
         await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title}`);
         
         if (!isAdmin) {
-          await addDoc(collection(db, 'notificacoes'), {
+          const adminsSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', ['admin', 'ceo', 'manager'])));
+          const batch = writeBatch(db);
+
+          adminsSnap.forEach(adminDoc => {
+            const notifRef = doc(collection(db, 'notificacoes'));
+            batch.set(notifRef, {
+              userId: adminDoc.id,
+              title: 'Correção de Imóvel Enviada',
+              message: `O corretor ${propertyToSave.broker} enviou correções para o imóvel "${propertyToSave.title}".`,
+              type: 'review_pending',
+              relatedId: newPropertyData.id.toString(),
+              read: false,
+              createdAt: serverTimestamp()
+            });
+          });
+
+          const brokerNotifRef = doc(collection(db, 'notificacoes'));
+          batch.set(brokerNotifRef, {
             userId: auth.currentUser?.uid,
             title: 'Atualização em Análise',
             message: `As correções do imóvel [${propertyToSave.title}] foram enviadas para nova análise.`,
@@ -1932,6 +1969,8 @@ export default function BrokerDashboard() {
             read: false,
             createdAt: serverTimestamp()
           });
+          
+          await batch.commit();
         }
       }
 
@@ -6158,9 +6197,9 @@ export default function BrokerDashboard() {
               {/* Status Tabs */}
               <div className="flex flex-wrap gap-2 mb-4 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm max-w-fit">
                  {[
-                   { id: 'published', label: 'Publicados', icon: CheckCircle2, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid) && (!p.approvalStatus || p.approvalStatus === 'published')).length },
-                   { id: 'under_review', label: 'Em Avaliação', icon: Clock, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid) && p.approvalStatus === 'under_review').length },
-                   { id: 'pending', label: 'Pendentes', icon: AlertCircle, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid) && p.approvalStatus === 'pending').length },
+                   { id: 'published', label: 'Publicados', icon: CheckCircle2, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name)) && (!p.approvalStatus || p.approvalStatus === 'published')).length },
+                   { id: 'under_review', label: 'Em Avaliação', icon: Clock, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name)) && p.approvalStatus === 'under_review').length },
+                   { id: 'pending', label: 'Pendentes', icon: AlertCircle, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name)) && p.approvalStatus === 'pending').length },
                  ].map((tab) => (
                    <button
                     key={tab.id}
@@ -6271,7 +6310,8 @@ export default function BrokerDashboard() {
                 {properties
                   .filter(p => {
                     // Role based visibility
-                    if (!isAdmin && p.brokerId !== auth.currentUser?.uid) return false;
+                    const isMyProperty = p.brokerId === auth.currentUser?.uid || (currentBroker && p.broker === currentBroker.name);
+                    if (!isAdmin && !isMyProperty) return false;
 
                     // Status filtering
                     const status = p.approvalStatus || 'published';
