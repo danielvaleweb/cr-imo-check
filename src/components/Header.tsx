@@ -6,7 +6,7 @@ import { useCondos } from '../context/CondoContext';
 import { useProperties } from '../context/PropertyContext';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getDoc, doc } from 'firebase/firestore';
+import { getDoc, doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 
 interface HeaderProps {
   isScrolled: boolean;
@@ -39,53 +39,75 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
   const isCondoDetail = location.pathname.startsWith('/condominio/');
   const isTransparentPage = true;
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
+    let brokerUnsubscribe: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      // Clear previous broker listener
+      if (brokerUnsubscribe) {
+        brokerUnsubscribe();
+        brokerUnsubscribe = null;
+      }
+
       if (currentUser) {
-        // Log para depuração de permissões
-        console.log('Header Auth State:', {
-          uid: currentUser.uid,
-          email: currentUser.email,
-          authInfo: currentUser.providerData
-        });
-
-        // Exceção imediata para o administrador para evitar consultas desnecessárias
-        const adminEmail = 'danielvaleweb@gmail.com';
-        const isExplicitAdmin = 
-          currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2' || 
-          currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
-
-        if (isExplicitAdmin) {
-          console.log('Header: Admin detected by UID/Email, bypassing Firestore check');
-          setUser(currentUser);
-          return;
-        }
-
         // Validation: Check if user document exists and is approved
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          // Always show the user in the header if they exist in Firestore
-          if (userDoc.exists()) {
+          
+          // Real-time listener for broker profile photo
+          const brokerQuery = query(collection(db, 'brokers'), where('email', '==', currentUser.email?.toLowerCase()));
+          brokerUnsubscribe = onSnapshot(brokerQuery, (snapshot) => {
+            if (!snapshot.empty) {
+              const brokerData = snapshot.docs[0].data();
+              setProfilePhoto(brokerData.photo || currentUser.photoURL);
+            } else {
+              setProfilePhoto(currentUser.photoURL);
+            }
+          }, (error) => {
+            console.error("Error listening to broker profile:", error);
+            setProfilePhoto(currentUser.photoURL);
+          });
+
+          // Always show the user in the header if they exist in Firestore or are the admin
+          const adminEmail = 'danielvaleweb@gmail.com';
+          const isExplicitAdmin = 
+            currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2' || 
+            currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
+
+          if (userDoc.exists() || isExplicitAdmin) {
             setUser(currentUser);
           } else {
             console.warn('Header: User document does not exist in Firestore');
             setUser(null);
+            setProfilePhoto(null);
           }
         } catch (error) {
           console.error("Error validating header user:", error);
-          // Se houver erro de permissão mas o e-mail for do admin (fallback de segurança), permite
+          const adminEmail = 'danielvaleweb@gmail.com';
+          const isExplicitAdmin = 
+            currentUser.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2' || 
+            currentUser.email?.toLowerCase() === adminEmail.toLowerCase();
+
           if (isExplicitAdmin) {
             setUser(currentUser);
+            setProfilePhoto(currentUser.photoURL);
           } else {
             setUser(null);
+            setProfilePhoto(null);
           }
         }
       } else {
         setUser(null);
+        setProfilePhoto(null);
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      if (brokerUnsubscribe) brokerUnsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -335,7 +357,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                 >
                   {user ? (
                     <div className="relative">
-                      <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-6 h-6 rounded-full border border-white/20" />
+                      <img src={profilePhoto || user.photoURL || ''} alt={user.displayName || ''} className="w-6 h-6 rounded-full border border-white/20" />
                       <div className="absolute -bottom-1 -right-1 bg-[#25D366] w-2.5 h-2.5 rounded-full border-2 border-[#617964]" />
                     </div>
                   ) : (
@@ -417,7 +439,7 @@ export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobile
                   >
                     {user ? (
                       <div className="relative">
-                        <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-8 h-8 rounded-full border-2 border-white/20 group-hover:border-white transition-all shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)]" />
+                        <img src={profilePhoto || user.photoURL || ''} alt={user.displayName || ''} className="w-8 h-8 rounded-full border-2 border-white/20 group-hover:border-white transition-all shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)]" />
                         <div className="absolute -bottom-0.5 -right-0.5 bg-[#25D366] w-3 h-3 rounded-full border-2 border-[#617964]" />
                       </div>
                     ) : (

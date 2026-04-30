@@ -22,6 +22,12 @@
         "categorySlug": { "type": "string" },
         "code": { "type": "string" },
         "status": { "type": "string" },
+        "approvalStatus": { "type": "string", "enum": ["published", "under_review", "pending", "draft"] },
+        "reviewComments": { 
+          "type": "object",
+          "description": "Mapping of field names to feedback messages"
+        },
+        "brokerId": { "type": "string", "description": "ID of the user who created/owns this listing" },
         "description": { "type": "string" },
         "broker": { "type": "string" },
         "ownerName": { "type": "string" },
@@ -95,7 +101,7 @@
       "description": "A user profile",
       "type": "object",
       "properties": {
-        "role": { "type": "string", "enum": ["admin", "user"] },
+        "role": { "type": "string", "enum": ["admin", "ceo", "manager", "broker", "user"] },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "email": { "type": "string", "format": "email" },
         "name": { "type": "string" },
@@ -174,9 +180,28 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "logoUrl"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notification for users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["review_pending", "approved", "new_property"] },
+        "relatedId": { "type": "string", "description": "ID of relevant entity (e.g., propertyId)" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "createdAt"]
     }
   },
   "firestore": {
+    "notifications": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "Collection of system notifications"
+    },
     "partners": {
       "schema": { "$ref": "#/entities/Partner" },
       "description": "Collection of all business partners"

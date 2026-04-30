@@ -24,6 +24,9 @@ export interface Property {
   categorySlug: string;
   code?: string;
   status?: string;
+  approvalStatus?: 'published' | 'under_review' | 'pending' | 'draft';
+  reviewComments?: Record<string, string>;
+  brokerId?: string;
   description?: string;
   broker?: string;
   ownerName?: string;

@@ -192,6 +192,99 @@ import { PhotoEditorTab } from '../components/PhotoEditorTab';
 import { PartnersTab } from '../components/PartnersTab';
 import { Handshake } from 'lucide-react';
 
+const INITIAL_PROPERTY_STATE = {
+  title: '',
+  location: '',
+  price: '',
+  beds: 0,
+  baths: 0,
+  parking: 0,
+  area: '',
+  description: '',
+  broker: '', 
+  category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
+  categorySlug: CATEGORIES[0].slug,
+  matricula: '',
+  inscricaoIptu: '',
+  ownerName: '',
+  ownerPhone: '',
+  ownerPhone2: '',
+  ownerEmail: '',
+  ownerCpf: '',
+  ownerRg: '',
+  ownerRgOrg: '',
+  ownerMaritalStatus: '',
+  ownerProfession: '',
+  ownerNationality: '',
+  ownerAddress: '',
+  ownerNumber: '',
+  ownerComplement: '',
+  ownerBairro: '',
+  ownerCity: '',
+  ownerState: '',
+  ownerCep: '',
+  propertyStreet: '',
+  propertyNumber: '',
+  propertyComplement: '',
+  propertyNeighborhood: '',
+  propertyCity: '',
+  propertyState: '',
+  propertyCep: '',
+  matrixNumber: '',
+  landArea: '',
+  vendaPrice: '',
+  locacaoPrice: '',
+  isExclusive: false,
+  exclusivityConditions: 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
+  exclusivityDays: '90',
+  duringDays: '30',
+  commissionPercentage: '6',
+  minimumPrice: '',
+  signatureDate: new Date().toISOString().split('T')[0],
+  signatureType: 'digital' as 'digital' | 'physical',
+  witness1Name: '',
+  witness1Cpf: '',
+  witness1Rg: '',
+  witness2Name: '',
+  witness2Cpf: '',
+  witness2Rg: '',
+  additionalPdfUrl: '',
+  additionalInfo: '',
+  image: 'https://i.imgur.com/pe07Ikg.png',
+  images: [''],
+  videoUrl: '',
+  pdfUrl: '',
+  floorPlanUrl: '',
+  floorPlanUrls: [''],
+  tour360Url: '',
+  status: 'Ativo',
+  rooms: 0,
+  motoParking: 0,
+  hasGourmetBalcony: false,
+  elevators: 0,
+  hasLavabo: false,
+  hasHeatedPool: false,
+  hasSauna: false,
+  code: '',
+  listingType: 'venda' as 'venda' | 'aluguel' | 'permuta' | 'lançamento',
+  condoId: 0 as string | number,
+  condoFee: '',
+  iptu: '',
+  insurance: '',
+  floors: 0,
+  units: 0,
+  lateralUnits: 0,
+  frontUnits: 0,
+  backUnits: 0,
+  penthouseUnits: 0,
+  projectLogoUrl: '',
+  id: '' as string | number,
+  approvalStatus: 'published' as 'published' | 'under_review' | 'pending' | 'draft',
+  brokerId: '',
+  reviewComments: {} as Record<string, string>,
+  customButtons: [] as { label: string; url: string }[]
+};
+
 export default function BrokerDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -204,6 +297,7 @@ export default function BrokerDashboard() {
   };
   const [selectedCategory, setSelectedCategory] = useState('all');
 
+  const [propertyStatusFilter, setPropertyStatusFilter] = useState<'published' | 'under_review' | 'pending'>('published');
   const [proposals, setProposals] = useState<any[]>([]);
 
   const dashboardStats = useMemo(() => {
@@ -312,6 +406,100 @@ export default function BrokerDashboard() {
       });
     } catch (error) {
       console.error("Error toggling task:", error);
+    }
+  };
+
+  // Approval review state
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [propertyToReview, setPropertyToReview] = useState<any>(null);
+  const [reviewFields, setReviewFields] = useState<Record<string, string>>({});
+
+  const handleApproveProperty = async (id: string | number) => {
+    try {
+      const prop = properties.find(p => p.id === id);
+      await updateProperty(id, { approvalStatus: 'published', reviewComments: {} });
+      await addLog('property', 'Aprovou imóvel', `Imóvel: ${prop?.title} (Cód: ${prop?.code})`);
+      
+      // Notify broker
+      if (prop?.brokerId) {
+        await addDoc(collection(db, 'notificacoes'), {
+          userId: prop.brokerId,
+          title: 'Imóvel Aprovado!',
+          message: `O imóvel "${prop.title}" foi aprovado pela diretoria e já está publicado no site.`,
+          type: 'approved',
+          relatedId: id.toString(),
+          read: false,
+          createdAt: serverTimestamp()
+        });
+      }
+      
+      alert("Imóvel aprovado e publicado com sucesso!");
+    } catch (error) {
+      console.error("Error approving property:", error);
+    }
+  };
+
+  const handleRejectProperty = (property: any) => {
+    setPropertyToReview(property);
+    setReviewFields({
+      foto: '',
+      title: '',
+      description: '',
+      price: '',
+      other: ''
+    });
+    setIsReviewModalOpen(true);
+  };
+
+  const submitReview = async () => {
+    if (!propertyToReview) return;
+    try {
+      const comments: Record<string, string> = {};
+      Object.entries(reviewFields).forEach(([field, comment]) => {
+        if (comment.trim()) comments[field] = comment;
+      });
+
+      if (Object.keys(comments).length === 0) {
+        alert("Por favor, adicione pelo menos um comentário de pendência.");
+        return;
+      }
+
+      await updateProperty(propertyToReview.id, { 
+        approvalStatus: 'pending', 
+        reviewComments: comments 
+      });
+
+      // Notify broker
+      if (propertyToReview.brokerId) {
+        await addDoc(collection(db, 'notificacoes'), {
+          userId: propertyToReview.brokerId,
+          title: 'Pendências no Imóvel',
+          message: `Seu imóvel "${propertyToReview.title}" possui pendências que precisam ser corrigidas.`,
+          type: 'review_pending',
+          relatedId: propertyToReview.id.toString(),
+          read: false,
+          createdAt: serverTimestamp()
+        });
+
+        // Chat message
+        const myId = auth.currentUser?.uid;
+        if (myId) {
+          await addDoc(collection(db, 'mensagens'), {
+            from: myId,
+            to: propertyToReview.brokerId,
+            room: `${myId}_${propertyToReview.brokerId}`,
+            text: `Seu imóvel "${propertyToReview.title}" está com pendências. Por favor, verifique as observações em vermelho no painel de edição.`,
+            createdAt: serverTimestamp(),
+            senderName: user?.displayName || 'Sistema',
+            read: false
+          });
+        }
+      }
+
+      setIsReviewModalOpen(false);
+      alert("Pendências enviadas ao corretor com sucesso!");
+    } catch (error) {
+      console.error("Error rejecting property:", error);
     }
   };
   const [user, setUser] = useState<any>(null);
@@ -1030,94 +1218,7 @@ export default function BrokerDashboard() {
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [usersToClearStatus, setUsersToClearStatus] = useState<'pending' | 'rejected' | null>(null);
   const [brokerToDelete, setBrokerToDelete] = useState<string | number | null>(null);
-  const [newPropertyData, setNewPropertyData] = useState({
-    title: '',
-    location: '',
-    price: '',
-    beds: 0,
-    baths: 0,
-    parking: 0,
-    area: '',
-    description: '',
-    broker: '', // Will be set dynamically when saving
-    category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
-    categorySlug: CATEGORIES[0].slug,
-    matricula: '',
-    inscricaoIptu: '',
-    ownerName: '',
-    ownerPhone: '',
-    ownerPhone2: '',
-    ownerEmail: '',
-    ownerCpf: '',
-    ownerRg: '',
-    ownerRgOrg: '',
-    ownerMaritalStatus: '',
-    ownerProfession: '',
-    ownerNationality: '',
-    ownerAddress: '',
-    ownerNumber: '',
-    ownerComplement: '',
-    ownerBairro: '',
-    ownerCity: '',
-    ownerState: '',
-    ownerCep: '',
-    propertyStreet: '',
-    propertyNumber: '',
-    propertyComplement: '',
-    propertyNeighborhood: '',
-    propertyCity: '',
-    propertyState: '',
-    propertyCep: '',
-    matrixNumber: '',
-    landArea: '',
-    vendaPrice: '',
-    locacaoPrice: '',
-    isExclusive: false,
-    exclusivityConditions: 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
-    exclusivityDays: '90',
-    duringDays: '30',
-    commissionPercentage: '6',
-    minimumPrice: '',
-    signatureDate: new Date().toISOString().split('T')[0],
-    signatureType: 'digital' as 'digital' | 'physical',
-    witness1Name: '',
-    witness1Cpf: '',
-    witness1Rg: '',
-    witness2Name: '',
-    witness2Cpf: '',
-    witness2Rg: '',
-    additionalPdfUrl: '',
-    additionalInfo: '',
-    image: 'https://i.imgur.com/pe07Ikg.png',
-    images: [''],
-    videoUrl: '',
-    pdfUrl: '',
-    floorPlanUrl: '',
-    floorPlanUrls: [''],
-    tour360Url: '',
-    status: 'Ativo',
-    rooms: 0,
-    motoParking: 0,
-    hasGourmetBalcony: false,
-    elevators: 0,
-    hasLavabo: false,
-    hasHeatedPool: false,
-    hasSauna: false,
-    code: '',
-    listingType: 'venda' as 'venda' | 'aluguel' | 'permuta' | 'lançamento',
-    condoId: 0 as string | number,
-    condoFee: '',
-    iptu: '',
-    insurance: '',
-    floors: 0,
-    units: 0,
-    lateralUnits: 0,
-    frontUnits: 0,
-    backUnits: 0,
-    penthouseUnits: 0,
-    projectLogoUrl: '',
-    customButtons: [] as { label: string; url: string }[]
-  });
+  const [newPropertyData, setNewPropertyData] = useState(INITIAL_PROPERTY_STATE);
 
   const [isCondoModalOpen, setIsCondoModalOpen] = useState(false);
   const [isEditingCondo, setIsEditingCondo] = useState(false);
@@ -1627,92 +1728,9 @@ export default function BrokerDashboard() {
     setEditingPropertyId(null);
     setCurrentStep(1);
     setNewPropertyData({
-      title: '',
-      location: '',
-      price: '',
-      beds: 0,
-      baths: 0,
-      parking: 0,
-      area: '',
-      description: '',
+      ...INITIAL_PROPERTY_STATE,
       broker: currentBroker?.name || auth.currentUser?.displayName?.split(' ')[0] || 'Corretor',
-      category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
-      categorySlug: CATEGORIES[0].slug,
-      matricula: '',
-      inscricaoIptu: '',
-    ownerName: '',
-    ownerPhone: '',
-    ownerPhone2: '',
-    ownerEmail: '',
-    ownerCpf: '',
-    ownerRg: '',
-    ownerRgOrg: '',
-    ownerMaritalStatus: '',
-    ownerProfession: '',
-    ownerNationality: '',
-    ownerAddress: '',
-    ownerNumber: '',
-    ownerComplement: '',
-    ownerBairro: '',
-    ownerCity: '',
-    ownerState: '',
-    ownerCep: '',
-    propertyStreet: '',
-    propertyNumber: '',
-    propertyComplement: '',
-    propertyNeighborhood: '',
-    propertyCity: '',
-    propertyState: '',
-    propertyCep: '',
-    matrixNumber: '',
-    landArea: '',
-    vendaPrice: '',
-    locacaoPrice: '',
-    isExclusive: false,
-    exclusivityConditions: 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
-    exclusivityDays: '90',
-    duringDays: '30',
-    commissionPercentage: '6',
-    minimumPrice: '',
-    signatureDate: new Date().toISOString().split('T')[0],
-    signatureType: 'digital' as 'digital' | 'physical',
-    witness1Name: '',
-    witness1Cpf: '',
-    witness1Rg: '',
-    witness2Name: '',
-    witness2Cpf: '',
-    witness2Rg: '',
-    additionalPdfUrl: '',
-    additionalInfo: '',
-    image: 'https://i.imgur.com/pe07Ikg.png',
-      images: [''],
-      videoUrl: '',
-      pdfUrl: '',
-      floorPlanUrl: '',
-      floorPlanUrls: [''],
-      tour360Url: '',
-      status: 'Ativo',
-      rooms: 0,
-      motoParking: 0,
-      hasGourmetBalcony: false,
-      elevators: 0,
-      hasLavabo: false,
-      hasHeatedPool: false,
-      hasSauna: false,
-      code: generateUniqueCode(),
-      listingType: 'venda',
-      condoId: 0,
-      condoFee: '',
-      iptu: '',
-      insurance: '',
-      floors: 0,
-      units: 0,
-      lateralUnits: 0,
-      frontUnits: 0,
-      backUnits: 0,
-      penthouseUnits: 0,
-      projectLogoUrl: '',
-      customButtons: []
+      code: generateUniqueCode()
     });
     setIsAddModalOpen(true);
   };
@@ -1807,6 +1825,10 @@ export default function BrokerDashboard() {
       backUnits: property.backUnits || 0,
       penthouseUnits: property.penthouseUnits || 0,
       projectLogoUrl: property.projectLogoUrl || '',
+      id: property.id,
+      approvalStatus: property.approvalStatus || 'published',
+      brokerId: property.brokerId || '',
+      reviewComments: property.reviewComments || {},
       customButtons: property.customButtons || []
     });
     setIsAddModalOpen(true);
@@ -1828,10 +1850,46 @@ export default function BrokerDashboard() {
       const propertyToSave = {
         ...newPropertyData,
         condoId: finalCondoId,
+        brokerId: auth.currentUser?.uid,
+        approvalStatus: (isAdmin ? 'published' : 'under_review') as any,
+        reviewComments: {}, // Reset comments on save
         image: newPropertyData.images.length > 0 && newPropertyData.images[0] !== '' 
           ? newPropertyData.images[0] 
           : (newPropertyData.image && !newPropertyData.image.includes('pe07Ikg.png') ? newPropertyData.image : (newPropertyData.images[0] || 'https://i.imgur.com/pe07Ikg.png'))
       };
+
+      if (!isEditing) {
+        // Notification for admins about new property to review
+        if (!isAdmin) {
+          const adminsSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', ['admin', 'ceo', 'manager'])));
+          const batch = writeBatch(db);
+          // For new properties, we don't have the ID yet, we'll get it after addProperty
+          // Actually, we can generate it now
+          const newDocRef = doc(collection(db, 'properties'));
+          const finalPropertyToSave = { ...propertyToSave, id: newDocRef.id };
+          
+          adminsSnap.forEach(adminDoc => {
+            const notifRef = doc(collection(db, 'notificacoes'));
+            batch.set(notifRef, {
+              userId: adminDoc.id,
+              title: 'Novo Imóvel para Avaliação',
+              message: `O corretor ${propertyToSave.broker} cadastrou o imóvel "${propertyToSave.title}".`,
+              type: 'review_pending',
+              relatedId: newDocRef.id,
+              read: false,
+              createdAt: serverTimestamp()
+            });
+          });
+          await batch.commit();
+          
+          // Use the pre-generated ID
+          await setDoc(newDocRef, finalPropertyToSave);
+        } else {
+          await addProperty(propertyToSave);
+        }
+      } else {
+        await updateProperty(newPropertyData.id, propertyToSave);
+      }
 
       // Final fallback for image
       if (!propertyToSave.image || propertyToSave.image.includes('pe07Ikg.png')) {
@@ -1855,92 +1913,8 @@ export default function BrokerDashboard() {
 
       // Reset form
       setNewPropertyData({
-        title: '',
-        location: '',
-        price: '',
-        beds: 0,
-        baths: 0,
-        parking: 0,
-        area: '',
-        description: '',
-        broker: currentBroker?.name || auth.currentUser?.displayName?.split(' ')[0] || 'Corretor',
-        category: `${CATEGORIES[0].label1} ${CATEGORIES[0].label2}`,
-        categorySlug: CATEGORIES[0].slug,
-        matricula: '',
-        inscricaoIptu: '',
-        ownerName: '',
-        ownerPhone: '',
-        ownerPhone2: '',
-        ownerEmail: '',
-        ownerCpf: '',
-        ownerRg: '',
-        ownerRgOrg: '',
-        ownerMaritalStatus: '',
-        ownerProfession: '',
-        ownerNationality: '',
-        ownerAddress: '',
-        ownerNumber: '',
-        ownerComplement: '',
-        ownerBairro: '',
-        ownerCity: '',
-        ownerState: '',
-        ownerCep: '',
-        propertyStreet: '',
-        propertyNumber: '',
-        propertyComplement: '',
-        propertyNeighborhood: '',
-        propertyCity: '',
-        propertyState: '',
-        propertyCep: '',
-        matrixNumber: '',
-        landArea: '',
-        vendaPrice: '',
-        locacaoPrice: '',
-        isExclusive: false,
-        exclusivityConditions: 'O proprietário concede à IMOBILIÁRIA CR IMÓVEIS DE LUXO, CRECI/MG 9469, com exclusividade, o direito de anunciar, divulgar e negociar a venda ou locação do imóvel descrito nesta ficha.',
-        exclusivityDays: '90',
-        duringDays: '30',
-        commissionPercentage: '6',
-        minimumPrice: '',
-        signatureDate: new Date().toISOString().split('T')[0],
-        signatureType: 'digital' as 'digital' | 'physical',
-        witness1Name: '',
-        witness1Cpf: '',
-        witness1Rg: '',
-        witness2Name: '',
-        witness2Cpf: '',
-        witness2Rg: '',
-        additionalPdfUrl: '',
-        additionalInfo: '',
-        image: 'https://i.imgur.com/pe07Ikg.png',
-        images: [''],
-        videoUrl: '',
-        pdfUrl: '',
-        floorPlanUrl: '',
-        floorPlanUrls: [''],
-        tour360Url: '',
-        status: 'Ativo',
-        rooms: 0,
-        motoParking: 0,
-        hasGourmetBalcony: false,
-        elevators: 0,
-        hasLavabo: false,
-        hasHeatedPool: false,
-        hasSauna: false,
-        code: generateUniqueCode(),
-        listingType: 'venda' as 'venda' | 'aluguel' | 'permuta' | 'lançamento',
-        condoId: 0,
-        condoFee: '',
-        iptu: '',
-        insurance: '',
-        floors: 0,
-        units: 0,
-        lateralUnits: 0,
-        frontUnits: 0,
-        backUnits: 0,
-        penthouseUnits: 0,
-        projectLogoUrl: '',
-        customButtons: []
+        ...INITIAL_PROPERTY_STATE,
+        broker: currentBroker?.name || auth.currentUser?.displayName?.split(' ')[0] || 'Corretor'
       });
     } catch (error) {
       console.error("Erro ao salvar imóvel:", error);
@@ -2312,6 +2286,20 @@ export default function BrokerDashboard() {
         setTimeout(() => {
           document.getElementById('solicitacoes-pendentes')?.scrollIntoView({ behavior: 'smooth' });
         }, 500);
+      } else if (notif.type === 'review_pending' && notif.relatedId) {
+        setActiveTab('properties');
+        if (isAdmin) {
+          setPropertyStatusFilter('under_review');
+        } else {
+          setPropertyStatusFilter('pending');
+          const prop = properties.find(p => p.id.toString() === notif.relatedId.toString());
+          if (prop) {
+            handleEditProperty(prop);
+          }
+        }
+      } else if (notif.type === 'approved' && notif.relatedId) {
+        setActiveTab('properties');
+        setPropertyStatusFilter('published');
       } else if (notif.clickAction) {
         setActiveTab(notif.clickAction);
       } else if (['tarefa', 'visita', 'captacao', 'reuniao', 'daily_summary', 'commitment'].includes(notif.type)) {
@@ -3093,8 +3081,17 @@ export default function BrokerDashboard() {
                             value={newPropertyData.title}
                             onChange={(e) => setNewPropertyData({...newPropertyData, title: e.target.value})}
                             placeholder="Ex: Mansão Luxury"
-                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                            className={`w-full bg-white border rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all ${
+                              newPropertyData.reviewComments?.title 
+                                ? 'border-red-500 bg-red-50 ring-2 ring-red-500/20' 
+                                : 'border-gray-200'
+                            }`}
                           />
+                          {newPropertyData.reviewComments?.title && (
+                            <p className="text-[10px] font-bold text-red-500 mt-1 ml-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" /> {newPropertyData.reviewComments.title}
+                            </p>
+                          )}
                         </div>
 
                         {newPropertyData.listingType === 'lançamento' && (
@@ -3119,8 +3116,17 @@ export default function BrokerDashboard() {
                             value={newPropertyData.price}
                             onChange={(e) => handlePriceChange(e.target.value)}
                             placeholder={newPropertyData.listingType === 'aluguel' ? "Ex: R$ 4.500,00 / mês" : "Ex: R$ 3.500.000,00"}
-                            className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                            className={`w-full bg-white border rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all ${
+                              newPropertyData.reviewComments?.price 
+                                ? 'border-red-500 bg-red-50 ring-2 ring-red-500/20' 
+                                : 'border-gray-200'
+                            }`}
                           />
+                          {newPropertyData.reviewComments?.price && (
+                            <p className="text-[10px] font-bold text-red-500 mt-1 ml-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" /> {newPropertyData.reviewComments.price}
+                            </p>
+                          )}
                         </div>
 
                         {/* New Pricing Fields based on Listing Type */}
@@ -3534,7 +3540,14 @@ export default function BrokerDashboard() {
                         {/* Photos Section */}
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Fotos (Máx. 20)</label>
+                            <div className="flex flex-col">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Fotos (Máx. 20)</label>
+                              {newPropertyData.reviewComments?.foto && (
+                                <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" /> {newPropertyData.reviewComments.foto}
+                                </p>
+                              )}
+                            </div>
                             {newPropertyData.images.length < 20 && (
                               <button
                                 type="button"
@@ -3831,8 +3844,17 @@ export default function BrokerDashboard() {
                               value={newPropertyData.description}
                               onChange={(e) => setNewPropertyData({...newPropertyData, description: e.target.value})}
                               placeholder="Descreva os detalhes do imóvel..."
-                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none"
+                              className={`w-full bg-gray-50 border rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none ${
+                                newPropertyData.reviewComments?.description 
+                                  ? 'border-red-500 bg-red-50 ring-2 ring-red-500/20' 
+                                  : 'border-transparent'
+                              }`}
                             />
+                            {newPropertyData.reviewComments?.description && (
+                              <p className="text-[10px] font-bold text-red-500 mt-1 ml-1 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> {newPropertyData.reviewComments.description}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -6005,7 +6027,7 @@ export default function BrokerDashboard() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2">Todos Imóveis</h1>
-                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie todos os imóveis dos seus corretores.</p>
+                  <p className="text-sm lg:text-base text-gray-500 font-medium">Gerencie o acervo de imóveis da imobiliária.</p>
                 </div>
                 <div className="flex flex-wrap gap-4">
                   {userPermissions.canEditProperties && (
@@ -6018,6 +6040,35 @@ export default function BrokerDashboard() {
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* Status Tabs */}
+              <div className="flex flex-wrap gap-2 mb-4 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm max-w-fit">
+                 {[
+                   { id: 'published', label: 'Publicados', icon: CheckCircle2, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid) && (!p.approvalStatus || p.approvalStatus === 'published')).length },
+                   { id: 'under_review', label: 'Em Avaliação', icon: Clock, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid) && p.approvalStatus === 'under_review').length },
+                   { id: 'pending', label: 'Pendentes', icon: AlertCircle, count: properties.filter(p => (isAdmin || p.brokerId === auth.currentUser?.uid) && p.approvalStatus === 'pending').length },
+                 ].map((tab) => (
+                   <button
+                    key={tab.id}
+                    onClick={() => setPropertyStatusFilter(tab.id as any)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                      propertyStatusFilter === tab.id
+                        ? 'bg-[#617964] text-white'
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    }`}
+                   >
+                     <tab.icon className="w-3.5 h-3.5" />
+                     {tab.label}
+                     {tab.count > 0 && (
+                       <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[8px] ${
+                         propertyStatusFilter === tab.id ? 'bg-white text-[#617964]' : 'bg-gray-100 text-gray-400'
+                       }`}>
+                         {tab.count}
+                       </span>
+                     )}
+                   </button>
+                 ))}
               </div>
 
               {/* Category Tabs */}
@@ -6106,6 +6157,13 @@ export default function BrokerDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {properties
                   .filter(p => {
+                    // Role based visibility
+                    if (!isAdmin && p.brokerId !== auth.currentUser?.uid) return false;
+
+                    // Status filtering
+                    const status = p.approvalStatus || 'published';
+                    if (status !== propertyStatusFilter) return false;
+
                     if (selectedCategory === 'all') return true;
                     if (selectedCategory === 'lançamento') return p.listingType === 'lançamento';
                     
@@ -6117,9 +6175,9 @@ export default function BrokerDashboard() {
                   .map((property) => (
                   <div
                     key={property.id}
-                    className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100 group"
+                    className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100 group flex flex-col"
                   >
-                    <div className="relative h-48 overflow-hidden bg-gray-50">
+                    <div className="relative h-48 overflow-hidden bg-gray-50 shrink-0">
                       {(!property.image || property.image.includes('pe07Ikg.png')) && (!property.images || property.images.length === 0 || property.images[0] === '') ? (
                         <div className="w-full h-full flex flex-col items-center justify-center relative transition-transform duration-500 group-hover:scale-110">
                           <img 
@@ -6139,31 +6197,79 @@ export default function BrokerDashboard() {
                           referrerPolicy="no-referrer"
                         />
                       )}
+                      
+                      {/* Status Badges */}
+                      <div className="absolute top-4 left-4 flex flex-col gap-2">
+                        {property.approvalStatus === 'under_review' && (
+                          <span className="px-3 py-1 bg-amber-500 text-white rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg flex items-center gap-1.5 animate-pulse">
+                            <Clock className="w-2.5 h-2.5" />
+                            Em Avaliação
+                          </span>
+                        )}
+                        {property.approvalStatus === 'pending' && (
+                          <span className="px-3 py-1 bg-red-500 text-white rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg flex items-center gap-1.5">
+                            <AlertCircle className="w-2.5 h-2.5" />
+                            Com Pendências
+                          </span>
+                        )}
+                      </div>
+
                       <div className="absolute top-4 right-4">
                         <span className="px-3 py-1.5 bg-white/20 backdrop-blur-md border border-white/30 rounded-full text-[10px] font-black uppercase tracking-wider text-white shadow-xl">
                           {property.broker || 'Não atribuído'}
                         </span>
                       </div>
                     </div>
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-black text-gray-900 leading-tight">{property.title}</h3>
-                        <p className="text-[#617964] font-black text-sm whitespace-nowrap ml-4">{property.price}</p>
+                    <div className="p-6 flex-grow flex flex-col">
+                      <div className="flex-grow">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-black text-gray-900 leading-tight">{property.title}</h3>
+                          <p className="text-[#617964] font-black text-sm whitespace-nowrap ml-4">{property.price}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-lg uppercase tracking-wider">
+                            {property.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 font-medium mb-4 flex items-center gap-1">
+                          <Home className="w-3 h-3" /> {property.location}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-lg uppercase tracking-wider">
-                          {property.category}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 font-medium mb-4 flex items-center gap-1">
-                        <Home className="w-3 h-3" /> {property.location}
-                      </p>
+
+                      {/* Review Actions for Admins */}
+                      {isAdmin && property.approvalStatus === 'under_review' && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-[24px] border border-gray-100 flex flex-col gap-2 mb-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1 text-center">Decisão da Diretoria</p>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleApproveProperty(property.id)}
+                              className="flex-1 py-2 bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              Aprovar
+                            </button>
+                            <button 
+                              onClick={() => handleRejectProperty(property)}
+                              className="flex-1 py-2 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Pendência
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                         <div className="flex items-center gap-2">
                           {userPermissions.canEditProperties && (
                             <button 
                               onClick={() => handleEditProperty(property)}
-                              className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10 transition-all"
+                              className={`p-2 rounded-xl transition-all ${
+                                property.approvalStatus === 'pending' 
+                                ? 'bg-red-50 text-red-500 border border-red-100 animate-bounce' 
+                                : 'bg-gray-50 text-gray-400 hover:text-[#617964] hover:bg-[#617964]/10'
+                              }`}
+                              title={property.approvalStatus === 'pending' ? 'Corrigir pendências' : 'Editar'}
                             >
                               <Edit className="w-4 h-4" />
                             </button>
@@ -6936,6 +7042,63 @@ export default function BrokerDashboard() {
           )}
         </AnimatePresence>
 
+        {/* Review Rejection Modal */}
+        {isReviewModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsReviewModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[32px] shadow-2xl overflow-hidden p-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 leading-tight">Enviar Pendências</h3>
+                  <p className="text-xs font-medium text-gray-500">Sinalize os campos que precisam de ajuste.</p>
+                </div>
+                <button onClick={() => setIsReviewModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-all">
+                  <X className="w-6 h-6 text-gray-400" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {[
+                  { id: 'title', label: 'Nome do Imóvel' },
+                  { id: 'description', label: 'Descrição/Texto' },
+                  { id: 'price', label: 'Valores / Preço' },
+                  { id: 'foto', label: 'Fotos / Mídia' },
+                  { id: 'other', label: 'Outras Observações' },
+                ].map((field) => (
+                  <div key={field.id} className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#617964] ml-1">{field.label}</label>
+                    <textarea
+                      value={reviewFields[field.id] || ''}
+                      onChange={(e) => setReviewFields(prev => ({ ...prev, [field.id]: e.target.value }))}
+                      placeholder={`O que há de errado no ${field.label.toLowerCase()}?`}
+                      rows={2}
+                      className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={submitReview}
+                className="w-full mt-8 bg-red-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-red-700 transition-all shadow-xl shadow-red-600/20 flex items-center justify-center gap-2"
+              >
+                <X className="w-5 h-5" />
+                Sinalizar Pendências
+              </button>
+            </motion.div>
+          </div>
+        )}
       </main>
     </div>
   );
