@@ -5,6 +5,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 export interface Broker {
   id: string | number;
+  userId?: string;
   name: string;
   role: string;
   photo: string;

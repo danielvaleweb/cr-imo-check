@@ -106,6 +106,7 @@ import {
   LogOut,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   MessageSquare,
   Clock,
   CheckCircle2,
@@ -440,6 +441,13 @@ export default function BrokerDashboard() {
   };
 
   const handleRejectProperty = (property: any) => {
+    // Ensure brokerId is present for notification if missing
+    if (!property.brokerId && property.broker) {
+      const bObject = brokers.find(b => b.name === property.broker);
+      if (bObject) {
+        property.brokerId = bObject.userId || bObject.id.toString();
+      }
+    }
     setPropertyToReview(property);
     setReviewFields({
       foto: '',
@@ -515,6 +523,13 @@ export default function BrokerDashboard() {
     if (!user) return null;
     return brokers.find(b => b.email?.toLowerCase() === user.email?.toLowerCase());
   }, [brokers, user]);
+
+  // Sync userId to broker profile if missing
+  useEffect(() => {
+    if (user && currentBroker && !currentBroker.userId) {
+      updateBroker(currentBroker.id, { userId: user.uid });
+    }
+  }, [user, currentBroker, updateBroker]);
 
   const todaysTasks = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -1074,6 +1089,7 @@ export default function BrokerDashboard() {
           } else if (!existingDanielBroker && danielEmail === 'danielvaleweb@gmail.com') {
             // If Daniel doesn't have a broker profile under this email yet, create one
             addBroker({
+              userId: currentUser.uid,
               name: 'Daniel Vale',
               role: 'CEO Diretor criativo',
               photo: 'https://i.imgur.com/2mOeELD.jpeg',
@@ -1184,7 +1200,12 @@ export default function BrokerDashboard() {
           }
         }
       } else {
-        await addBroker(capturedData);
+        // Try to find if this email belongs to an existing user to link userId
+        const matchedUser = usersToApprove.find(u => u.email?.toLowerCase() === capturedData.email?.toLowerCase());
+        await addBroker({
+          ...capturedData,
+          userId: matchedUser?.id || undefined
+        });
         await addLog('broker', 'Cadastrou corretor', `Corretor: ${capturedData.name}`);
       }
     } catch (error: any) {
@@ -2097,6 +2118,7 @@ export default function BrokerDashboard() {
         const alreadyBroker = brokers.some(b => b.email?.toLowerCase() === userToUpd.email?.toLowerCase());
         if (!alreadyBroker) {
           await addBroker({
+            userId: userToUpd.id, // Store their UID
             name: userToUpd.name || 'Novo Membro',
             role: 'Membro',
             photo: userToUpd.photoURL || 'https://i.imgur.com/2mOeELD.jpeg',
@@ -3876,22 +3898,45 @@ export default function BrokerDashboard() {
                           </div>
                         </div>
                         <div className="space-y-6">
-                          <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest">Corretor Responsável</h4>
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Selecionar Corretor</label>
-                            <select 
-                              value={newPropertyData.broker}
-                              onChange={(e) => setNewPropertyData({...newPropertyData, broker: e.target.value})}
-                              className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all appearance-none cursor-pointer"
-                            >
-                              <option value="">Selecione um corretor...</option>
-                              {brokers.map((broker) => (
-                                <option key={broker.id} value={broker.name}>
-                                  {broker.name} - {broker.role}
-                                </option>
-                              ))}
-                            </select>
+                        {isAdmin && (
+                          <div className="space-y-6">
+                            <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest text-center md:text-left">Responsável pelo Imóvel</h4>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Selecionar Corretor</label>
+                              <div className="relative group">
+                                <select 
+                                  value={newPropertyData.broker}
+                                  onChange={(e) => {
+                                    const selectedBroker = brokers.find(b => b.name === e.target.value);
+                                    setNewPropertyData({
+                                      ...newPropertyData, 
+                                      broker: e.target.value,
+                                      brokerId: selectedBroker?.userId || selectedBroker?.id.toString() || ''
+                                    });
+                                  }}
+                                  className={`w-full bg-gray-50 border rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all appearance-none cursor-pointer ${
+                                    newPropertyData.reviewComments?.brokerId 
+                                      ? 'border-red-500 bg-red-50 ring-2 ring-red-500/20' 
+                                      : 'border-transparent'
+                                  }`}
+                                >
+                                  <option value="">Selecione um corretor...</option>
+                                  {brokers.map((broker) => (
+                                    <option key={broker.id} value={broker.name}>
+                                      {broker.name} - {broker.role}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none group-hover:text-[#617964] transition-colors" />
+                              </div>
+                              {newPropertyData.reviewComments?.brokerId && (
+                                <p className="text-[10px] font-bold text-red-500 mt-1 ml-1 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" /> {newPropertyData.reviewComments.brokerId}
+                                </p>
+                              )}
+                            </div>
                           </div>
+                        )}
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Sobre o Imóvel (Descrição)</label>
                             <textarea 
