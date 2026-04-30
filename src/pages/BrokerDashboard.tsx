@@ -425,7 +425,7 @@ export default function BrokerDashboard() {
         await addDoc(collection(db, 'notificacoes'), {
           userId: prop.brokerId,
           title: 'Imóvel Aprovado!',
-          message: `O imóvel "${prop.title}" foi aprovado pela diretoria e já está publicado no site.`,
+          message: `Imóvel [${prop.title}] foi aprovado`,
           type: 'approved',
           relatedId: id.toString(),
           read: false,
@@ -474,7 +474,7 @@ export default function BrokerDashboard() {
         await addDoc(collection(db, 'notificacoes'), {
           userId: propertyToReview.brokerId,
           title: 'Pendências no Imóvel',
-          message: `Seu imóvel "${propertyToReview.title}" possui pendências que precisam ser corrigidas.`,
+          message: `Imóvel [${propertyToReview.title}] está pendente`,
           type: 'review_pending',
           relatedId: propertyToReview.id.toString(),
           read: false,
@@ -1879,6 +1879,19 @@ export default function BrokerDashboard() {
               createdAt: serverTimestamp()
             });
           });
+
+          // Also notify the broker that it's in analysis
+          const brokerNotifRef = doc(collection(db, 'notificacoes'));
+          batch.set(brokerNotifRef, {
+            userId: auth.currentUser?.uid,
+            title: 'Imóvel em Análise',
+            message: `Imóvel [${propertyToSave.title}] está em análise`,
+            type: 'review_pending',
+            relatedId: newDocRef.id,
+            read: false,
+            createdAt: serverTimestamp()
+          });
+
           await batch.commit();
           
           await setDoc(newDocRef, finalPropertyToSave);
@@ -1890,6 +1903,19 @@ export default function BrokerDashboard() {
       } else {
         await updateProperty(newPropertyData.id, propertyToSave);
         await addLog('property', 'Editou imóvel', `Imóvel: ${propertyToSave.title} (Cód: ${propertyToSave.code})`);
+        
+        // Notify broker that update was sent back to review
+        if (!isAdmin) {
+          await addDoc(collection(db, 'notificacoes'), {
+            userId: auth.currentUser?.uid,
+            title: 'Atualização em Análise',
+            message: `Imóvel [${propertyToSave.title}] está em análise`,
+            type: 'review_pending',
+            relatedId: newPropertyData.id.toString(),
+            read: false,
+            createdAt: serverTimestamp()
+          });
+        }
       }
 
       // Final fallback for image (just in case)
@@ -2972,9 +2998,21 @@ export default function BrokerDashboard() {
                   </div>
                   <h3 className="text-xl font-black">{isEditing ? 'Editar Imóvel' : 'Incluir Novo Imóvel'}</h3>
                 </div>
-                <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all">
-                  <X className="w-6 h-6" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {isAdmin && isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRejectProperty(newPropertyData)}
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-white/20"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Sinalizar Pendência
+                    </button>
+                  )}
+                  <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
 
               <form onSubmit={handleSaveProperty} className="flex-1 overflow-y-auto p-8 space-y-8">
