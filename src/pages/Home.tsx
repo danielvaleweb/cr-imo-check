@@ -222,9 +222,9 @@ export default function Home() {
 
           <div className="relative bg-gradient-to-r from-[#132014] to-[#617964] rounded-l-[40px] md:rounded-l-[100px] py-8 px-8 md:py-10 md:px-16 flex flex-col md:flex-row items-center gap-10 md:gap-16 shadow-2xl">
             {/* Title Section */}
-            <div className="flex flex-col w-full md:w-auto text-center md:text-left min-w-0 md:min-w-[200px]">
-              <span className="text-[#FFE39D]/90 text-lg md:text-[26px] font-medium leading-tight pl-0 md:pl-[52px] pr-[-5px] pt-[4px] ml-0 md:ml-[10px] mr-[13px] mt-[-3px] mb-[-12px]">O que você está</span>
-              <h2 className="text-[#FFE39D] text-2xl md:text-4xl font-bold leading-tight pl-0 md:pl-[59px] ml-0 md:ml-[9px] mr-[-22px] mb-0">procurando?</h2>
+            <div className="flex flex-col w-full md:w-auto text-center md:text-left min-w-0 md:min-w-[200px] shrink-0">
+              <span className="text-[#FFE39D]/90 text-lg md:text-[26px] font-medium leading-tight pl-0 md:pl-[52px] md:pr-[-5px] md:pt-[4px] ml-0 md:ml-[10px] md:mr-[13px] md:mt-[-3px] md:mb-[-12px]">O que você está</span>
+              <h2 className="text-[#FFE39D] text-2xl md:text-4xl font-bold leading-tight pl-0 md:pl-[59px] ml-0 md:ml-[9px] md:mr-[-22px] mb-0">procurando?</h2>
             </div>
 
             {/* Categories Wrapper for Mobile Layout - Using md:contents to restore original desktop spacing */}
@@ -240,20 +240,20 @@ export default function Home() {
               {/* Categories */}
               <div 
                 ref={scrollContainerRef}
-                className="flex-1 flex items-end gap-4 md:gap-2 overflow-x-auto no-scrollbar pb-[7px] ml-[-43px] w-[1196.83px] h-[111.5px] scroll-smooth"
+                className="flex-1 flex items-center md:items-end gap-6 md:gap-2 overflow-x-auto no-scrollbar py-6 md:py-0 md:pb-[7px] md:ml-[-43px] md:w-[1196.83px] md:h-[111.5px] scroll-smooth"
               >
                 {CATEGORIES.map((item) => (
                   <button 
                     key={item.id} 
                     onClick={() => navigate(`/categoria/${item.slug}`)}
-                    className="flex flex-col items-center gap-3 min-w-[100px] md:min-w-[130px] cursor-pointer shrink-0 transition-all group"
+                    className="flex flex-col items-center justify-center md:justify-end gap-4 md:gap-3 min-w-[110px] md:min-w-[130px] cursor-pointer shrink-0 transition-all group"
                   >
-                    <div className="text-[#FFE39D] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 group-hover:drop-shadow-[0_10px_15px_rgba(0,0,0,0.3)]">
-                      <item.icon className="w-10 h-10 md:w-14 md:h-14 stroke-[1.5px]" />
+                    <div className="text-[#FFE39D] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-2 md:group-hover:-translate-y-1 group-hover:drop-shadow-[0_10px_15px_rgba(0,0,0,0.3)]">
+                      <item.icon className="w-12 h-12 md:w-14 md:h-14 stroke-[1.2px] md:stroke-[1.5px]" />
                     </div>
-                    <div className="text-center leading-tight transition-all duration-300 group-hover:translate-y-[-2px]">
-                      <p className="text-[#FFE39D]/70 text-[8px] md:text-[10px] uppercase tracking-wider group-hover:text-[#FFE39D]">{item.label1}</p>
-                      <p className="text-[#FFE39D] text-xs md:text-sm font-bold group-hover:text-[#FFE39D]/80">{item.label2}</p>
+                    <div className="text-center leading-tight transition-all duration-300 flex flex-col items-center group-hover:translate-y-[-2px]">
+                      <p className="text-[#FFE39D]/70 text-[9px] md:text-[10px] uppercase tracking-wider group-hover:text-[#FFE39D] line-clamp-1">{item.label1}</p>
+                      <p className="text-[#FFE39D] text-xs md:text-sm font-bold group-hover:text-[#FFE39D]/80 whitespace-nowrap">{item.label2}</p>
                     </div>
                   </button>
                 ))}
