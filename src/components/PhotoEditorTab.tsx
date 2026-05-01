@@ -252,48 +252,15 @@ export function PhotoEditorTab() {
     const doneFiles = files.filter(f => f.status === 'done' && f.processedBase64);
     if (doneFiles.length === 0) return;
     
-    if (doneFiles.length === 1) {
-      doDownload(doneFiles[0].processedBase64!, doneFiles[0].originalFile.name);
-      return;
-    }
-
-    try {
-      const fileObjects = doneFiles.map(f => {
-        const parts = f.originalFile.name.split('.');
-        const ext = parts.pop();
-        const newName = `${parts.join('.')}-processed.${ext}`;
-        
-        // Convert base64 to File synchronously to preserve transient user activation
-        const arr = f.processedBase64!.split(',');
-        const mimeMatch = arr[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-        const bstr = atob(arr[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while(n--){
-            u8arr[n] = bstr.charCodeAt(n);
-        }
-        return new File([u8arr], newName, { type: mime });
-      });
-
-      if (navigator.canShare && navigator.canShare({ files: fileObjects })) {
-        await navigator.share({
-          files: fileObjects,
-          title: 'Imagens Processadas',
-        });
-        return; // Success
-      }
-    } catch (e) {
-      console.log('Share API fall back', e);
-    }
-
-    // Fallback: download em sequência para navegadores que suportam múltiplos downloads (desktop)
-    let delay = 0;
-    doneFiles.forEach(f => {
+    // Dispara todos os downloads de uma vez (arquivos individuais).
+    // No PC, navegadores baseados em Chromium irão perguntar se você "Permite o download de vários arquivos".
+    // No iPhone (iOS), o Safari possui um bloqueio rígido contra múltiplos downloads via código web
+    // para evitar spam, portanto ele pode baixar apenas a primeira foto. Infelizmente, sem usar ZIP
+    // não existe uma liberação nativa no iOS para baixar 20 arquivos separados num único clique.
+    doneFiles.forEach((f, index) => {
       setTimeout(() => {
         doDownload(f.processedBase64!, f.originalFile.name);
-      }, delay);
-      delay += 800; // Tempo um pouco maior para o navegador não bloquear como SPAM
+      }, index * 400); // 400ms delay to try and trick popup blockers and ensure files don't collide
     });
   };
 
@@ -467,12 +434,12 @@ export function PhotoEditorTab() {
                   </div>
 
                   {/* Actions overlay */}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-2 flex gap-1 transition-opacity">
                     {file.status === 'done' && file.processedBase64 && (
                       <button 
                          onClick={() => doDownload(file.processedBase64!, file.originalFile.name)}
                          className="p-1.5 bg-white/90 hover:bg-white text-gray-700 rounded-lg backdrop-blur-sm shadow-sm transition-colors"
-                         title="Download"
+                         title="Download individual (Usar no celular se o download em lote falhar)"
                       >
                          <Download className="w-4 h-4" />
                       </button>
