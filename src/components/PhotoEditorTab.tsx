@@ -248,12 +248,53 @@ export function PhotoEditorTab() {
      document.body.removeChild(link);
   };
 
-  const downloadAll = () => {
-     files.forEach(f => {
-       if (f.status === 'done' && f.processedBase64) {
-         doDownload(f.processedBase64, f.originalFile.name);
-       }
-     });
+  const downloadAll = async () => {
+    const doneFiles = files.filter(f => f.status === 'done' && f.processedBase64);
+    if (doneFiles.length === 0) return;
+    
+    if (doneFiles.length === 1) {
+      doDownload(doneFiles[0].processedBase64!, doneFiles[0].originalFile.name);
+      return;
+    }
+
+    try {
+      const fileObjects = doneFiles.map(f => {
+        const parts = f.originalFile.name.split('.');
+        const ext = parts.pop();
+        const newName = `${parts.join('.')}-processed.${ext}`;
+        
+        // Convert base64 to File synchronously to preserve transient user activation
+        const arr = f.processedBase64!.split(',');
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while(n--){
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new File([u8arr], newName, { type: mime });
+      });
+
+      if (navigator.canShare && navigator.canShare({ files: fileObjects })) {
+        await navigator.share({
+          files: fileObjects,
+          title: 'Imagens Processadas',
+        });
+        return; // Success
+      }
+    } catch (e) {
+      console.log('Share API fall back', e);
+    }
+
+    // Fallback: download em sequência para navegadores que suportam múltiplos downloads (desktop)
+    let delay = 0;
+    doneFiles.forEach(f => {
+      setTimeout(() => {
+        doDownload(f.processedBase64!, f.originalFile.name);
+      }, delay);
+      delay += 800; // Tempo um pouco maior para o navegador não bloquear como SPAM
+    });
   };
 
   return (
@@ -455,7 +496,7 @@ export function PhotoEditorTab() {
                    className="w-full sm:w-auto px-8 py-4 text-[10px] font-black uppercase tracking-widest text-white bg-marromescuro hover:bg-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-black/10"
                  >
                    <Download className="w-4 h-4" />
-                   Baixar Tudo Concluído
+                   Baixar Todas
                  </button>
               </div>
             )}
