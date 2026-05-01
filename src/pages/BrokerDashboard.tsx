@@ -909,14 +909,35 @@ export default function BrokerDashboard() {
     return () => unsubscribe();
   }, []);
 
+  // Derived message states
+  const unreadMessages = useMemo(() => {
+    const myId = auth.currentUser?.uid;
+    const myBrokerId = currentBroker?.id?.toString();
+    const myInternalId = currentBroker?.userId;
+    
+    if (!myId && !myBrokerId && !myInternalId) return [];
+    
+    return allUserMessages.filter(m => {
+      if (m.read === true) return false;
+      return (myId && m.to === myId) || 
+             (myBrokerId && m.to === myBrokerId) || 
+             (myInternalId && m.to === myInternalId);
+    });
+  }, [allUserMessages, auth.currentUser, currentBroker]);
+
   useEffect(() => {
     if (isMessagesOpen && selectedChatBroker && auth.currentUser) {
       const myId = auth.currentUser.uid;
+      const myBrokerId = currentBroker?.id?.toString();
+      const myInternalId = currentBroker?.userId;
+      
       const otherId = selectedChatBroker.userId || selectedChatBroker.id.toString();
+      const otherAltId = selectedChatBroker.id.toString();
       
       const sortedIds = [myId, otherId].sort();
       const stableRoomId = sortedIds.join('_');
       
+      // Query messages in this room
       const q = query(
         collection(db, 'mensagens'),
         where('room', '==', stableRoomId)
@@ -933,15 +954,32 @@ export default function BrokerDashboard() {
 
         setChatMessages(messagesData);
         
-        // Mark as read
+        // Mark as read all messages from this broker to ANY of my possible IDs
         const batch = writeBatch(db);
         let hasChanges = false;
+        
+        // More robust mark as read: Check all messages in the room first
         messagesData.forEach((msg: any) => {
-          if (msg.to === myId && msg.read === false) {
+          const isToMe = (myId && msg.to === myId) || (myBrokerId && msg.to === myBrokerId) || (myInternalId && msg.to === myInternalId);
+          if (isToMe && msg.read === false) {
             batch.update(doc(db, 'mensagens', msg.id), { read: true });
             hasChanges = true;
           }
         });
+
+        // Also check unreadMessages for any other messages from this broker that might not have a room field
+        unreadMessages.forEach(msg => {
+          const isFromHim = msg.from === otherId || msg.from === otherAltId;
+          const isToMe = (myId && msg.to === myId) || (myBrokerId && msg.to === myBrokerId) || (myInternalId && msg.to === myInternalId);
+          if (isFromHim && isToMe && msg.read === false) {
+            // Already handled if it was in the room snapshot, but safety first
+            if (!messagesData.find(m => m.id === msg.id)) {
+              batch.update(doc(db, 'mensagens', msg.id), { read: true });
+              hasChanges = true;
+            }
+          }
+        });
+
         if (hasChanges) batch.commit().catch(console.error);
 
         // Also mark as read any matching notifications
@@ -975,7 +1013,7 @@ export default function BrokerDashboard() {
       });
       return () => unsubscribe();
     }
-  }, [isMessagesOpen, selectedChatBroker, currentBroker]);
+  }, [isMessagesOpen, selectedChatBroker, currentBroker, unreadMessages]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -1004,12 +1042,6 @@ export default function BrokerDashboard() {
     }
   };
 
-  // Derived message states
-  const unreadMessages = useMemo(() => {
-    const myId = auth.currentUser?.uid || currentBroker?.id?.toString();
-    if (!myId) return [];
-    return allUserMessages.filter(m => m.to === myId && m.read === false);
-  }, [allUserMessages, auth.currentUser, currentBroker]);
 
   // Global Messages Listener (both unread and recent for sorting)
   useEffect(() => {
@@ -3162,7 +3194,7 @@ export default function BrokerDashboard() {
                             if (unreadCount > 0) {
                               return (
                                 <p className="text-[10px] text-red-500 font-bold uppercase truncate animate-pulse tracking-wider">
-                                  {unreadCount} nova{unreadCount > 1 ? 's' : ''} mensagem{unreadCount > 1 ? 'ns' : ''}
+                                  {unreadCount} nova{unreadCount > 1 ? 's' : ''} {unreadCount === 1 ? 'mensagem' : 'mensagens'}
                                 </p>
                               );
                             }
