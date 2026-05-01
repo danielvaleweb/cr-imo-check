@@ -782,8 +782,8 @@ export default function BrokerDashboard() {
     
     const totalProperties = myProperties.length;
     
-    // Calculate total value (parsing "R$ 1.234.567" format)
-    const totalValue = myProperties.reduce((acc, prop) => {
+    // Calculate total value (parsing "R$ 1.234.567" format) - Only Sales (exclude rentals)
+    const totalValue = myProperties.filter(p => p.listingType !== 'aluguel').reduce((acc, prop) => {
       const numericValue = parseInt(prop.price.replace(/\D/g, '')) || 0;
       return acc + numericValue;
     }, 0);
