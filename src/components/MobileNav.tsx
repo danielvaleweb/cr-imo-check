@@ -21,7 +21,7 @@ const MENU_ITEMS = [
 
 export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const { condos } = useCondos();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const [isCondosOpen, setIsCondosOpen] = useState(false);
   const [isLaunchesOpen, setIsLaunchesOpen] = useState(false);
 

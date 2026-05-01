@@ -24,7 +24,7 @@ export default function BrokerProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { brokers } = useBrokers();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const { favorites, toggleFavorite } = useOutletContext<{ 
     favorites: (string | number)[], 
     toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 

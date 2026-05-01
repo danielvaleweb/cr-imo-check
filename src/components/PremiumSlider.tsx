@@ -6,7 +6,7 @@ import { useProperties } from '../context/PropertyContext';
 
 export default function PremiumSlider() {
   const navigate = useNavigate();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const launchProperties = properties.filter(p => p.listingType === 'lançamento');
 
   if (launchProperties.length === 0) return null;

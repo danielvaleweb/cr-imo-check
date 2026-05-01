@@ -6,7 +6,7 @@ import { useProperties } from '../context/PropertyContext';
 
 export default function About() {
   const { brokers } = useBrokers();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const navigate = useNavigate();
   return (
     <div className="pt-32 pb-20 px-6 bg-brand-cream min-h-screen">

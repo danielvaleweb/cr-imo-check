@@ -49,7 +49,7 @@ export default function SearchMenu({ isMenuOpen, setIsMenuOpen, isDesktop, negot
   const [isMaxFocused, setIsMaxFocused] = useState(false);
   const [isInfoHovered, setIsInfoHovered] = useState(false);
   const [codeSearch, setCodeSearch] = useState('');
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const navigate = useNavigate();
   
   const MIN_PRICE = 50000;

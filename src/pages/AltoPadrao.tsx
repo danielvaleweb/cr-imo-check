@@ -7,7 +7,7 @@ import PropertyCard from '../components/PropertyCard';
 
 export default function AltoPadrao() {
   const navigate = useNavigate();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const { favorites, toggleFavorite } = useOutletContext<{ 
     favorites: (string | number)[], 
     toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 

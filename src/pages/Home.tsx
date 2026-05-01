@@ -42,7 +42,7 @@ const TypewriterVerse = () => {
 
 export default function Home() {
   const navigate = useNavigate();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const { brokers } = useBrokers();
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);

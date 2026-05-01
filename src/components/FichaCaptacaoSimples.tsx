@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function FichaCaptacaoSimples({ onBack, initialProperty }: Props) {
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [formData, setFormData] = useState<any>({});

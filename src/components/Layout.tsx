@@ -66,7 +66,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 export default function Layout() {
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);

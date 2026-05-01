@@ -59,7 +59,7 @@ const FAQ_ITEMS = [
 export default function PurchaseProposal() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const { brokers } = useBrokers();
   
   const property = properties.find(p => p.id.toString() === id);

@@ -85,6 +85,7 @@ export interface Property {
 
 interface PropertyContextType {
   properties: Property[];
+  publishedProperties: Property[];
   addProperty: (property: Omit<Property, 'id'>) => Promise<void>;
   removeProperty: (id: string | number) => Promise<void>;
   updateProperty: (id: string | number, property: Partial<Property>) => Promise<void>;
@@ -94,6 +95,10 @@ const PropertyContext = createContext<PropertyContextType | undefined>(undefined
 
 export function PropertyProvider({ children }: { children: React.ReactNode }) {
   const [properties, setProperties] = useState<Property[]>([]);
+
+  const publishedProperties = React.useMemo(() => {
+    return properties.filter(p => !p.approvalStatus || p.approvalStatus === 'published');
+  }, [properties]);
 
   useEffect(() => {
     const seedProperties = async () => {
@@ -190,7 +195,7 @@ export function PropertyProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <PropertyContext.Provider value={{ properties, addProperty, removeProperty, updateProperty }}>
+    <PropertyContext.Provider value={{ properties, publishedProperties, addProperty, removeProperty, updateProperty }}>
       {children}
     </PropertyContext.Provider>
   );

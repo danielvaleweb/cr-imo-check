@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatPhone } from '../lib/utils';
 import { 
@@ -12,6 +13,7 @@ import {
   Maximize, 
   Calendar, 
   MessageCircle,
+  MessageSquare,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -28,6 +30,7 @@ import {
   Instagram,
   Clock,
   AlertTriangle,
+  AlertCircle,
   Building2,
   Mail,
   Phone,
@@ -43,14 +46,15 @@ import {
   BedDouble,
   ZoomIn,
   ZoomOut,
-  Map as MapIcon
+  Map as MapIcon,
+  Trash2
 } from 'lucide-react';
-import { useParams, useNavigate, useOutletContext, Link } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext, Link, useSearchParams } from 'react-router-dom';
 import { useProperties } from '../context/PropertyContext';
 import { useBrokers } from '../context/BrokerContext';
 import { useCondos } from '../context/CondoContext';
 import PropertyCard from '../components/PropertyCard';
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { addLog } from '../services/logService';
 import { db } from '../firebase';
 
@@ -87,10 +91,151 @@ const MOCK_PROPERTY = {
   }
 };
 
+const ReviewableElement = ({ 
+  field, 
+  label, 
+  children, 
+  isReviewMode, 
+  localReviewComments, 
+  activeCommentField, 
+  setActiveCommentField, 
+  onAddComment, 
+  setLocalReviewComments 
+}: { 
+  field: string, 
+  label: string, 
+  children: React.ReactNode, 
+  isReviewMode: boolean,
+  localReviewComments: Record<string, string>,
+  activeCommentField: string | null,
+  setActiveCommentField: (field: string | null) => void,
+  onAddComment: (field: string, text: string) => void,
+  setLocalReviewComments: React.Dispatch<React.SetStateAction<Record<string, string>>>
+}) => {
+  const [internalText, setInternalText] = React.useState('');
+
+  // Sincroniza o texto interno apenas quando o campo é aberto
+  React.useEffect(() => {
+    if (activeCommentField === field) {
+      setInternalText(localReviewComments[field] || '');
+    }
+  }, [activeCommentField, field, localReviewComments]);
+
+  if (!isReviewMode) {
+    return <>{children}</>;
+  }
+
+  const hasComment = localReviewComments[field];
+
+  return (
+    <div 
+      className={`relative group/review cursor-bubble transition-all duration-300 w-full ${hasComment ? 'ring-4 ring-red-500 ring-inset rounded-2xl bg-red-500/10' : 'hover:ring-2 hover:ring-red-500/20 hover:ring-dashed rounded-2xl'}`}
+      onClick={(e) => {
+        // Allow clicks on buttons/links to pass through
+        if ((e.target as HTMLElement).closest('button, a')) {
+          return;
+        }
+        e.stopPropagation();
+        setActiveCommentField(field);
+      }}
+    >
+      {children}
+      
+      {/* Hover Label */}
+      <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover/review:opacity-100 transition-all pointer-events-none z-[130]">
+        <div className="bg-black text-white text-[11px] font-black px-4 py-2 rounded-xl whitespace-nowrap shadow-2xl flex items-center gap-2 border border-white/10">
+          <MessageSquare className="w-4 h-4 text-red-500" />
+          Clique para comentar: {label}
+        </div>
+        <div className="w-3 h-3 bg-black rotate-45 mx-auto -mt-1.5 border-r border-b border-white/10" />
+      </div>
+
+      {/* Status Indicator */}
+      {hasComment && (
+        <div className="absolute -right-3 -top-3 w-10 h-10 bg-red-600 text-white rounded-2xl shadow-2xl flex items-center justify-center z-[130] animate-pulse">
+          <MessageSquare className="w-5 h-5" />
+        </div>
+      )}
+
+      {/* Fullscreen Overlay Comment Input */}
+      {activeCommentField === field && createPortal(
+        <AnimatePresence mode="wait">
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-[#132014]/60 backdrop-blur-md"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveCommentField(null);
+            }}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white rounded-[40px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border border-white/20 p-8"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center">
+                    <MessageSquare className="w-6 h-6 text-red-500" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block mb-1">Anotação Técnica</span>
+                    <span className="text-lg font-black text-gray-900">{label}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setActiveCommentField(null)} 
+                  className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-900 transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <textarea 
+                value={internalText}
+                onChange={(e) => setInternalText(e.target.value)}
+                autoFocus
+                placeholder={`O que precisa ser ajustado em ${label.toLowerCase()}?`}
+                style={{ direction: 'ltr', textAlign: 'left' }}
+                className="w-full h-40 p-6 bg-gray-50 border-2 border-gray-100 rounded-3xl text-sm font-bold focus:ring-8 focus:ring-red-500/5 focus:border-red-500 outline-none resize-none mb-6 transition-all text-gray-900 placeholder:text-gray-300"
+              />
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => onAddComment(field, internalText)}
+                  className="flex-1 h-14 bg-red-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-600/20 active:scale-[0.98]"
+                >
+                  Salvar Observação
+                </button>
+                {hasComment && (
+                  <button 
+                    onClick={() => {
+                      const newComments = { ...localReviewComments };
+                      delete newComments[field];
+                      setLocalReviewComments(newComments);
+                      setActiveCommentField(null);
+                    }}
+                    className="w-14 h-14 bg-gray-100 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-6 h-6" />
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </AnimatePresence>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { properties } = useProperties();
+  const { properties, publishedProperties } = useProperties();
   const { brokers } = useBrokers();
   const { condos } = useCondos();
   const { favorites, toggleFavorite } = useOutletContext<{ 
@@ -117,7 +262,12 @@ export default function PropertyDetail() {
   const [activePriceTab, setActivePriceTab] = useState(0);
   const [visitRequested, setVisitRequested] = useState(false);
 
+  const [searchParams] = useSearchParams();
   const propertyData = properties.find(p => p.id.toString() === id) || properties[0];
+
+  const [isReviewMode, setIsReviewMode] = useState(searchParams.get('review') === 'true');
+  const [localReviewComments, setLocalReviewComments] = useState<Record<string, string>>(propertyData.reviewComments || {});
+  const [activeCommentField, setActiveCommentField] = useState<string | null>(null);
   
   // Find the condo for this property
   const condo = condos.find(c => c.id.toString() === propertyData.condoId?.toString());
@@ -125,13 +275,14 @@ export default function PropertyDetail() {
   // Find the broker for this property
   const broker = brokers.find(b => b.name === propertyData.broker) || brokers[0];
   
-  const RELATED_PROPERTIES = properties.slice(0, 3);
+  const RELATED_PROPERTIES = publishedProperties.slice(0, 3);
   
   // Merge dynamic data with mock data for fields not present in PROPERTIES
   const property = {
     ...MOCK_PROPERTY,
     ...propertyData,
     id: propertyData.id,
+    reviewComments: localReviewComments,
     agent: {
       id: broker.id,
       name: broker.name,
@@ -407,8 +558,80 @@ export default function PropertyDetail() {
     }, 300);
   };
 
+  const saveReview = async () => {
+    try {
+      await updateDoc(doc(db, 'properties', id!.toString()), {
+        reviewComments: localReviewComments,
+        approvalStatus: 'pending',
+        updatedAt: serverTimestamp()
+      });
+      setIsReviewMode(false);
+      alert("Revisão salva com sucesso. O corretor será notificado.");
+      navigate('/admin?tab=properties&status=pending');
+    } catch (error) {
+      console.error("Error saving review:", error);
+      alert("Erro ao salvar revisão.");
+    }
+  };
+
+  const handleAddComment = (field: string, text: string) => {
+    setLocalReviewComments(prev => ({
+      ...prev,
+      [field]: text
+    }));
+    setActiveCommentField(null);
+  };
+
+  const reviewProps = {
+    isReviewMode,
+    localReviewComments,
+    activeCommentField,
+    setActiveCommentField,
+    onAddComment: handleAddComment,
+    setLocalReviewComments
+  };
+
   return (
     <div className="bg-white min-h-screen">
+      {/* Review Mode Banner */}
+      <AnimatePresence>
+        {isReviewMode && (
+          <motion.div 
+            initial={{ y: -100 }}
+            animate={{ y: 0 }}
+            exit={{ y: -100 }}
+            className="fixed top-0 left-0 right-0 h-16 bg-red-600 text-white z-[120] flex items-center justify-between px-8 shadow-2xl"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest">Modo de Avaliação</h2>
+                <p className="text-[10px] font-medium opacity-80">Clique nos elementos para sinalizar pendências</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-lg">
+                {Object.keys(localReviewComments).length} sinalização(ões)
+              </span>
+              <button 
+                onClick={() => setIsReviewMode(false)}
+                className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={saveReview}
+                className="px-6 py-2 bg-white text-red-600 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl"
+              >
+                Concluir e Enviar
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Top Header */}
       <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[70] w-[1798px] max-w-[98%] pl-0 pr-14 py-4 transition-all duration-500 ${isTour360ModalOpen ? 'opacity-0 pointer-events-none -translate-y-full' : 'opacity-100'}`}>
         <div className="flex items-center justify-between">
@@ -431,25 +654,29 @@ export default function PropertyDetail() {
       {/* Hero Gallery */}
       <section className="relative h-screen w-full bg-white overflow-hidden">
             {/* Hero Gallery Image */}
-            {(property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
-              <div className="w-full h-full flex flex-col items-center justify-center relative">
-                <img 
-                  src="https://i.imgur.com/egg4k7M.png" 
-                  alt="CR Imóveis" 
-                  className="absolute inset-0 w-full h-full object-contain opacity-5 p-12 md:p-32"
-                  referrerPolicy="no-referrer"
-                />
-                <Home className="w-16 h-16 text-marromescuro/20 mb-4 relative z-10" />
-                <span className="text-xl font-bold text-marromescuro/40 relative z-10 uppercase tracking-widest">Imóvel sem foto</span>
+            <ReviewableElement field="images" label="Fotos" {...reviewProps}>
+              <div className="w-full h-full">
+                {(property.images[activeImage] && property.images[activeImage].includes('pe07Ikg.png')) ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center relative">
+                    <img 
+                      src="https://i.imgur.com/egg4k7M.png" 
+                      alt="CR Imóveis" 
+                      className="absolute inset-0 w-full h-full object-contain opacity-5 p-12 md:p-32"
+                      referrerPolicy="no-referrer"
+                    />
+                    <Home className="w-16 h-16 text-marromescuro/20 mb-4 relative z-10" />
+                    <span className="text-xl font-bold text-marromescuro/40 relative z-10 uppercase tracking-widest">Imóvel sem foto</span>
+                  </div>
+                ) : (
+                  <img 
+                    src={property.images[activeImage]} 
+                    alt="Property" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
               </div>
-            ) : (
-              <img 
-                src={property.images[activeImage]} 
-                alt="Property" 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            )}
+            </ReviewableElement>
 
             {/* Property Title Overlay */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
@@ -497,80 +724,84 @@ export default function PropertyDetail() {
         <AnimatePresence>
           {showControls && !isTour360ModalOpen && (
             <>
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20">
               {/* Thumbnails Overlay - Delayed */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-2 w-[95vw] md:w-auto overflow-x-auto no-scrollbar snap-x z-20"
-              >
-                {((property.floorPlanUrls && property.floorPlanUrls.length > 0 && property.floorPlanUrls[0] !== '') || property.floorPlanUrl) && (
-                  <button 
-                    onClick={() => setIsFloorPlanModalOpen(true)}
-                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#132014]/90 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#132014] transition-colors border border-white/20 shadow-2xl snap-center"
-                  >
-                    <MapIcon className="w-5 h-5 mb-1" />
-                    <span>PLANTA</span>
-                  </button>
-                )}
-
-                {property.tour360Url && (
-                  <button 
-                    onClick={() => setIsTour360ModalOpen(true)}
-                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
-                  >
-                    <RotateCcw className="w-5 h-5 mb-1" />
-                    <span>TOUR 360º</span>
-                  </button>
-                )}
-
-                <div className="flex gap-1 shrink-0">
-                  {property.images.slice(0, 5).map((img, idx) => (
+              <ReviewableElement field="mediaControls" label="Mídia (Tour/Planta/Vídeo/Fotos)" {...reviewProps}>
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="flex items-center gap-1.5 p-2 w-[95vw] md:w-auto overflow-x-auto no-scrollbar snap-x max-w-[95vw]"
+                >
+                  {((property.floorPlanUrls && property.floorPlanUrls.length > 0 && property.floorPlanUrls[0] !== '') || property.floorPlanUrl) && (
                     <button 
-                      key={idx}
-                      onClick={() => setActiveImage(idx)}
-                      className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl overflow-hidden border-2 transition-all shadow-2xl snap-center ${activeImage === idx ? 'border-[#617964] scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                      onClick={() => setIsFloorPlanModalOpen(true)}
+                      className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#132014]/90 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#132014] transition-colors border border-white/20 shadow-2xl snap-center"
                     >
-                      <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    </button>
-                  ))}
-                  {property.images.length > 5 && (
-                    <button 
-                      onClick={() => {
-                        setModalImageIndex(5);
-                        setIsModalOpen(true);
-                      }}
-                      className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-black/60 transition-colors border border-white/20 shadow-2xl snap-center"
-                    >
-                      <span>+{property.images.length - 5}</span>
-                      <span className="opacity-60">fotos</span>
+                      <MapIcon className="w-5 h-5 mb-1" />
+                      <span>PLANTA</span>
                     </button>
                   )}
-                </div>
 
-                {property.videoUrl && (
-                  <button 
-                    onClick={() => setIsVideoModalOpen(true)}
-                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
-                  >
-                    <Play className="w-5 h-5 mb-1 fill-white" />
-                    <span>VÍDEO</span>
-                  </button>
-                )}
+                  {property.tour360Url && (
+                    <button 
+                      onClick={() => setIsTour360ModalOpen(true)}
+                      className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
+                    >
+                      <RotateCcw className="w-5 h-5 mb-1" />
+                      <span>TOUR 360º</span>
+                    </button>
+                  )}
 
-                {property.customButtons && property.customButtons.map((btn: any, idx: number) => (
-                  <a 
-                    key={idx}
-                    href={btn.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-black/60 transition-colors border border-white/20 shadow-2xl snap-center"
-                  >
-                    <ExternalLink className="w-5 h-5 mb-1" />
-                    <span>{btn.label.toUpperCase()}</span>
-                  </a>
-                ))}
-              </motion.div>
+                  <div className="flex gap-1 shrink-0">
+                    {property.images.slice(0, 5).map((img, idx) => (
+                      <button 
+                        key={idx}
+                        onClick={() => setActiveImage(idx)}
+                        className={`shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl overflow-hidden border-2 transition-all shadow-2xl snap-center ${activeImage === idx ? 'border-[#617964] scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                      >
+                        <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </button>
+                    ))}
+                    {property.images.length > 5 && (
+                      <button 
+                        onClick={() => {
+                          setModalImageIndex(5);
+                          setIsModalOpen(true);
+                        }}
+                        className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-black/60 transition-colors border border-white/20 shadow-2xl snap-center"
+                      >
+                        <span>+{property.images.length - 5}</span>
+                        <span className="opacity-60">fotos</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {property.videoUrl && (
+                    <button 
+                      onClick={() => setIsVideoModalOpen(true)}
+                      className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
+                    >
+                      <Play className="w-5 h-5 mb-1 fill-white" />
+                      <span>VÍDEO</span>
+                    </button>
+                  )}
+
+                  {property.customButtons && property.customButtons.map((btn: any, idx: number) => (
+                    <a 
+                      key={idx}
+                      href={btn.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-black/60 transition-colors border border-white/20 shadow-2xl snap-center"
+                    >
+                      <ExternalLink className="w-5 h-5 mb-1" />
+                      <span>{btn.label.toUpperCase()}</span>
+                    </a>
+                  ))}
+                </motion.div>
+              </ReviewableElement>
+            </div>
             </>
           )}
         </AnimatePresence>
@@ -679,74 +910,81 @@ export default function PropertyDetail() {
             <div className="space-y-6 relative">
               <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                 <div className="space-y-2">
-                  <h1 className="text-4xl md:text-5xl font-serif font-bold text-marromescuro leading-tight italic tracking-tight drop-shadow-sm">{property.title}</h1>
-                  <div className="flex flex-wrap items-center gap-2 text-marromescuro/40">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-terracota" />
-                      <span className="text-base md:text-lg font-medium">{property.location}</span>
+                  <ReviewableElement field="title" label="Título" {...reviewProps}>
+                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-marromescuro leading-tight italic tracking-tight drop-shadow-sm">{property.title}</h1>
+                  </ReviewableElement>
+                  <ReviewableElement field="location" label="Localização" {...reviewProps}>
+                    <div className="flex flex-wrap items-center gap-2 text-marromescuro/40">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-terracota" />
+                        <span className="text-base md:text-lg font-medium">{property.location}</span>
+                      </div>
+                      {condo && (
+                        <Link 
+                          to={`/condominio/${condo.id}`} 
+                          className="flex items-center gap-2 px-3 py-1 bg-terracota/10 text-terracota rounded-full hover:bg-terracota/20 transition-all font-bold text-xs md:text-sm"
+                        >
+                          <Building2 className="w-4 h-4" />
+                          {condo.name}
+                        </Link>
+                      )}
                     </div>
-                    {condo && (
-                      <Link 
-                        to={`/condominio/${condo.id}`} 
-                        className="flex items-center gap-2 px-3 py-1 bg-terracota/10 text-terracota rounded-full hover:bg-terracota/20 transition-all font-bold text-xs md:text-sm"
-                      >
-                        <Building2 className="w-4 h-4" />
-                        {condo.name}
-                      </Link>
-                    )}
-                  </div>
+                  </ReviewableElement>
                 </div>
 
                 {property.code && (
-                  <div className="flex flex-col items-start md:items-end pt-2 w-full md:w-auto border-t md:border-t-0 border-marromescuro/10 mt-4 md:mt-0 pt-4 md:pt-2">
-                    <div className="flex items-center gap-4 text-marromescuro">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-marromescuro/30">Cod.</span>
-                        <Home className="w-3 h-3 text-marromescuro/20" />
-                      </div>
-                      
-                      <span className="text-2xl md:text-3xl font-black tracking-tighter leading-none">{property.code}</span>
-                      
-                      <div className="relative group/copy">
-                        <button 
-                          onClick={() => handleCopyCode(property.code)}
-                          className="p-2 hover:bg-marromescuro/10 rounded-xl transition-all group"
-                        >
-                          <Copy className="w-4 h-4 text-marromescuro" />
-                        </button>
+                  <ReviewableElement field="code" label="Código do Imóvel" {...reviewProps}>
+                    <div className="flex flex-col items-start md:items-end pt-2 w-full md:w-auto border-t md:border-t-0 border-marromescuro/10 mt-4 md:mt-0 pt-4 md:pt-2">
+                      <div className="flex items-center gap-4 text-marromescuro">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-marromescuro/30">Cod.</span>
+                          <Home className="w-3 h-3 text-marromescuro/20" />
+                        </div>
                         
-                        <AnimatePresence>
-                          {codeCopied && (
-                            <motion.div 
-                              initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                              className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#1A1A1A] text-white text-[10px] font-bold px-4 py-2.5 rounded-xl shadow-2xl z-50 whitespace-nowrap flex items-center gap-2"
-                            >
-                              <Check className="w-3 h-3 text-[#617964]" />
-                              Copiado!
-                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1A1A1A]" />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                        <span className="text-2xl md:text-3xl font-black tracking-tighter leading-none">{property.code}</span>
+                        
+                        <div className="relative group/copy">
+                          <button 
+                            onClick={() => handleCopyCode(property.code)}
+                            className="p-2 hover:bg-marromescuro/10 rounded-xl transition-all group"
+                          >
+                            <Copy className="w-4 h-4 text-marromescuro" />
+                          </button>
+                          
+                          <AnimatePresence>
+                            {codeCopied && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                                className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#1A1A1A] text-white text-[10px] font-bold px-4 py-2.5 rounded-xl shadow-2xl z-50 whitespace-nowrap flex items-center gap-2"
+                              >
+                                <Check className="w-3 h-3 text-[#617964]" />
+                                Copiado!
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1A1A1A]" />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </ReviewableElement>
                 )}
               </div>
             </div>
 
             {/* Characteristics Row - Moved inside left column to push description down */}
-            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 py-8 bg-[#617964] rounded-3xl shadow-sm border border-[#617964]/20 px-8">
-              {propertyData.rooms > 0 && (
-                <div className="flex flex-col items-center gap-1 group/char">
-                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
-                    <Bed className="w-5 h-5 text-[#132014]" />
+            <ReviewableElement field="characteristics" label="Características" {...reviewProps}>
+              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 py-8 bg-[#617964] rounded-3xl shadow-sm border border-[#617964]/20 px-8">
+                {propertyData.rooms > 0 && (
+                  <div className="flex flex-col items-center gap-1 group/char">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm group-hover/char:bg-white/90 transition-colors">
+                      <Bed className="w-5 h-5 text-[#132014]" />
+                    </div>
+                    <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Quartos</span>
+                    <span className="text-xs font-bold text-white text-center">{propertyData.rooms}</span>
                   </div>
-                  <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest text-center">Quartos</span>
-                  <span className="text-xs font-bold text-white text-center">{propertyData.rooms}</span>
-                </div>
-              )}
+                )}
 
               {propertyData.beds > 0 && (
                 <div className="flex flex-col items-center gap-1 group/char">
@@ -818,7 +1056,7 @@ export default function PropertyDetail() {
                 </div>
               )}
             </div>
-                      </div>
+          </ReviewableElement>
 
             <section className="space-y-6">
               <h2 className="text-2xl font-bold text-marromescuro">Sobre o imóvel</h2>
@@ -826,90 +1064,96 @@ export default function PropertyDetail() {
                 <div className="flex items-center gap-3">
                   <p className="text-xs font-bold text-marromescuro/40 uppercase tracking-widest">Informações do corretor associado</p>
                 </div>
-                <p className="text-marromescuro/70 leading-relaxed text-sm">
-                  {property.description}
-                </p>
+                <ReviewableElement field="description" label="Descrição" {...reviewProps}>
+                  <p className="text-marromescuro/70 leading-relaxed text-sm">
+                    {property.description}
+                  </p>
+                </ReviewableElement>
                 
                 {/* Diferenciais Section */}
                 {(propertyData.hasGourmetBalcony || propertyData.hasHeatedPool || propertyData.hasSauna) && (
-                  <div className="pt-6 border-t border-marromescuro/5">
-                    <p className="text-xs font-bold text-marromescuro/40 uppercase tracking-widest mb-4">Diferenciais</p>
-                    <div className="flex flex-wrap gap-3">
-                      {propertyData.hasGourmetBalcony && (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-marromescuro/5 rounded-full text-marromescuro text-xs font-bold">
-                          <UtensilsCrossed className="w-3 h-3 text-terracota" />
-                          Varanda Gourmet
-                        </div>
-                      )}
-                      {propertyData.hasHeatedPool && (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-marromescuro/5 rounded-full text-marromescuro text-xs font-bold">
-                          <Waves className="w-3 h-3 text-terracota" />
-                          Piscina Aquecida
-                        </div>
-                      )}
-                      {propertyData.hasSauna && (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-marromescuro/5 rounded-full text-marromescuro text-xs font-bold">
-                          <Wind className="w-3 h-3 text-terracota" />
-                          Sauna
-                        </div>
-                      )}
+                  <ReviewableElement field="diferenciais" label="Diferenciais" {...reviewProps}>
+                    <div className="pt-6 border-t border-marromescuro/5">
+                      <p className="text-xs font-bold text-marromescuro/40 uppercase tracking-widest mb-4">Diferenciais</p>
+                      <div className="flex flex-wrap gap-3">
+                        {propertyData.hasGourmetBalcony && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-marromescuro/5 rounded-full text-marromescuro text-xs font-bold">
+                            <UtensilsCrossed className="w-3 h-3 text-terracota" />
+                            Varanda Gourmet
+                          </div>
+                        )}
+                        {propertyData.hasHeatedPool && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-marromescuro/5 rounded-full text-marromescuro text-xs font-bold">
+                            <Waves className="w-3 h-3 text-terracota" />
+                            Piscina Aquecida
+                          </div>
+                        )}
+                        {propertyData.hasSauna && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-marromescuro/5 rounded-full text-marromescuro text-xs font-bold">
+                            <Wind className="w-3 h-3 text-terracota" />
+                            Sauna
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </ReviewableElement>
                 )}
 
                 {/* Launch Information Section */}
                 {property.listingType === 'lançamento' && (
-                  <div className="pt-6 border-t border-marromescuro/5">
-                    <div className="flex items-center justify-between mb-6">
-                      <p className="text-xs font-bold text-marromescuro/40 uppercase tracking-widest">Informações do Empreendimento</p>
-                      {property.projectLogoUrl && (
-                        <img 
-                          src={property.projectLogoUrl} 
-                          alt="Logo do Empreendimento" 
-                          className="h-12 w-auto object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      )}
+                  <ReviewableElement field="launchInfo" label="Informações do Empreendimento" {...reviewProps}>
+                    <div className="pt-6 border-t border-marromescuro/5">
+                      <div className="flex items-center justify-between mb-6">
+                        <p className="text-xs font-bold text-marromescuro/40 uppercase tracking-widest">Informações do Empreendimento</p>
+                        {property.projectLogoUrl && (
+                          <img 
+                            src={property.projectLogoUrl} 
+                            alt="Logo do Empreendimento" 
+                            className="h-12 w-auto object-contain"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {property.floors > 0 && (
+                          <div className="p-4 bg-marromescuro/5 rounded-2xl">
+                            <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Andares</p>
+                            <p className="text-lg font-bold text-marromescuro">{property.floors}</p>
+                          </div>
+                        )}
+                        {property.units > 0 && (
+                          <div className="p-4 bg-marromescuro/5 rounded-2xl">
+                            <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Unidades</p>
+                            <p className="text-lg font-bold text-marromescuro">{property.units}</p>
+                          </div>
+                        )}
+                        {property.frontUnits > 0 && (
+                          <div className="p-4 bg-marromescuro/5 rounded-2xl">
+                            <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Frente</p>
+                            <p className="text-lg font-bold text-marromescuro">{property.frontUnits}</p>
+                          </div>
+                        )}
+                        {property.backUnits > 0 && (
+                          <div className="p-4 bg-marromescuro/5 rounded-2xl">
+                            <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Fundos</p>
+                            <p className="text-lg font-bold text-marromescuro">{property.backUnits}</p>
+                          </div>
+                        )}
+                        {property.lateralUnits > 0 && (
+                          <div className="p-4 bg-marromescuro/5 rounded-2xl">
+                            <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Lateral</p>
+                            <p className="text-lg font-bold text-marromescuro">{property.lateralUnits}</p>
+                          </div>
+                        )}
+                        {property.penthouseUnits > 0 && (
+                          <div className="p-4 bg-marromescuro/5 rounded-2xl">
+                            <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Cobertura</p>
+                            <p className="text-lg font-bold text-marromescuro">{property.penthouseUnits}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {property.floors > 0 && (
-                        <div className="p-4 bg-marromescuro/5 rounded-2xl">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Andares</p>
-                          <p className="text-lg font-bold text-marromescuro">{property.floors}</p>
-                        </div>
-                      )}
-                      {property.units > 0 && (
-                        <div className="p-4 bg-marromescuro/5 rounded-2xl">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Unidades</p>
-                          <p className="text-lg font-bold text-marromescuro">{property.units}</p>
-                        </div>
-                      )}
-                      {property.frontUnits > 0 && (
-                        <div className="p-4 bg-marromescuro/5 rounded-2xl">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Frente</p>
-                          <p className="text-lg font-bold text-marromescuro">{property.frontUnits}</p>
-                        </div>
-                      )}
-                      {property.backUnits > 0 && (
-                        <div className="p-4 bg-marromescuro/5 rounded-2xl">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Fundos</p>
-                          <p className="text-lg font-bold text-marromescuro">{property.backUnits}</p>
-                        </div>
-                      )}
-                      {property.lateralUnits > 0 && (
-                        <div className="p-4 bg-marromescuro/5 rounded-2xl">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Lateral</p>
-                          <p className="text-lg font-bold text-marromescuro">{property.lateralUnits}</p>
-                        </div>
-                      )}
-                      {property.penthouseUnits > 0 && (
-                        <div className="p-4 bg-marromescuro/5 rounded-2xl">
-                          <p className="text-[10px] font-bold text-marromescuro/40 uppercase tracking-widest mb-1">Aptos. Cobertura</p>
-                          <p className="text-lg font-bold text-marromescuro">{property.penthouseUnits}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </ReviewableElement>
                 )}
 
                 <div className="flex items-start gap-3 p-4 bg-white rounded-xl border border-marromescuro/10">
@@ -921,51 +1165,54 @@ export default function PropertyDetail() {
               </div>
             </section>
 
-            <section className="space-y-8">
-              <h2 className="text-2xl font-bold text-marromescuro">Galeria Completa</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {property.images.slice(0, 5).map((img, idx) => (
-                  <div 
-                    key={idx} 
-                    className="relative aspect-[4/3] rounded-2xl overflow-hidden group cursor-pointer"
-                    onClick={() => {
-                      setModalImageIndex(idx);
-                      setIsModalOpen(true);
-                    }}
-                  >
-                    <img 
-                      src={img} 
-                      alt={`Gallery ${idx}`} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                ))}
-                {property.images.length > 5 && (
-                  <div 
-                    onClick={() => {
-                      setModalImageIndex(5);
-                      setIsModalOpen(true);
-                    }}
-                    className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-white border border-marromescuro/10 flex flex-col items-center justify-center text-marromescuro/30 gap-2 cursor-pointer hover:bg-marromescuro/5 transition-colors"
-                  >
-                    <div className="grid grid-cols-2 gap-1">
-                      <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
-                      <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
-                      <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
-                      <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
+            <ReviewableElement field="fullGallery" label="Galeria Completa de Fotos" {...reviewProps}>
+              <section className="space-y-8">
+                <h2 className="text-2xl font-bold text-marromescuro">Galeria Completa</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {property.images.slice(0, 5).map((img, idx) => (
+                    <div 
+                      key={idx} 
+                      className="relative aspect-[4/3] rounded-2xl overflow-hidden group cursor-pointer"
+                      onClick={() => {
+                        setModalImageIndex(idx);
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      <img 
+                        src={img} 
+                        alt={`Gallery ${idx}`} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
-                    <span className="text-xs font-bold">+{property.images.length - 5}</span>
-                    <span className="text-[10px] uppercase tracking-wider">Ver todas as fotos</span>
-                  </div>
-                )}
-              </div>
-            </section>
+                  ))}
+                  {property.images.length > 5 && (
+                    <div 
+                      onClick={() => {
+                        setModalImageIndex(5);
+                        setIsModalOpen(true);
+                      }}
+                      className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-white border border-marromescuro/10 flex flex-col items-center justify-center text-marromescuro/30 gap-2 cursor-pointer hover:bg-marromescuro/5 transition-colors"
+                    >
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
+                        <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
+                        <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
+                        <div className="w-2 h-2 bg-marromescuro/20 rounded-sm"></div>
+                      </div>
+                      <span className="text-xs font-bold">+{property.images.length - 5}</span>
+                      <span className="text-[10px] uppercase tracking-wider">Ver todas as fotos</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </ReviewableElement>
             
             {/* End of content, no more sections here */}
 
-            <section className="space-y-8">
-              <h2 className="text-2xl font-bold text-marromescuro">Localização</h2>
+            <ReviewableElement field="neighborhood" label="Localização e Bairro" {...reviewProps}>
+              <section className="space-y-8">
+                <h2 className="text-2xl font-bold text-marromescuro">Localização</h2>
               <div className="bg-linear-to-r from-[#132014] to-[#617964] p-8 rounded-[32px] shadow-sm border border-white/10 relative overflow-hidden">
                 {/* Action Icons - Top Right */}
                 <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
@@ -1112,230 +1359,235 @@ export default function PropertyDetail() {
                 </div>
               </div>
             </section>
-                    </div>
+          </ReviewableElement>
+          </div>
+        </div>
 
-          <div className="lg:col-span-1 space-y-6 sticky top-32">
-<div className="p-8 bg-white border border-marromescuro/10 rounded-[32px] space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">Valores do Investimento</span>
-              <div className="flex items-center gap-2 relative">
-                <button 
-                  onClick={() => setShowShareOptions(!showShareOptions)}
-                  className="py-2 px-2 hover:bg-terracota/10 rounded-full transition-colors group/share ml-0 mr-0"
-                  title="Compartilhar"
-                >
-                  <Share2 className="w-6 h-6 text-terracota group-hover/share:scale-110 transition-all" />
-                </button>
+        <div className="lg:col-span-1 space-y-6 sticky top-32">
+          <ReviewableElement field="price" label="Preço e Taxas" {...reviewProps}>
+            <div className="p-8 bg-white border border-marromescuro/10 rounded-[32px] space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">Valores do Investimento</span>
+                <div className="flex items-center gap-2 relative">
+                  <button 
+                    onClick={() => setShowShareOptions(!showShareOptions)}
+                    className="py-2 px-2 hover:bg-terracota/10 rounded-full transition-colors group/share ml-0 mr-0"
+                    title="Compartilhar"
+                  >
+                    <Share2 className="w-6 h-6 text-terracota group-hover/share:scale-110 transition-all" />
+                  </button>
 
-                <AnimatePresence>
-                  {showShareOptions && (
+                  <AnimatePresence>
+                    {showShareOptions && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={() => setShowShareOptions(false)}
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-marromescuro/5 p-2 z-50 overflow-hidden"
+                        >
+                          <button
+                            onClick={handleShareWhatsApp}
+                            className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                          >
+                            <div className="p-2 bg-green-500/10 rounded-lg">
+                              <MessageCircle className="w-4 h-4 text-green-600" />
+                            </div>
+                            WhatsApp
+                          </button>
+                          <button
+                            onClick={handleShareFacebook}
+                            className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                          >
+                            <div className="p-2 bg-blue-600/10 rounded-lg">
+                              <Facebook className="w-4 h-4 text-blue-600" />
+                            </div>
+                            Facebook
+                          </button>
+                          <button
+                            onClick={handleShareInstagram}
+                            className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                          >
+                            <div className="p-2 bg-pink-600/10 rounded-lg">
+                              <Instagram className="w-4 h-4 text-pink-600" />
+                            </div>
+                            Instagram
+                          </button>
+                          <button
+                            onClick={handleCopyLink}
+                            className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
+                          >
+                            <div className="p-2 bg-marromescuro/5 rounded-lg">
+                              {copied ? <Check className="w-4 h-4 text-green-600" /> : <LinkIcon className="w-4 h-4 text-marromescuro" />}
+                            </div>
+                            {copied ? 'Copiado!' : 'Copiar Link'}
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+
+                  <button 
+                    onClick={(e) => toggleFavorite(property.id, 'property', e)}
+                    className="p-2 hover:bg-terracota/10 rounded-full transition-colors group/fav"
+                    title="Favoritar"
+                  >
+                    <Heart 
+                      className={`w-6 h-6 transition-all ${favorites.includes(String(property.id)) ? 'fill-marromescuro text-marromescuro' : 'text-terracota fill-terracota/10 group-hover/fav:fill-terracota/30'}`} 
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabs Section */}
+              <div className="space-y-4">
+                <div className="flex p-1 bg-[#617964]/5 border border-[#617964]/20 rounded-2xl">
+                  {property.listingType === 'aluguel' ? (
                     <>
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setShowShareOptions(false)}
-                      />
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-marromescuro/5 p-2 z-50 overflow-hidden"
+                      <button 
+                        onClick={() => setActivePriceTab(0)}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
                       >
-                        <button
-                          onClick={handleShareWhatsApp}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-green-500/10 rounded-lg">
-                            <MessageCircle className="w-4 h-4 text-green-600" />
-                          </div>
-                          WhatsApp
-                        </button>
-                        <button
-                          onClick={handleShareFacebook}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-blue-600/10 rounded-lg">
-                            <Facebook className="w-4 h-4 text-blue-600" />
-                          </div>
-                          Facebook
-                        </button>
-                        <button
-                          onClick={handleShareInstagram}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-pink-600/10 rounded-lg">
-                            <Instagram className="w-4 h-4 text-pink-600" />
-                          </div>
-                          Instagram
-                        </button>
-                        <button
-                          onClick={handleCopyLink}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-marromescuro/5 rounded-xl transition-colors text-marromescuro font-medium text-sm"
-                        >
-                          <div className="p-2 bg-marromescuro/5 rounded-lg">
-                            {copied ? <Check className="w-4 h-4 text-green-600" /> : <LinkIcon className="w-4 h-4 text-marromescuro" />}
-                          </div>
-                          {copied ? 'Copiado!' : 'Copiar Link'}
-                        </button>
-                      </motion.div>
+                        Aluguel
+                      </button>
+                      <button 
+                        onClick={() => setActivePriceTab(1)}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      >
+                        Mensal
+                      </button>
+                      <button 
+                        onClick={() => setActivePriceTab(2)}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      >
+                        Total
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => setActivePriceTab(0)}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      >
+                        Imóvel
+                      </button>
+                      <button 
+                        onClick={() => setActivePriceTab(1)}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      >
+                        Mensal
+                      </button>
+                      <button 
+                        onClick={() => setActivePriceTab(2)}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
+                      >
+                        Anual
+                      </button>
                     </>
                   )}
-                </AnimatePresence>
+                </div>
 
+                <div className="space-y-1 min-h-[100px] flex flex-col justify-center p-4 bg-[#617964]/5 rounded-2xl border border-[#617964]/20">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activePriceTab}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">
+                        {property.listingType === 'aluguel' ? (
+                          activePriceTab === 0 ? 'Valor para alugar' : activePriceTab === 1 ? 'IPTU+Seguro' : 'Total Mensal'
+                        ) : (
+                          activePriceTab === 0 ? 'Valor do Imóvel' : activePriceTab === 1 ? 'Condomínio' : 'Valor Anual (Total Estimado)'
+                        )}
+                      </span>
+                      <h2 className="text-3xl font-bold text-marromescuro">
+                        {property.listingType === 'aluguel' ? (
+                          activePriceTab === 0 ? property.price : 
+                          activePriceTab === 1 ? `R$ ${(((parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
+                          `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        ) : (
+                          activePriceTab === 0 ? property.price : 
+                          activePriceTab === 1 ? (property.condoFee || 'R$ 0,00') : 
+                          `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0) * 12 + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        )}
+                      </h2>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+
+                <div className="flex items-start gap-2 p-3 bg-[#617964]/5 rounded-xl border border-[#617964]/20">
+                  <Info className="w-3.5 h-3.5 text-marromescuro/30 shrink-0 mt-0.5" />
+                  <p className="text-[9px] text-marromescuro/60 leading-relaxed font-medium">
+                    Valores sujeitos a variações sem aviso prévio. Taxas como condomínio e IPTU podem sofrer alterações.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
                 <button 
-                  onClick={(e) => toggleFavorite(property.id, 'property', e)}
-                  className="p-2 hover:bg-terracota/10 rounded-full transition-colors group/fav"
-                  title="Favoritar"
+                  onClick={() => !visitRequested && setIsScheduleModalOpen(true)}
+                  disabled={visitRequested}
+                  className={`w-full py-4 rounded-2xl font-bold transition-all shadow-xl flex items-center justify-center gap-3 ${
+                    visitRequested 
+                      ? 'bg-emerald-500 text-white shadow-emerald-500/10 cursor-default' 
+                      : 'bg-marromescuro text-white hover:bg-marromescuro/90 shadow-marromescuro/10'
+                  }`}
                 >
-                  <Heart 
-                    className={`w-6 h-6 transition-all ${favorites.includes(String(property.id)) ? 'fill-marromescuro text-marromescuro' : 'text-terracota fill-terracota/10 group-hover/fav:fill-terracota/30'}`} 
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Tabs Section */}
-            <div className="space-y-4">
-              <div className="flex p-1 bg-[#617964]/5 border border-[#617964]/20 rounded-2xl">
-                {property.listingType === 'aluguel' ? (
-                  <>
-                    <button 
-                      onClick={() => setActivePriceTab(0)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Aluguel
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(1)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Mensal
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(2)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Total
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => setActivePriceTab(0)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 0 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Imóvel
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(1)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 1 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Mensal
-                    </button>
-                    <button 
-                      onClick={() => setActivePriceTab(2)}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all ${activePriceTab === 2 ? 'bg-[#617964] text-white shadow-sm' : 'text-marromescuro/40 hover:text-marromescuro/60'}`}
-                    >
-                      Anual
-                    </button>
-                  </>
-                )}
-              </div>
-
-              <div className="space-y-1 min-h-[100px] flex flex-col justify-center p-4 bg-[#617964]/5 rounded-2xl border border-[#617964]/20">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activePriceTab}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <span className="text-xs uppercase tracking-wider text-marromescuro font-helvetica font-bold">
-                      {property.listingType === 'aluguel' ? (
-                        activePriceTab === 0 ? 'Valor para alugar' : activePriceTab === 1 ? 'IPTU+Seguro' : 'Total Mensal'
-                      ) : (
-                        activePriceTab === 0 ? 'Valor do Imóvel' : activePriceTab === 1 ? 'Condomínio' : 'Valor Anual (Total Estimado)'
-                      )}
-                    </span>
-                    <h2 className="text-3xl font-bold text-marromescuro">
-                      {property.listingType === 'aluguel' ? (
-                        activePriceTab === 0 ? property.price : 
-                        activePriceTab === 1 ? `R$ ${(((parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
-                        `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.insurance?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      ) : (
-                        activePriceTab === 0 ? property.price : 
-                        activePriceTab === 1 ? (property.condoFee || 'R$ 0,00') : 
-                        `R$ ${(((parseInt(property.price?.replace(/\D/g, '') || '0') || 0) + (parseInt(property.condoFee?.replace(/\D/g, '') || '0') || 0) * 12 + (parseInt(property.iptu?.replace(/\D/g, '') || '0') || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      )}
-                    </h2>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              <div className="flex items-start gap-2 p-3 bg-[#617964]/5 rounded-xl border border-[#617964]/20">
-                <Info className="w-3.5 h-3.5 text-marromescuro/30 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-marromescuro/60 leading-relaxed font-medium">
-                  Valores sujeitos a variações sem aviso prévio. Taxas como condomínio e IPTU podem sofrer alterações.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <button 
-                onClick={() => !visitRequested && setIsScheduleModalOpen(true)}
-                disabled={visitRequested}
-                className={`w-full py-4 rounded-2xl font-bold transition-all shadow-xl flex items-center justify-center gap-3 ${
-                  visitRequested 
-                    ? 'bg-emerald-500 text-white shadow-emerald-500/10 cursor-default' 
-                    : 'bg-marromescuro text-white hover:bg-marromescuro/90 shadow-marromescuro/10'
-                }`}
-              >
-                {visitRequested ? (
-                  <>
-                    <Check className="w-6 h-6" />
-                    Visita solicitada
-                  </>
-                ) : (
-                  <>
-                    <div className="relative flex items-center justify-center">
-                      <Home className="w-6 h-6" />
-                      <div className="absolute inset-0 flex items-center justify-center pt-1">
-                        <User className="w-3 h-3 text-white fill-white" />
+                  {visitRequested ? (
+                    <>
+                      <Check className="w-6 h-6" />
+                      Visita solicitada
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative flex items-center justify-center">
+                        <Home className="w-6 h-6" />
+                        <div className="absolute inset-0 flex items-center justify-center pt-1">
+                          <User className="w-3 h-3 text-white fill-white" />
+                        </div>
                       </div>
-                    </div>
-                    Agendar visita
-                  </>
-                )}
-              </button>
-              <button 
-                onClick={() => navigate(`/proposta-compra/${property.id}`)}
-                className="w-full py-4 bg-white text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/5 transition-all flex items-center justify-center gap-3 shadow-lg"
-              >
-                <FileText className="w-6 h-6 text-terracota" />
-                Simular financiamento
-              </button>
-
-              {property.customButtons && property.customButtons.map((btn, idx) => (
-                <a 
-                  key={idx}
-                  href={btn.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-4 bg-marromescuro/5 text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/10 transition-all flex items-center justify-center gap-3"
+                      Agendar visita
+                    </>
+                  )}
+                </button>
+                <button 
+                  onClick={() => navigate(`/proposta-compra/${property.id}`)}
+                  className="w-full py-4 bg-white text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/5 transition-all flex items-center justify-center gap-3 shadow-lg"
                 >
-                  <ExternalLink className="w-5 h-5 text-terracota" />
-                  {btn.label}
-                </a>
-              ))}
+                  <FileText className="w-6 h-6 text-terracota" />
+                  Simular financiamento
+                </button>
+
+                {property.customButtons && property.customButtons.map((btn, idx) => (
+                  <a 
+                    key={idx}
+                    href={btn.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-4 bg-marromescuro/5 text-marromescuro border border-marromescuro/10 rounded-2xl font-bold hover:bg-marromescuro/10 transition-all flex items-center justify-center gap-3"
+                  >
+                    <ExternalLink className="w-5 h-5 text-terracota" />
+                    {btn.label}
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
+          </ReviewableElement>
             {/* Agent Card */}
-            <div className="bg-white rounded-3xl border border-marromescuro/10 shadow-xl p-8 space-y-6 text-center sticky top-40">
-              <div 
-                className="relative w-24 h-24 mx-auto group/agent"
-                onMouseEnter={() => setIsAgentHovered(true)}
-                onMouseLeave={() => setIsAgentHovered(false)}
-              >
+            <ReviewableElement field="agent" label="Corretor e Agenciamento" {...reviewProps}>
+              <div className="bg-white rounded-3xl border border-marromescuro/10 shadow-xl p-8 space-y-6 text-center sticky top-40">
+                <div 
+                  className="relative w-24 h-24 mx-auto group/agent"
+                  onMouseEnter={() => setIsAgentHovered(true)}
+                  onMouseLeave={() => setIsAgentHovered(false)}
+                >
                 {/* Tooltip Message (Speech Bubble Style) */}
                 <motion.div 
                   initial={{ opacity: 0, y: 5 }}
@@ -1406,6 +1658,7 @@ export default function PropertyDetail() {
                 </button>
               </div>
             </div>
+          </ReviewableElement>
 
             {/* Financing Card Removed */}
                     </div>

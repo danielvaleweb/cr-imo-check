@@ -10,7 +10,7 @@ import { playAlertSound } from '../lib/audio';
 
 export default function Favorites() {
   const navigate = useNavigate();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const { condos } = useCondos();
   const { favorites, toggleFavorite, clearFavorites } = useOutletContext<{ 
     favorites: (string | number)[], 

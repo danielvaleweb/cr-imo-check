@@ -21,7 +21,7 @@ interface HeaderProps {
 export default function Header({ isScrolled, isMenuOpen, setIsMenuOpen, isMobileNavOpen, setIsMobileNavOpen, favoritesCount, onLoginClick }: HeaderProps) {
   const navigate = useNavigate();
   const { condos } = useCondos();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const [hasScrolledOnce, setHasScrolledOnce] = useState(false);
   const [isCondoMenuOpen, setIsCondoMenuOpen] = useState(false);
   const [isLaunchMenuOpen, setIsLaunchMenuOpen] = useState(false);

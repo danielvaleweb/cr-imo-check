@@ -7,7 +7,7 @@ import PropertyCard from '../components/PropertyCard';
 
 export default function Buy() {
   const navigate = useNavigate();
-  const { properties } = useProperties();
+  const { publishedProperties: properties } = useProperties();
   const [searchParams] = useSearchParams();
   const codesParam = searchParams.get('codes');
   const { favorites, toggleFavorite } = useOutletContext<{ 

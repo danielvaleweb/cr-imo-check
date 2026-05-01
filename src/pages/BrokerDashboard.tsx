@@ -303,7 +303,7 @@ export default function BrokerDashboard() {
   };
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const [propertyStatusFilter, setPropertyStatusFilter] = useState<'published' | 'under_review' | 'pending'>('published');
+  const [propertyStatusFilter, setPropertyStatusFilter] = useState<'published' | 'under_review' | 'pending'>((searchParams.get('status') as any) || 'published');
   const [proposals, setProposals] = useState<any[]>([]);
 
   const [isReallocationModalOpen, setIsReallocationModalOpen] = useState(false);
@@ -457,22 +457,7 @@ export default function BrokerDashboard() {
   };
 
   const handleRejectProperty = (property: any) => {
-    // Ensure brokerId is present for notification if missing
-    if (!property.brokerId && property.broker) {
-      const bObject = brokers.find(b => b.name === property.broker);
-      if (bObject) {
-        property.brokerId = bObject.userId || bObject.id.toString();
-      }
-    }
-    setPropertyToReview(property);
-    setReviewFields({
-      foto: '',
-      title: '',
-      description: '',
-      price: '',
-      other: ''
-    });
-    setIsReviewModalOpen(true);
+    navigate(`/imovel/${property.id}?review=true`);
   };
 
   const submitReview = async () => {
@@ -525,7 +510,7 @@ export default function BrokerDashboard() {
 
       // Notify broker
       if (targetBrokerId && targetBrokerId !== myId) {
-        const msgText = `Olá verifiquei que seu imóvel [${propertyToReview.title}] está com algumas pendencias Clique aqui para ver`;
+        const msgText = `Olá verifiquei que seu imóvel ${propertyToReview.title} está com algumas pendencias, verifique na sua página de imóveis`;
         
         await addDoc(collection(db, 'notificacoes'), {
           userId: targetBrokerId,
@@ -548,7 +533,7 @@ export default function BrokerDashboard() {
             from: myId,
             to: targetBrokerId,
             room: stableRoomId,
-            text: `${msgText}: [Link para Pendências]`,
+            text: msgText,
             createdAt: serverTimestamp(),
             senderName: user?.displayName || 'Diretoria',
             read: false
@@ -1812,26 +1797,35 @@ export default function BrokerDashboard() {
       maximumFractionDigits: 2
     }).format(amount);
     const suffix = currentType === 'aluguel' ? ' / mês' : (currentType === 'permuta' ? ' (Permuta)' : '');
+    const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+    delete updatedComments.price;
     setNewPropertyData({ 
       ...newPropertyData, 
       price: `${formatted}${suffix}`,
-      listingType: currentType
+      listingType: currentType,
+      reviewComments: updatedComments
     });
   };
 
   const handleAreaChange = (value: string) => {
     const cleanValue = value.replace(/\D/g, '');
+    const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+    delete updatedComments.characteristics;
     setNewPropertyData({
       ...newPropertyData,
-      area: cleanValue ? `${cleanValue}m²` : ''
+      area: cleanValue ? `${cleanValue}m²` : '',
+      reviewComments: updatedComments
     });
   };
 
   const handleAddImageField = () => {
     if (newPropertyData.images.length < 20) {
+      const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+      delete updatedComments.images;
       setNewPropertyData({
         ...newPropertyData,
-        images: [...newPropertyData.images, '']
+        images: [...newPropertyData.images, ''],
+        reviewComments: updatedComments
       });
     }
   };
@@ -1874,9 +1868,12 @@ export default function BrokerDashboard() {
   const handleImageChange = (index: number, value: string) => {
     const updatedImages = [...newPropertyData.images];
     updatedImages[index] = value;
+    const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+    delete updatedComments.images;
     setNewPropertyData({
       ...newPropertyData,
-      images: updatedImages
+      images: updatedImages,
+      reviewComments: updatedComments
     });
   };
 
@@ -2099,8 +2096,11 @@ export default function BrokerDashboard() {
   const handleSaveProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    const submitter = (e.nativeEvent as any).submitter as HTMLButtonElement | null;
+    const forceSave = submitter?.dataset.forceSave === 'true';
+
     // Only allow submission on the final step
-    if (currentStep < 5) {
+    if (currentStep < 5 && !forceSave) {
       setCurrentStep(prev => prev + 1);
       return;
     }
@@ -2112,7 +2112,7 @@ export default function BrokerDashboard() {
         ...newPropertyData,
         condoId: finalCondoId,
         brokerId: newPropertyData.brokerId || auth.currentUser?.uid,
-        approvalStatus: (isAdmin ? 'published' : 'under_review') as any,
+        approvalStatus: (isAdmin && (newPropertyData.approvalStatus !== 'pending') ? 'published' : 'under_review') as any,
         reviewComments: isAdmin ? newPropertyData.reviewComments : {}, // Reset comments on save if broker
         image: newPropertyData.images.length > 0 && newPropertyData.images[0] !== '' 
           ? newPropertyData.images[0] 
@@ -3342,34 +3342,51 @@ export default function BrokerDashboard() {
               <form onSubmit={handleSaveProperty} className="flex-1 overflow-y-auto p-8 space-y-8">
                 {/* Step Indicator */}
                 <div className="flex items-center justify-between mb-8 px-4">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <React.Fragment key={s}>
-                      <div 
-                        className={`flex flex-col items-center gap-2 ${isEditing ? 'cursor-pointer' : ''}`}
-                        onClick={() => isEditing && setCurrentStep(s)}
-                      >
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
-                                currentStep === s 
-                                  ? 'bg-[#617964] text-white shadow-lg shadow-[#617964]/30 scale-110' 
-                                  : currentStep > s 
-                                    ? 'bg-[#617964]/20 text-[#617964]' 
-                                    : 'bg-white border border-gray-200 text-gray-400'
-                              }`}>
-                          {currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}
+                  {[1, 2, 3, 4, 5].map((s) => {
+                    const hasErrorInStep = 
+                      (s === 1 && (newPropertyData.reviewComments?.title || newPropertyData.reviewComments?.price)) ||
+                      (s === 2 && (newPropertyData.reviewComments?.description || newPropertyData.reviewComments?.characteristics)) ||
+                      (s === 3 && newPropertyData.reviewComments?.images) ||
+                      (s === 4 && newPropertyData.reviewComments?.brokerId);
+
+                    return (
+                      <React.Fragment key={s}>
+                        <div 
+                          className={`flex flex-col items-center gap-2 relative ${isEditing ? 'cursor-pointer' : ''}`}
+                          onClick={() => isEditing && setCurrentStep(s)}
+                        >
+                          {hasErrorInStep && (
+                            <motion.div 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white z-10 flex items-center justify-center shadow-lg"
+                            >
+                              <AlertCircle className="w-2.5 h-2.5 text-white" />
+                            </motion.div>
+                          )}
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+                            currentStep === s 
+                              ? (hasErrorInStep ? 'bg-red-500 text-white' : 'bg-[#617964] text-white shadow-lg')
+                              : currentStep > s 
+                                ? 'bg-[#617964]/20 text-[#617964]' 
+                                : 'bg-white border border-gray-200 text-gray-400'
+                          }`}>
+                            {currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}
+                          </div>
+                          <span className={`text-[10px] font-black uppercase tracking-tighter ${
+                            currentStep === s ? (hasErrorInStep ? 'text-red-500' : 'text-[#617964]') : 'text-gray-400'
+                          }`}>
+                            {s === 1 ? 'Básico' : s === 2 ? 'Características' : s === 3 ? 'Mídia' : s === 4 ? 'Categoria' : 'Interno'}
+                          </span>
                         </div>
-                        <span className={`text-[10px] font-black uppercase tracking-tighter ${
-                          currentStep === s ? 'text-[#617964]' : 'text-gray-400'
-                        }`}>
-                          {s === 1 ? 'Básico' : s === 2 ? 'Características' : s === 3 ? 'Mídia' : s === 4 ? 'Categoria' : 'Interno'}
-                        </span>
-                      </div>
-                      {s < 5 && (
-                        <div className={`flex-1 h-1 mx-4 rounded-full transition-all ${
-                          currentStep > s ? 'bg-[#617964]' : 'bg-white border border-gray-200'
-                        }`} />
-                      )}
-                    </React.Fragment>
-                  ))}
+                        {s < 5 && (
+                          <div className={`flex-1 h-1 mx-4 rounded-full transition-all ${
+                            currentStep > s ? 'bg-[#617964]' : 'bg-white border border-gray-200'
+                          }`} />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -3389,13 +3406,39 @@ export default function BrokerDashboard() {
                             <h4 className="font-black text-sm uppercase tracking-widest">Este imóvel possui pendências de avaliação</h4>
                           </div>
                           
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(newPropertyData.reviewComments).map(([field, comment]) => {
+                              if (field === 'other') return null;
+                              let step = 1;
+                              if (['description', 'characteristics'].includes(field)) step = 2;
+                              if (field === 'images') step = 3;
+                              if (field === 'brokerId') step = 4;
+
+                              return (
+                                <button
+                                  key={field}
+                                  type="button"
+                                  onClick={() => setCurrentStep(step)}
+                                  className="px-4 py-2 bg-white rounded-xl border border-red-100 shadow-sm hover:border-red-300 transition-all text-left group"
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md">Pendente</span>
+                                    <span className="text-[10px] font-bold text-gray-400 group-hover:text-red-500 transition-colors uppercase tracking-widest">
+                                      {field === 'title' ? 'Título' : field === 'price' ? 'Preço' : field === 'description' ? 'Descrição' : field === 'images' ? 'Fotos' : field === 'brokerId' ? 'Responsável' : field}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-red-700 font-medium italic line-clamp-1">"{comment}"</p>
+                                </button>
+                              );
+                            })}
+                          </div>
+
                           {newPropertyData.reviewComments.other && (
                             <div className="p-4 bg-white/50 rounded-2xl border border-red-100">
                               <p className="text-[10px] font-black uppercase tracking-widest text-[#617964] mb-1">Observação Geral da Diretoria:</p>
                               <p className="text-xs text-red-700 font-medium italic">"{newPropertyData.reviewComments.other}"</p>
                             </div>
                           )}
-                          <p className="text-xs text-red-600/70 font-medium">Por favor, verifique os campos destacados em vermelho abaixo e realize os ajustes necessários.</p>
                         </div>
                       )}
 
@@ -3458,7 +3501,11 @@ export default function BrokerDashboard() {
                             required
                             type="text" 
                             value={newPropertyData.title}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, title: e.target.value})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.title;
+                              setNewPropertyData({...newPropertyData, title: e.target.value, reviewComments: updatedComments});
+                            }}
                             placeholder="Ex: Mansão Luxury"
                             className={`w-full bg-white border rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all ${
                               newPropertyData.reviewComments?.title 
@@ -3701,11 +3748,16 @@ export default function BrokerDashboard() {
                               <input 
                                 type="text" 
                                 value={newPropertyData.propertyStreet}
-                                onChange={(e) => setNewPropertyData({
-                                  ...newPropertyData, 
-                                  propertyStreet: e.target.value,
-                                  location: `${e.target.value}, ${newPropertyData.propertyNeighborhood}, ${newPropertyData.propertyCity} - ${newPropertyData.propertyState}`
-                                })}
+                                onChange={(e) => {
+                                  const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                                  delete updatedComments.location;
+                                  setNewPropertyData({
+                                    ...newPropertyData, 
+                                    propertyStreet: e.target.value,
+                                    location: `${e.target.value}, ${newPropertyData.propertyNeighborhood}, ${newPropertyData.propertyCity} - ${newPropertyData.propertyState}`,
+                                    reviewComments: updatedComments
+                                  });
+                                }}
                                 placeholder="Ex: Rua das Flores"
                                 className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
@@ -3725,11 +3777,16 @@ export default function BrokerDashboard() {
                               <input 
                                 type="text" 
                                 value={newPropertyData.propertyNeighborhood}
-                                onChange={(e) => setNewPropertyData({
-                                  ...newPropertyData, 
-                                  propertyNeighborhood: e.target.value,
-                                  location: `${newPropertyData.propertyStreet}, ${e.target.value}, ${newPropertyData.propertyCity} - ${newPropertyData.propertyState}`
-                                })}
+                                onChange={(e) => {
+                                  const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                                  delete updatedComments.location;
+                                  setNewPropertyData({
+                                    ...newPropertyData, 
+                                    propertyNeighborhood: e.target.value,
+                                    location: `${newPropertyData.propertyStreet}, ${e.target.value}, ${newPropertyData.propertyCity} - ${newPropertyData.propertyState}`,
+                                    reviewComments: updatedComments
+                                  });
+                                }}
                                 placeholder="Ex: Centro"
                                 className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
@@ -3739,11 +3796,16 @@ export default function BrokerDashboard() {
                               <input 
                                 type="text" 
                                 value={newPropertyData.propertyCity}
-                                onChange={(e) => setNewPropertyData({
-                                  ...newPropertyData, 
-                                  propertyCity: e.target.value,
-                                  location: `${newPropertyData.propertyStreet}, ${newPropertyData.propertyNeighborhood}, ${e.target.value} - ${newPropertyData.propertyState}`
-                                })}
+                                onChange={(e) => {
+                                  const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                                  delete updatedComments.location;
+                                  setNewPropertyData({
+                                    ...newPropertyData, 
+                                    propertyCity: e.target.value,
+                                    location: `${newPropertyData.propertyStreet}, ${newPropertyData.propertyNeighborhood}, ${e.target.value} - ${newPropertyData.propertyState}`,
+                                    reviewComments: updatedComments
+                                  });
+                                }}
                                 placeholder="Ex: Juiz de Fora"
                                 className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
@@ -3753,11 +3815,16 @@ export default function BrokerDashboard() {
                               <input 
                                 type="text" 
                                 value={newPropertyData.propertyState}
-                                onChange={(e) => setNewPropertyData({
-                                  ...newPropertyData, 
-                                  propertyState: e.target.value,
-                                  location: `${newPropertyData.propertyStreet}, ${newPropertyData.propertyNeighborhood}, ${newPropertyData.propertyCity} - ${e.target.value}`
-                                })}
+                                onChange={(e) => {
+                                  const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                                  delete updatedComments.location;
+                                  setNewPropertyData({
+                                    ...newPropertyData, 
+                                    propertyState: e.target.value,
+                                    location: `${newPropertyData.propertyStreet}, ${newPropertyData.propertyNeighborhood}, ${newPropertyData.propertyCity} - ${e.target.value}`,
+                                    reviewComments: updatedComments
+                                  });
+                                }}
                                 placeholder="Ex: MG"
                                 className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                               />
@@ -3805,7 +3872,11 @@ export default function BrokerDashboard() {
                           <input 
                             type="number" 
                             value={newPropertyData.beds}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, beds: parseInt(e.target.value) || 0})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({...newPropertyData, beds: parseInt(e.target.value) || 0, reviewComments: updatedComments});
+                            }}
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
@@ -3814,7 +3885,11 @@ export default function BrokerDashboard() {
                           <input 
                             type="number" 
                             value={newPropertyData.parking}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, parking: parseInt(e.target.value) || 0})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({...newPropertyData, parking: parseInt(e.target.value) || 0, reviewComments: updatedComments});
+                            }}
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
@@ -3823,7 +3898,11 @@ export default function BrokerDashboard() {
                           <input 
                             type="number" 
                             value={newPropertyData.baths}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, baths: parseInt(e.target.value) || 0})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({...newPropertyData, baths: parseInt(e.target.value) || 0, reviewComments: updatedComments});
+                            }}
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
@@ -3842,7 +3921,11 @@ export default function BrokerDashboard() {
                           <input 
                             type="text" 
                             value={newPropertyData.landArea}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, landArea: e.target.value})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({...newPropertyData, landArea: e.target.value, reviewComments: updatedComments});
+                            }}
                             placeholder="Ex: 1000m²"
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
@@ -3852,7 +3935,11 @@ export default function BrokerDashboard() {
                           <input 
                             type="number" 
                             value={newPropertyData.rooms}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, rooms: parseInt(e.target.value) || 0})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({...newPropertyData, rooms: parseInt(e.target.value) || 0, reviewComments: updatedComments});
+                            }}
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
@@ -3861,7 +3948,11 @@ export default function BrokerDashboard() {
                           <input 
                             type="number" 
                             value={newPropertyData.motoParking}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, motoParking: parseInt(e.target.value) || 0})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({...newPropertyData, motoParking: parseInt(e.target.value) || 0, reviewComments: updatedComments});
+                            }}
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
@@ -3870,7 +3961,11 @@ export default function BrokerDashboard() {
                           <input 
                             type="number" 
                             value={newPropertyData.elevators}
-                            onChange={(e) => setNewPropertyData({...newPropertyData, elevators: parseInt(e.target.value) || 0})}
+                            onChange={(e) => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({...newPropertyData, elevators: parseInt(e.target.value) || 0, reviewComments: updatedComments});
+                            }}
                             className="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                           />
                         </div>
@@ -3887,10 +3982,15 @@ export default function BrokerDashboard() {
                           <button
                             key={feature.key}
                             type="button"
-                            onClick={() => setNewPropertyData({
-                              ...newPropertyData, 
-                              [feature.key]: !newPropertyData[feature.key as keyof typeof newPropertyData]
-                            })}
+                            onClick={() => {
+                              const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                              delete updatedComments.characteristics;
+                              setNewPropertyData({
+                                ...newPropertyData, 
+                                [feature.key]: !newPropertyData[feature.key as keyof typeof newPropertyData],
+                                reviewComments: updatedComments
+                              });
+                            }}
                             className={`flex items-center justify-center gap-2 p-3 rounded-2xl text-xs font-bold transition-all border-2 ${
                               newPropertyData[feature.key as keyof typeof newPropertyData]
                                 ? 'bg-[#617964]/10 border-[#617964] text-[#617964]'
@@ -4210,10 +4310,13 @@ export default function BrokerDashboard() {
                                   value={newPropertyData.broker}
                                   onChange={(e) => {
                                     const selectedBroker = brokers.find(b => b.name === e.target.value);
+                                    const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                                    delete updatedComments.brokerId;
                                     setNewPropertyData({
                                       ...newPropertyData, 
                                       broker: e.target.value,
-                                      brokerId: selectedBroker?.userId || selectedBroker?.id.toString() || ''
+                                      brokerId: selectedBroker?.userId || selectedBroker?.id.toString() || '',
+                                      reviewComments: updatedComments
                                     });
                                   }}
                                   className={`w-full bg-gray-50 border rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all appearance-none cursor-pointer ${
@@ -4244,7 +4347,11 @@ export default function BrokerDashboard() {
                             <textarea 
                               rows={4}
                               value={newPropertyData.description}
-                              onChange={(e) => setNewPropertyData({...newPropertyData, description: e.target.value})}
+                              onChange={(e) => {
+                                const updatedComments = { ...(newPropertyData.reviewComments || {}) };
+                                delete updatedComments.description;
+                                setNewPropertyData({...newPropertyData, description: e.target.value, reviewComments: updatedComments});
+                              }}
                               placeholder="Descreva os detalhes do imóvel..."
                               className={`w-full bg-gray-50 border rounded-2xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all resize-none ${
                                 newPropertyData.reviewComments?.description 
@@ -4456,6 +4563,7 @@ export default function BrokerDashboard() {
                         {isEditing && (
                           <button
                             type="submit"
+                            data-force-save="true"
                             className={`px-8 py-4 rounded-2xl text-sm font-black transition-all flex items-center gap-2 ${
                               newPropertyData.reviewComments && Object.keys(newPropertyData.reviewComments).length > 0
                                 ? 'bg-orange-500 text-white hover:bg-orange-600'
