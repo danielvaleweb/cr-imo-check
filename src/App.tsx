@@ -17,6 +17,7 @@ import CategoryResults from './pages/CategoryResults';
 import BrokerDashboard from './pages/BrokerDashboard';
 import BrokerProfile from './pages/BrokerProfile';
 import PurchaseProposal from './pages/PurchaseProposal';
+import GoogleLoginPage from './pages/GoogleLoginPage';
 import { PropertyProvider } from './context/PropertyContext';
 import { BrokerProvider } from './context/BrokerContext';
 import { CondoProvider } from './context/CondoContext';
@@ -57,6 +58,7 @@ export default function App() {
                   <Route path="admin" element={<BrokerDashboard />} />
                   <Route path="dashboard-corretor" element={<Navigate to="/admin" replace />} />
                   <Route path="proposta-compra/:id" element={<PurchaseProposal />} />
+                  <Route path="google" element={<GoogleLoginPage />} />
                   <Route path="/:id" element={<PartnerDetail />} />
                 </Route>
               </Routes>

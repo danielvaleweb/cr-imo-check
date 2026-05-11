@@ -23,8 +23,6 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
-  signInWithPopup,
-  GoogleAuthProvider,
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
@@ -149,73 +147,6 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       }
       
       await signOut(auth); // Garantir logout se houver erro ou falta de permissão
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    setErrorHeader(null);
-    const provider = new GoogleAuthProvider();
-    
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      const userEmail = user.email?.toLowerCase() || '';
-      
-      // Administrador entra direto
-      const adminEmail = 'danielvaleweb@gmail.com';
-      const isExplicitAdmin = userEmail === adminEmail.toLowerCase() || user.uid === 'xgp4kEuc66UbGXIMcBVAa4fykus2';
-
-      if (isExplicitAdmin) {
-        onClose();
-        navigate('/admin');
-        return;
-      }
-
-      const status = await checkUserStatus(user.uid);
-
-      if (!status) {
-        // Se não tem cadastro no Firestore, deslogamos do Auth e mandamos para o registro
-        await signOut(auth);
-        setErrorHeader('Este e-mail não está cadastrado como corretor. Por favor, preencha a ficha de solicitação abaixo.');
-        setFormData(prev => ({
-          ...prev,
-          name: user.displayName || '',
-          email: userEmail
-        }));
-        setMode('register');
-        return;
-      }
-
-      if (status === 'pending') {
-        setCustomError({
-          title: 'Aguardando Aprovação',
-          message: 'Seu cadastro Google já existe e está aguardando revisão de um administrador. Em breve você terá acesso.',
-          showModal: true,
-          type: 'auth_pending'
-        });
-        return;
-      }
-
-      if (status === 'rejected') {
-        await signOut(auth);
-        setErrorHeader('Seu acesso foi recusado por um administrador. Entre em contato com o suporte.');
-        return;
-      }
-
-      if (status === 'approved') {
-        onClose();
-        navigate('/admin');
-      } else {
-        await signOut(auth);
-        setErrorHeader('Status de conta desconhecido. Entre em contato com o suporte.');
-      }
-    } catch (error: any) {
-      console.error("Google Auth error:", error);
-      setErrorHeader('Falha na autenticação com o Google. Tente novamente.');
-      await signOut(auth);
     } finally {
       setIsLoading(false);
     }
@@ -515,31 +446,6 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
                     {mode === 'login' ? 'Entrar com Email' : 'Enviar Solicitação'}
                   </button>
-
-                  {mode === 'login' && (
-                    <>
-                      <div className="relative flex items-center gap-4 py-2">
-                        <div className="flex-1 h-px bg-white/10" />
-                        <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">ou acesse com</span>
-                        <div className="flex-1 h-px bg-white/10" />
-                      </div>
-
-                      <button 
-                        type="button"
-                        onClick={handleGoogleLogin}
-                        disabled={isLoading}
-                        className="w-full bg-white text-black py-3.5 md:py-4 rounded-xl font-bold text-sm shadow-xl hover:bg-gray-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-                      >
-                        <img 
-                          src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                          alt="Google" 
-                          className="w-5 h-5"
-                        />
-                        Entrar com Google
-                      </button>
-                    </>
-                  )}
-
                 </form>
               </div>
 

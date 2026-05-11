@@ -195,6 +195,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "title", "message", "type", "createdAt"]
+    },
+    "TeamCredential": {
+      "title": "Team Credential",
+      "description": "Stored member login credentials (email and password)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Member name" },
+        "email": { "type": "string", "format": "email" },
+        "password": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "password"]
     }
   },
   "firestore": {
@@ -229,6 +244,10 @@
     "proposals": {
       "schema": { "$ref": "#/entities/Proposal" },
       "description": "Collection of all purchase proposals"
+    },
+    "team_credentials": {
+      "schema": { "$ref": "#/entities/TeamCredential" },
+      "description": "Strictly restricted collection for storing team credentials. Only accessible by the creator."
     },
     "system_config": {
       "schema": {
