@@ -82,6 +82,8 @@ const MOCK_PROPERTY = {
     'https://i.imgur.com/W10YtDm.png',
     'https://i.imgur.com/pe07Ikg.png',
   ],
+  videoHorizontalUrl: '',
+  videoVerticalUrl: '',
   neighborhood: {
     title: 'Jardim América',
     description: 'Um verdadeiro oásis dentro da urbana São Paulo, as ruas e avenidas do bairro do Jardim América têm o verde como marca registrada. Possui uma valorização imobiliária constante. Com baixa densidade de verticalização, encontramos no bairro uma grande concentração de residências de alto luxo, com áreas e terrenos de dimensões generosos. Oferecendo uma tranquilidade e qualidade de vida superiores no elegante bairro encontramos os tradicionais clubes, como o Sociedade Harmonia de Tênis e o Clube Athlético Paulistano. O bairro abriga também uma grande referência da cidade, a igreja Nossa Senhora do Brasil. Todas essas singularidades tornam o Jardim América um dos bairros mais valorizados e desejados da cidade.',
@@ -89,6 +91,19 @@ const MOCK_PROPERTY = {
     clubs: 'Clube Athlético Paulistano, Esporte Clube Pinheiros, Sociedade Harmonia de Tênis',
     image: 'https://i.imgur.com/pe07Ikg.png'
   }
+};
+
+const getYoutubeEmbedUrl = (url: string) => {
+  if (!url) return '';
+  let id = '';
+  if (url.includes('v=')) {
+    id = url.split('v=')[1]?.split('&')[0];
+  } else if (url.includes('shorts/')) {
+    id = url.split('shorts/')[1]?.split('?')[0];
+  } else if (url.includes('youtu.be/')) {
+    id = url.split('youtu.be/')[1]?.split('?')[0];
+  }
+  return id ? `https://www.youtube.com/embed/${id}?autoplay=1&mute=0&rel=0` : url;
 };
 
 const ReviewableElement = ({ 
@@ -250,6 +265,8 @@ export default function PropertyDetail() {
   const [showFloorPlan, setShowFloorPlan] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [activeVideoUrl, setActiveVideoUrl] = useState('');
+  const [isVideoVertical, setIsVideoVertical] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
   const [isFloorPlanModalOpen, setIsFloorPlanModalOpen] = useState(false);
   const [modalFloorPlanIndex, setModalFloorPlanIndex] = useState(0);
@@ -297,6 +314,36 @@ export default function PropertyDetail() {
     images: propertyData.images && propertyData.images.length > 0 && propertyData.images[0] !== ''
       ? propertyData.images 
       : [propertyData.image, ...MOCK_PROPERTY.images.slice(1)]
+  };
+
+  const handleOpenVideo = () => {
+    const isMobile = window.innerWidth < 768;
+    let url = '';
+    let isVertical = false;
+
+    if (isMobile) {
+      if (property.videoVerticalUrl) {
+        url = property.videoVerticalUrl;
+        isVertical = true;
+      } else {
+        url = property.videoHorizontalUrl;
+        isVertical = false;
+      }
+    } else {
+      if (property.videoHorizontalUrl) {
+        url = property.videoHorizontalUrl;
+        isVertical = false;
+      } else {
+        url = property.videoVerticalUrl;
+        isVertical = true;
+      }
+    }
+
+    if (url) {
+      setActiveVideoUrl(getYoutubeEmbedUrl(url));
+      setIsVideoVertical(isVertical);
+      setIsVideoModalOpen(true);
+    }
   };
 
   // Scroll listener for header style
@@ -753,6 +800,16 @@ export default function PropertyDetail() {
                     </button>
                   )}
 
+                  {(property.videoHorizontalUrl || property.videoVerticalUrl) && (
+                    <button 
+                      onClick={handleOpenVideo}
+                      className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
+                    >
+                      <Play className="w-5 h-5 mb-1" />
+                      <span>VÍDEO</span>
+                    </button>
+                  )}
+
                   <div className="flex gap-1 shrink-0">
                     {property.images.slice(0, 5).map((img, idx) => (
                       <button 
@@ -776,16 +833,6 @@ export default function PropertyDetail() {
                       </button>
                     )}
                   </div>
-
-                  {property.videoUrl && (
-                    <button 
-                      onClick={() => setIsVideoModalOpen(true)}
-                      className="shrink-0 w-20 md:w-24 h-14 md:h-16 rounded-xl bg-[#617964]/80 backdrop-blur-md flex flex-col items-center justify-center text-white text-[10px] font-bold hover:bg-[#617964] transition-colors border border-white/20 shadow-2xl snap-center"
-                    >
-                      <Play className="w-5 h-5 mb-1 fill-white" />
-                      <span>VÍDEO</span>
-                    </button>
-                  )}
 
                   {property.customButtons && property.customButtons.map((btn: any, idx: number) => (
                     <a 
@@ -846,15 +893,6 @@ export default function PropertyDetail() {
                   className="max-w-full max-h-full object-contain shadow-2xl rounded-sm"
                   referrerPolicy="no-referrer"
                 />
-                
-                {/* Text Watermark */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-                  <div className="flex flex-col items-center justify-center opacity-20">
-                    <span className="text-white text-base md:text-2xl font-bold tracking-widest uppercase -rotate-12 whitespace-nowrap drop-shadow-lg">
-                      Direitos reservados CR Imóveis 2026 ©
-                    </span>
-                  </div>
-                </div>
               </motion.div>
 
               <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 bg-white px-3 py-1 rounded-full text-black text-[10px] font-bold shadow-lg">
@@ -868,35 +906,6 @@ export default function PropertyDetail() {
             >
               <ChevronRight className="w-6 h-6" />
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Video Modal */}
-      <AnimatePresence>
-        {isVideoModalOpen && property.videoUrl && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
-          >
-            <button 
-              onClick={() => setIsVideoModalOpen(false)}
-              className="absolute top-8 right-8 p-2 bg-white hover:bg-white/90 rounded-full text-black transition-all z-[110] shadow-xl"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="relative w-full max-w-5xl aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black">
-              <iframe
-                src={`${getYoutubeEmbedUrl(property.videoUrl)}?autoplay=1`}
-                title="Property Video"
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1743,6 +1752,34 @@ export default function PropertyDetail() {
                     <span className="opacity-50 font-medium italic">clique em fechar para sair</span>
                   </motion.div>
                 </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Video Modal Overlay */}
+        <AnimatePresence>
+          {isVideoModalOpen && activeVideoUrl && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+            >
+              <button 
+                onClick={() => setIsVideoModalOpen(false)}
+                className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all z-50"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className={`relative w-full shadow-2xl rounded-3xl overflow-hidden bg-black ${isVideoVertical ? 'max-w-md aspect-[9/16]' : 'max-w-5xl aspect-video'}`}>
+                <iframe 
+                  src={activeVideoUrl} 
+                  className="w-full h-full border-none"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                />
               </div>
             </motion.div>
           )}

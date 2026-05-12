@@ -20,9 +20,6 @@ export default function Footer() {
           <Link to="/contato" className="hover:text-[#E5D19E] transition-colors uppercase cursor-pointer">CONTATO</Link>
         </div>
         <div className="flex flex-col items-center md:items-end gap-2">
-          <div className="text-[10px] text-brand-cream/40 uppercase tracking-widest text-center md:text-right">
-            © 2026 CR IMÓVEIS. TODOS OS DIREITOS RESERVADOS.
-          </div>
           <a 
             href="https://3tec.com.br" 
             target="_blank" 

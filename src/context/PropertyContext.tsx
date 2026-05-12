@@ -15,7 +15,8 @@ export interface Property {
   area: string;
   image: string;
   images?: string[];
-  videoUrl?: string;
+  videoHorizontalUrl?: string;
+  videoVerticalUrl?: string;
   pdfUrl?: string;
   floorPlanUrl?: string;
   floorPlanUrls?: string[];

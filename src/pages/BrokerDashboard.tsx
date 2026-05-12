@@ -88,6 +88,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 import { addLog } from '../services/logService';
+import { CloudinaryUploadWidget } from '../components/CloudinaryUploadWidget';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -259,7 +260,8 @@ const INITIAL_PROPERTY_STATE = {
   additionalInfo: '',
   image: 'https://i.imgur.com/pe07Ikg.png',
   images: [''],
-  videoUrl: '',
+  videoHorizontalUrl: '',
+  videoVerticalUrl: '',
   pdfUrl: '',
   floorPlanUrl: '',
   floorPlanUrls: [''],
@@ -640,7 +642,6 @@ export default function BrokerDashboard() {
     { id: 'finance', label: 'Financeiro', icon: CircleDollarSign, permission: 'canViewFinance' },
     { id: 'calendar', label: 'Agenda Geral', icon: Calendar },
     { id: 'my-calendar', label: 'Sua Agenda', icon: UserCircle },
-    { id: 'photo_editor', label: 'Editor de Fotos', icon: ImageIcon, permission: 'canUsePhotoEditor' },
     { id: 'partners', label: 'Parceiros', icon: Handshake, permission: 'canManagePartners' },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, permission: 'canViewReports' },
     { id: 'credentials', label: 'Credenciais', icon: KeyRound, permission: 'isCreator' },
@@ -2063,7 +2064,8 @@ export default function BrokerDashboard() {
       additionalInfo: property.additionalInfo || '',
       image: property.image,
       images: property.images || [property.image],
-      videoUrl: property.videoUrl || '',
+      videoHorizontalUrl: property.videoHorizontalUrl || '',
+      videoVerticalUrl: property.videoVerticalUrl || '',
       pdfUrl: property.pdfUrl || '',
       floorPlanUrl: property.floorPlanUrl || '',
       floorPlanUrls: property.floorPlanUrls || (property.floorPlanUrl ? [property.floorPlanUrl] : ['']),
@@ -3694,21 +3696,56 @@ export default function BrokerDashboard() {
                       className="space-y-6"
                     >
                       <h4 className="text-sm font-black text-[#617964] uppercase tracking-widest flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4" /> Mídia (Fotos, Vídeo e PDF)
+                        <ImageIcon className="w-4 h-4" /> Mídia (Fotos e Plantas)
                       </h4>
+
+                      {/* Cloudinary Integration Section */}
+                      <div className="bg-gray-50 border border-gray-100 rounded-[32px] p-6 space-y-4">
+                        <div className="flex flex-col gap-1">
+                          <h5 className="text-[10px] font-black text-[#617964] uppercase tracking-[0.2em] mb-2">Upload Rápido (Cloudinary)</h5>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">
+                            Faça o upload direto para obter o link otimizado
+                          </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="space-y-4">
+                            <CloudinaryUploadWidget 
+                              buttonLabel="Upload em Lote (Fotos)"
+                              folder="property_photos"
+                              multiple={true}
+                              maxFiles={30}
+                              showPreview={false}
+                              withWatermark={true}
+                              onBatchUploadSuccess={(urls) => {
+                                setNewPropertyData(prev => {
+                                  // Filter out empty slots and append new urls, limiting to 30
+                                  const currentImages = prev.images.filter(img => img && img.trim() !== '');
+                                  const combined = [...currentImages, ...urls].slice(0, 30);
+                                  return { ...prev, images: combined };
+                                });
+                              }}
+                              onUploadSuccess={(url) => {
+                                // Individual callback handled via batch for efficiency
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Photos Section */}
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Fotos (Máx. 20)</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Fotos (Máx. 30)</label>
                               {newPropertyData.reviewComments?.foto && (
                                 <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1 flex items-center gap-1">
                                   <AlertCircle className="w-3 h-3" /> {newPropertyData.reviewComments.foto}
                                 </p>
                               )}
                             </div>
-                            {newPropertyData.images.length < 20 && (
+                            {newPropertyData.images.length < 30 && (
                               <button
                                 type="button"
                                 onClick={handleAddImageField}
@@ -3771,17 +3808,36 @@ export default function BrokerDashboard() {
 
                         {/* Video & Floor Plan Section */}
                         <div className="space-y-6">
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Link do Vídeo (YouTube/Vimeo)</label>
-                            <div className="relative">
-                              <Video className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                              <input 
-                                type="text" 
-                                value={newPropertyData.videoUrl}
-                                onChange={(e) => setNewPropertyData({...newPropertyData, videoUrl: e.target.value})}
-                                placeholder="https://youtube.com/watch?v=..."
-                                className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
-                              />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
+                                <Video className="w-3 h-3" /> Vídeo Horizontal (YouTube)
+                              </label>
+                              <div className="relative">
+                                <Link className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input 
+                                  type="text" 
+                                  value={newPropertyData.videoHorizontalUrl}
+                                  onChange={(e) => setNewPropertyData({...newPropertyData, videoHorizontalUrl: e.target.value})}
+                                  placeholder="Link do vídeo deitado..."
+                                  className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
+                                <Video className="w-3 h-3" /> Vídeo Vertical (Shorts)
+                              </label>
+                              <div className="relative">
+                                <Link className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input 
+                                  type="text" 
+                                  value={newPropertyData.videoVerticalUrl}
+                                  onChange={(e) => setNewPropertyData({...newPropertyData, videoVerticalUrl: e.target.value})}
+                                  placeholder="Link do vídeo em pé..."
+                                  className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -3805,18 +3861,38 @@ export default function BrokerDashboard() {
                           </div>
                           
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Plantas do Imóvel</label>
-                              {newPropertyData.floorPlanUrls.length < 10 && (
-                                <button
-                                  type="button"
-                                  onClick={handleAddFloorPlanField}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-[#617964]/10 text-[#617964] rounded-xl hover:bg-[#617964]/20 transition-all text-[10px] font-black uppercase tracking-wider"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                  Adicionar Planta
-                                </button>
-                              )}
+                            <div className="flex flex-col gap-4">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Plantas do Imóvel</label>
+                                {newPropertyData.floorPlanUrls.length < 10 && (
+                                  <button
+                                    type="button"
+                                    onClick={handleAddFloorPlanField}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-[#617964]/10 text-[#617964] rounded-xl hover:bg-[#617964]/20 transition-all text-[10px] font-black uppercase tracking-wider"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    Adicionar Planta
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <div className="bg-gray-50/50 p-4 rounded-3xl border border-gray-100">
+                                <CloudinaryUploadWidget 
+                                  buttonLabel="Enviar Imagem/PDF da Planta"
+                                  folder="property_plans"
+                                  onUploadSuccess={(url) => {
+                                    const emptyIndex = newPropertyData.floorPlanUrls.findIndex(u => !u);
+                                    if (emptyIndex !== -1) {
+                                      handleFloorPlanChange(emptyIndex, url);
+                                    } else if (newPropertyData.floorPlanUrls.length < 10) {
+                                      setNewPropertyData(prev => ({
+                                        ...prev,
+                                        floorPlanUrls: [...prev.floorPlanUrls, url]
+                                      }));
+                                    }
+                                  }}
+                                />
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                               {newPropertyData.floorPlanUrls.map((url, index) => (
@@ -5035,12 +5111,35 @@ export default function BrokerDashboard() {
                 </div>
 
                 {/* Gallery Images */}
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Imagens</label>
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Galeria de Imagens</label>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest ml-1 mb-2">Máximo 30 imagens no condomínio</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 border border-gray-100 rounded-[32px] p-6">
+                    <CloudinaryUploadWidget 
+                      buttonLabel="Upload em Lote (Fotos do Condomínio)"
+                      folder="condo_photos"
+                      multiple={true}
+                      maxFiles={30}
+                      showPreview={false}
+                      withWatermark={true}
+                      onBatchUploadSuccess={(urls) => {
+                        setNewCondoData(prev => {
+                          const currentImages = prev.images.filter(img => img && img.trim() !== '');
+                          const combined = [...currentImages, ...urls].slice(0, 30);
+                          return { ...prev, images: combined };
+                        });
+                      }}
+                      onUploadSuccess={(url) => {}}
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {newCondoData.images.map((img, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="relative aspect-video bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 group">
+                      <div key={index} className="space-y-2 group">
+                        <div className="relative aspect-video bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 group transition-all hover:border-[#617964]/20">
                           {img ? (
                             <img 
                               src={img} 
@@ -5056,18 +5155,16 @@ export default function BrokerDashboard() {
                               <span className="text-[8px] font-black uppercase tracking-tighter">Sem Imagem</span>
                             </div>
                           )}
-                          {newCondoData.images.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = newCondoData.images.filter((_, i) => i !== index);
-                                setNewCondoData({...newCondoData, images: updated});
-                              }}
-                              className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 shadow-sm z-10"
-                            >
-                              <Trash className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = newCondoData.images.filter((_, i) => i !== index);
+                              setNewCondoData({...newCondoData, images: updated});
+                            }}
+                            className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 shadow-sm z-10"
+                          >
+                            <Trash className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                         <input 
                           type="text" 
@@ -5082,14 +5179,16 @@ export default function BrokerDashboard() {
                         />
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => setNewCondoData({...newCondoData, images: [...newCondoData.images, '']})}
-                      className="aspect-video rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#617964] hover:text-[#617964] transition-all group bg-gray-50/50"
-                    >
-                      <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Foto</span>
-                    </button>
+                    {newCondoData.images.length < 30 && (
+                      <button
+                        type="button"
+                        onClick={() => setNewCondoData({...newCondoData, images: [...newCondoData.images, '']})}
+                        className="aspect-video rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#617964] hover:text-[#617964] transition-all group bg-gray-50/50"
+                      >
+                        <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Link</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -6662,8 +6761,6 @@ export default function BrokerDashboard() {
             <FinanceTab permissions={userPermissions} />
           ) : activeTab === 'credentials' && user?.email === 'danielvaleweb@gmail.com' ? (
             <CredentialsTab />
-          ) : activeTab === 'photo_editor' ? (
-            userPermissions.canUsePhotoEditor ? <PhotoEditorTab /> : <div className="text-center py-12"><div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><Lock className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-900 mb-2">Acesso Restrito</h2><p className="text-gray-500">Você não tem permissão para visualizar o Editor de Fotos.</p></div>
           ) : activeTab === 'partners' ? (
             userPermissions.canManagePartners ? <PartnersTab /> : <div className="text-center py-12"><div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><Lock className="w-8 h-8" /></div><h2 className="text-xl font-bold text-gray-900 mb-2">Acesso Restrito</h2><p className="text-gray-500">Você não tem permissão para visualizar parceiros.</p></div>
           ) : activeTab === 'reports' ? (
@@ -7251,16 +7348,16 @@ export default function BrokerDashboard() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">URL da Foto</label>
-                    <input 
-                      type="url"
-                      required
-                      value={newBrokerData.photo}
-                      onChange={(e) => setNewBrokerData({...newBrokerData, photo: e.target.value})}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#617964] transition-all font-bold text-gray-900"
-                      placeholder="https://exemplo.com/foto.jpg"
-                    />
+                  <div className="space-y-4">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Foto de Perfil</label>
+                    <div className="bg-gray-50 p-6 rounded-[32px] border-2 border-dashed border-gray-100">
+                      <CloudinaryUploadWidget 
+                        buttonLabel="Enviar Foto de Perfil"
+                        folder="broker_profiles"
+                        withWatermark={false}
+                        onUploadSuccess={(url) => setNewBrokerData({...newBrokerData, photo: url})}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
