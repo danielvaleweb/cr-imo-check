@@ -192,8 +192,8 @@ const CondoGalleryCard = ({ prop, onClick, isFavorite, onToggleFavorite }: any) 
 export default function CondoDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { condos } = useCondos();
-  const { publishedProperties: properties } = useProperties();
+  const { condos, isLoaded: condosLoaded } = useCondos();
+  const { publishedProperties: properties, isLoaded: propertiesLoaded } = useProperties();
   const { favorites, toggleFavorite } = useOutletContext<{ 
     favorites: (string | number)[], 
     toggleFavorite: (id: string | number, type?: 'property' | 'condo', e?: React.MouseEvent) => void 
@@ -202,6 +202,19 @@ export default function CondoDetail() {
   const [is360Open, setIs360Open] = useState(false);
   const [isGyroEnabled, setIsGyroEnabled] = useState(false);
   const [visibleProperties, setVisibleProperties] = useState(12);
+
+  const condo = condos.find(c => c.id.toString() === id);
+
+  if (!condosLoaded || !propertiesLoaded || !condo) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#617964] border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Carregando Condomínio...</p>
+        </div>
+      </div>
+    );
+  }
 
   const getTourUrl = (url: string) => {
     if (!url) return '';
@@ -243,7 +256,6 @@ export default function CondoDetail() {
   const heroY = useTransform(scrollY, [0, 1000], [0, 300]);
   const heroOpacity = useTransform(scrollY, [0, 800], [1, 0.3]);
 
-  const condo = condos.find(c => c.id.toString() === id);
   const condoProperties = properties.filter(p => condo && (p.condoId === condo.id || p.location.includes(condo.name)));
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);

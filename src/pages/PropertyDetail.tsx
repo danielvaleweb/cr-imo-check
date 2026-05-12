@@ -251,7 +251,7 @@ const ReviewableElement = ({
 export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { properties, publishedProperties } = useProperties();
+  const { properties, publishedProperties, isLoaded } = useProperties();
   const { brokers } = useBrokers();
   const { condos } = useCondos();
   const { favorites, toggleFavorite } = useOutletContext<{ 
@@ -281,21 +281,39 @@ export default function PropertyDetail() {
   const [visitRequested, setVisitRequested] = useState(false);
 
   const [searchParams] = useSearchParams();
-  const propertyData = properties.find(p => p.id.toString() === id) || properties[0];
+  const propertyData = properties.find(p => p.id.toString() === id) || (properties.length > 0 ? properties[0] : null);
 
   const [isReviewMode, setIsReviewMode] = useState(searchParams.get('review') === 'true');
-  const [localReviewComments, setLocalReviewComments] = useState<Record<string, string>>(propertyData.reviewComments || {});
+  const [localReviewComments, setLocalReviewComments] = useState<Record<string, string>>({});
   const [activeCommentField, setActiveCommentField] = useState<string | null>(null);
+
+  // Update local review comments when propertyData becomes available
+  useEffect(() => {
+    if (propertyData?.reviewComments) {
+      setLocalReviewComments(propertyData.reviewComments);
+    }
+  }, [propertyData]);
+
+  if (!isLoaded || !propertyData) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#617964] border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Carregando Imóvel...</p>
+        </div>
+      </div>
+    );
+  }
   
   // Find the condo for this property
   const condo = condos.find(c => c.id.toString() === propertyData.condoId?.toString());
   
   // Find the broker for this property
-  const broker = brokers.find(b => b.name === propertyData.broker) || brokers[0];
+  const broker = brokers.find(b => b.name === propertyData.broker) || (brokers.length > 0 ? brokers[0] : { id: 0, name: '', role: '', photo: '', phone: '', email: '', creci: '', instagram: '' });
   
   const RELATED_PROPERTIES = publishedProperties.slice(0, 3);
   
-  // Merge dynamic data with mock data for fields not present in PROPERTIES
+  // Merge dynamic data with mock data (using localReviewComments instead of propertyData.reviewComments)
   const property = {
     ...MOCK_PROPERTY,
     ...propertyData,

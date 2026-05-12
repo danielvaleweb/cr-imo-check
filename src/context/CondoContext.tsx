@@ -20,6 +20,7 @@ export interface Condo {
 
 interface CondoContextType {
   condos: Condo[];
+  isLoaded: boolean;
   addCondo: (condo: Omit<Condo, 'id'>) => Promise<Condo>;
   updateCondo: (id: string | number, condo: Partial<Condo>) => void;
   removeCondo: (id: string | number) => void;
@@ -66,6 +67,7 @@ const INITIAL_CONDOS: Condo[] = [
 
 export function CondoProvider({ children }: { children: React.ReactNode }) {
   const [condos, setCondos] = useState<Condo[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const seedCondos = async () => {
@@ -118,10 +120,12 @@ export function CondoProvider({ children }: { children: React.ReactNode }) {
         const idB = typeof b.id === 'number' ? b.id : 0;
         return idA - idB;
       }));
+      setIsLoaded(true);
     }, (error) => {
       if (error.message?.includes('Quota exceeded')) {
         console.warn('Firestore Quota exceeded for condos. Falling back to initial data.');
         setCondos(INITIAL_CONDOS);
+        setIsLoaded(true);
       } else {
         handleFirestoreError(error, OperationType.LIST, 'condos');
       }
@@ -164,7 +168,7 @@ export function CondoProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <CondoContext.Provider value={{ condos, addCondo, updateCondo, removeCondo }}>
+    <CondoContext.Provider value={{ condos, isLoaded, addCondo, updateCondo, removeCondo }}>
       {children}
     </CondoContext.Provider>
   );

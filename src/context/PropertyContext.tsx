@@ -87,6 +87,7 @@ export interface Property {
 interface PropertyContextType {
   properties: Property[];
   publishedProperties: Property[];
+  isLoaded: boolean;
   addProperty: (property: Omit<Property, 'id'>) => Promise<void>;
   removeProperty: (id: string | number) => Promise<void>;
   updateProperty: (id: string | number, property: Partial<Property>) => Promise<void>;
@@ -96,6 +97,7 @@ const PropertyContext = createContext<PropertyContextType | undefined>(undefined
 
 export function PropertyProvider({ children }: { children: React.ReactNode }) {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const publishedProperties = React.useMemo(() => {
     return properties.filter(p => !p.approvalStatus || p.approvalStatus === 'published');
@@ -152,11 +154,13 @@ export function PropertyProvider({ children }: { children: React.ReactNode }) {
         const idB = typeof b.id === 'number' ? b.id : 0;
         return idB - idA;
       }));
+      setIsLoaded(true);
     }, (error) => {
       console.error('Error fetching properties:', error);
       if (error.message?.includes('Quota exceeded')) {
         console.warn('Firestore Quota exceeded. Falling back to local data.');
         setProperties(initialData as Property[]);
+        setIsLoaded(true);
       } else {
         handleFirestoreError(error, OperationType.LIST, 'properties');
       }
@@ -196,7 +200,7 @@ export function PropertyProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <PropertyContext.Provider value={{ properties, publishedProperties, addProperty, removeProperty, updateProperty }}>
+    <PropertyContext.Provider value={{ properties, publishedProperties, isLoaded, addProperty, removeProperty, updateProperty }}>
       {children}
     </PropertyContext.Provider>
   );
