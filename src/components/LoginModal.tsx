@@ -35,7 +35,9 @@ interface LoginModalProps {
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('remember_me') === 'true';
+  });
   const [isLoading, setIsLoading] = useState(false);
   
   // Form States
@@ -43,7 +45,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     name: '',
     phone: '',
     creci: '',
-    email: '',
+    email: localStorage.getItem('saved_email') || '',
     password: '',
     confirmPassword: ''
   });
@@ -92,6 +94,14 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     const password = formData.password.trim();
 
     try {
+      if (rememberMe) {
+        localStorage.setItem('saved_email', email);
+        localStorage.setItem('remember_me', 'true');
+      } else {
+        localStorage.removeItem('saved_email');
+        localStorage.setItem('remember_me', 'false');
+      }
+
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // Administrador entra direto
@@ -152,23 +162,9 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   };
 
-  const handleForgotPassword = async () => {
-    const email = formData.email.trim();
-    if (!email) {
-      setErrorHeader('Digite seu e-mail no campo acima para recuperar a senha.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, email);
-      alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
-    } catch (error: any) {
-      console.error("Reset password error:", error);
-      setErrorHeader('Não foi possível enviar o e-mail de recuperação.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleForgotPassword = () => {
+    const message = encodeURIComponent('Olá, estou tendo dificuldades ao fazer login.');
+    window.open(`https://api.whatsapp.com/send?phone=5532998288650&text=${message}`, '_blank');
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -269,13 +265,13 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
           />
 
           {/* Modal Container */}
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-[450px] min-h-[70vh] sm:min-h-[600px] max-h-[95vh] sm:max-h-none overflow-y-auto sm:overflow-visible rounded-t-[32px] sm:rounded-[32px] shadow-2xl border border-white/10 flex flex-col bg-[#1A1A1A]/90 backdrop-blur-[40px]"
-          >
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-[450px] min-h-[70vh] sm:min-h-[600px] max-h-[95vh] sm:max-h-none overflow-y-auto sm:overflow-visible rounded-t-[32px] sm:rounded-[32px] shadow-2xl border border-white/10 flex flex-col bg-[#1A1A1A]/90 backdrop-blur-[40px] font-helvetica"
+            >
             {/* Content */}
             <div className="relative z-10 flex-1 flex flex-col p-6 md:p-10 text-white">
               {/* Close Button */}
@@ -288,7 +284,10 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               </button>
 
               <div className="mt-6 md:mt-8 space-y-2">
-                <h2 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic font-serif">ÁREA DO CORRETOR</h2>
+                <h2 className="text-2xl md:text-3xl tracking-tight uppercase flex flex-col sm:flex-row gap-1">
+                  <span className="font-light">ÁREA DO</span>
+                  <span className="font-bold">CORRETOR</span>
+                </h2>
                 <p className="text-white/70 text-sm">
                   {mode === 'login' 
                     ? 'Olá corretor! Faça seu login.' 
@@ -446,21 +445,38 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
                     {mode === 'login' ? 'Entrar com Email' : 'Enviar Solicitação'}
                   </button>
+
+                  {mode === 'login' && (
+                    <div className="pt-2 text-center space-y-4">
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm text-white/50">Ainda não é parceiro?</p>
+                        <button 
+                          type="button"
+                          onClick={toggleMode}
+                          className="w-full bg-white text-black py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-xl hover:bg-gray-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                        >
+                          Me associar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </form>
               </div>
 
-              {/* Footer Links */}
-              <div className="mt-auto pt-6 md:pt-8 text-center">
-                <p className="text-sm text-white/60">
-                  {mode === 'login' ? 'Ainda não é parceiro?' : 'Já possui uma conta?'}
-                  <button 
-                    onClick={toggleMode} 
-                    className="ml-2 text-white font-bold hover:underline"
-                  >
-                    {mode === 'login' ? 'Me associar' : 'Fazer Login'}
-                  </button>
-                </p>
-              </div>
+              {/* Footer Links (Removed or modified for register mode) */}
+              {mode === 'register' && (
+                <div className="mt-auto pt-6 md:pt-8 text-center">
+                  <p className="text-sm text-white/60">
+                    Já possui uma conta?
+                    <button 
+                      onClick={toggleMode} 
+                      className="ml-2 text-white font-bold hover:underline"
+                    >
+                      Fazer Login
+                    </button>
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
 
