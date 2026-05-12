@@ -28,14 +28,17 @@ export const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
   buttonLabel = 'Fazer Upload',
   multiple = false,
   maxFiles = 1,
+  resourceType = 'image',
   showPreview = true,
   withWatermark = true
 }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const widgetRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const batchUrls = useRef<string[]>([]);
+  const cloudName = 'dslmdkfoh';
+  const uploadPreset = 'cr_upload';
 
   const applyWatermark = (url: string) => {
     if (!url.includes('/image/upload/')) return url;
@@ -44,90 +47,84 @@ export const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
     const logoBase64 = 'aHR0cHM6Ly9pLmltZ3VyLmNvbS9lZ2c0azdNLnBuZw==';
     
     // Center watermark, 40% width, 30% opacity
-    // Using chaining transformation to ensure watermark is applied correctly
     const transformation = `l_fetch:${logoBase64},g_center,w_0.4,o_30/`;
     return url.replace('/image/upload/', `/image/upload/${transformation}`);
   };
 
-  useEffect(() => {
-    if (!window.cloudinary) return;
+  const uploadFile = async (file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+      formData.append('folder', folder);
 
-    widgetRef.current = window.cloudinary.createUploadWidget(
-      {
-        cloudName: 'dslmdkfoh',
-        uploadPreset: 'cr_upload',
-        folder: folder,
-        sources: ['local', 'url', 'camera', 'google_drive'],
-        multiple: multiple,
-        maxFiles: maxFiles,
-        resourceType: 'auto',
-        clientAllowedFormats: ['png', 'jpg', 'jpeg', 'webp', 'pdf'],
-        defaultSource: 'local',
-        styles: {
-          palette: {
-            window: '#FFFFFF',
-            windowBorder: '#90A0B3',
-            tabIcon: '#617964',
-            menuIcons: '#5A616A',
-            textDark: '#000000',
-            textLight: '#FFFFFF',
-            link: '#617964',
-            action: '#617964',
-            inactiveTabIcon: '#0E2F5A',
-            error: '#F44235',
-            inProgress: '#617964',
-            complete: '#20B832',
-            sourceBg: '#E4EBF1'
-          },
-          fonts: {
-            default: null,
-            "'Helvetica Neue', Helvetica, Arial, sans-serif": {}
-          }
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType === 'image' ? 'image' : 'auto'}/upload`);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setProgress(percentComplete);
         }
-      },
-      async (error: any, result: any) => {
-        if (error && onUploadError) {
-          onUploadError(error);
-          setIsUploading(false);
-          return;
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response.secure_url);
+        } else {
+          reject(new Error('Falha no upload'));
         }
+      };
 
-        if (result.event === 'upload-progress') {
-          setProgress(result.info.progress);
-          setIsUploading(true);
-        }
+      xhr.onerror = () => reject(new Error('Erro de conexão'));
+      xhr.send(formData);
+    });
+  };
 
-        if (result.event === 'success') {
-          let url = result.info.secure_url;
-          
-          if (withWatermark && result.info.resource_type === 'image') {
-            url = applyWatermark(url);
-          }
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-          if (showPreview) {
-            setPreview(url);
-          }
-          batchUrls.current.push(url);
-          onUploadSuccess(url);
+    setIsUploading(true);
+    setProgress(0);
+    batchUrls.current = [];
+
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        let url = await uploadFile(file);
+        
+        // Apply watermark if it's an image
+        if (withWatermark && file.type.startsWith('image/')) {
+          url = applyWatermark(url);
         }
 
-        if (result.event === 'close') {
-          if (batchUrls.current.length > 0 && onBatchUploadSuccess) {
-            onBatchUploadSuccess(batchUrls.current);
-          }
-          batchUrls.current = [];
-          setIsUploading(false);
-        }
+        return url;
+      });
+
+      const urls = await Promise.all(uploadPromises);
+      
+      if (showPreview && urls.length > 0) {
+        setPreview(urls[0]);
       }
-    );
-  }, [onUploadSuccess, onBatchUploadSuccess, onUploadError, folder, multiple, maxFiles, showPreview, withWatermark]);
+
+      urls.forEach(url => onUploadSuccess(url));
+      
+      if (onBatchUploadSuccess) {
+        onBatchUploadSuccess(urls);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      if (onUploadError) onUploadError(error);
+    } finally {
+      setIsUploading(false);
+      setProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleOpenWidget = () => {
-    if (widgetRef.current) {
-      widgetRef.current.open();
-    } else {
-      console.error('Cloudinary widget not initialized');
-    }
+    fileInputRef.current?.click();
   };
 
   const clearPreview = () => {
@@ -137,6 +134,14 @@ export const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
 
   return (
     <div className="w-full space-y-3">
+      <input 
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        multiple={multiple}
+        accept={resourceType === 'image' ? 'image/*' : 'image/*,application/pdf'}
+        className="hidden"
+      />
       {!preview ? (
         <button
           type="button"
