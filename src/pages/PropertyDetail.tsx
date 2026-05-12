@@ -95,15 +95,16 @@ const MOCK_PROPERTY = {
 
 const getYoutubeEmbedUrl = (url: string) => {
   if (!url) return '';
-  let id = '';
-  if (url.includes('v=')) {
-    id = url.split('v=')[1]?.split('&')[0];
-  } else if (url.includes('shorts/')) {
-    id = url.split('shorts/')[1]?.split('?')[0];
-  } else if (url.includes('youtu.be/')) {
-    id = url.split('youtu.be/')[1]?.split('?')[0];
+  
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+  const match = url.match(regExp);
+  
+  const id = (match && match[2].length === 11) ? match[2] : null;
+  
+  if (id) {
+    return `https://www.youtube-nocookie.com/embed/${id}?rel=0`;
   }
-  return id ? `https://www.youtube.com/embed/${id}?autoplay=1&mute=0&rel=0` : url;
+  return url;
 };
 
 const ReviewableElement = ({ 
