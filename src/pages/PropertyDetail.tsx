@@ -93,18 +93,32 @@ const MOCK_PROPERTY = {
   }
 };
 
-const getYoutubeEmbedUrl = (url: string) => {
+const getYoutubeEmbedUrl = (url: string, isVertical: boolean = false) => {
   if (!url) return '';
   
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
-  const match = url.match(regExp);
+  const trimmedUrl = url.trim();
+  let videoId = '';
   
-  const id = (match && match[2].length === 11) ? match[2] : null;
-  
-  if (id) {
-    return `https://www.youtube-nocookie.com/embed/${id}?rel=0`;
+  // If it's already just an 11 character ID
+  if (trimmedUrl.length === 11 && !trimmedUrl.includes('/') && !trimmedUrl.includes('.')) {
+    videoId = trimmedUrl;
+  } else {
+    // Robust regex to extract ID from various YouTube URL formats
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const match = trimmedUrl.match(regExp);
+    if (match && match[2]) {
+      videoId = match[2].substring(0, 11);
+    }
   }
-  return url;
+
+  if (videoId && videoId.length === 11) {
+    if (isVertical) {
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}`;
+    }
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+  }
+  
+  return trimmedUrl;
 };
 
 const ReviewableElement = ({ 
@@ -359,7 +373,7 @@ export default function PropertyDetail() {
     }
 
     if (url) {
-      setActiveVideoUrl(getYoutubeEmbedUrl(url));
+      setActiveVideoUrl(getYoutubeEmbedUrl(url, isVertical));
       setIsVideoVertical(isVertical);
       setIsVideoModalOpen(true);
     }
@@ -465,14 +479,6 @@ export default function PropertyDetail() {
     navigator.clipboard.writeText(code);
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
-  };
-
-  const getYoutubeEmbedUrl = (url: string) => {
-    if (!url) return '';
-    // Handle youtu.be, youtube.com/watch?v=, youtube.com/embed/
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : url;
   };
 
   const isOfflineBrasilia = () => {
@@ -1794,11 +1800,26 @@ export default function PropertyDetail() {
 
               <div className={`relative w-full shadow-2xl rounded-3xl overflow-hidden bg-black ${isVideoVertical ? 'max-w-md aspect-[9/16]' : 'max-w-5xl aspect-video'}`}>
                 <iframe 
+                  key={activeVideoUrl}
                   src={activeVideoUrl} 
                   className="w-full h-full border-none"
+                  title="YouTube Video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 />
+                
+                {/* Fallback Link in case embed is blocked */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-md px-4 py-2 rounded-full">
+                  <a 
+                    href={activeVideoUrl.replace('embed/', 'watch?v=').split('?')[0]} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="text-[10px] text-white font-bold uppercase tracking-widest flex items-center gap-2"
+                  >
+                    Não carregou? Abrir no YouTube <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
               </div>
             </motion.div>
           )}

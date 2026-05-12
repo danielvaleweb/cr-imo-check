@@ -3811,7 +3811,7 @@ export default function BrokerDashboard() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
-                                <Video className="w-3 h-3" /> Vídeo Horizontal (YouTube)
+                                <Video className="w-3 h-3" /> Vídeo Horizontal (ID ou Link YouTube)
                               </label>
                               <div className="relative">
                                 <Link className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -3819,14 +3819,14 @@ export default function BrokerDashboard() {
                                   type="text" 
                                   value={newPropertyData.videoHorizontalUrl}
                                   onChange={(e) => setNewPropertyData({...newPropertyData, videoHorizontalUrl: e.target.value})}
-                                  placeholder="Link do vídeo deitado..."
+                                  placeholder="Cole o ID ou link do vídeo deitado..."
                                   className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                                 />
                               </div>
                             </div>
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
-                                <Video className="w-3 h-3" /> Vídeo Vertical (Shorts)
+                                <Video className="w-3 h-3" /> Vídeo Vertical (ID ou Link Shorts)
                               </label>
                               <div className="relative">
                                 <Link className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -3834,7 +3834,7 @@ export default function BrokerDashboard() {
                                   type="text" 
                                   value={newPropertyData.videoVerticalUrl}
                                   onChange={(e) => setNewPropertyData({...newPropertyData, videoVerticalUrl: e.target.value})}
-                                  placeholder="Link do vídeo em pé..."
+                                  placeholder="Cole o ID ou link do vídeo em pé..."
                                   className="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-[#617964]/20 outline-none transition-all"
                                 />
                               </div>
